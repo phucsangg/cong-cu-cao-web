@@ -1,18 +1,16 @@
 FROM ghcr.io/puppeteer/puppeteer:latest
 
-# Bỏ qua việc tải lại Chromium vì image này đã có sẵn
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+# Skip downloading Chromium since it is pre-installed in the base image
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 WORKDIR /usr/src/app
 
-# Chuyển quyền sở hữu cho user pptruser (người dùng mặc định của image puppeteer)
+# Copy files as pptruser (the default user of the base image) to avoid permission issues
 COPY --chown=pptruser:pptruser package*.json ./
 RUN npm ci
 
 COPY --chown=pptruser:pptruser . .
 
-# Expose port (Render sẽ tự cung cấp PORT)
 EXPOSE 3000
 
 CMD ["node", "server.js"]
