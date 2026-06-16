@@ -916,9 +916,9 @@ app.get('/api/stream-scrape', async (req, res) => {
 
             // Thực hiện chuyển trang tiếp theo
             if (paginationMode === 'button') {
-                logToClient(`Đang tìm kiếm nút chuyển tiếp (Next Page)...`);
+                logToClient(`Đang tìm kiếm nút chuyển tiếp (Next Page) hoặc nút Xem Thêm...`);
                 const phatHienNutNext = await page.evaluate(() => {
-                    const elements = Array.from(document.querySelectorAll('a, button, li, span, div.next, [rel="next"]'));
+                    const elements = Array.from(document.querySelectorAll('a, button, li, span, div, [rel="next"]'));
                     for (let el of elements) {
                         const text = el.innerText ? el.innerText.trim().toLowerCase() : "";
                         const className = el.className ? String(el.className).toLowerCase() : "";
@@ -936,15 +936,16 @@ app.get('/api/stream-scrape', async (req, res) => {
                         const isDisabled = el.disabled || className.includes('disabled') || className.includes('disable') || el.getAttribute('aria-disabled') === 'true';
                         if (!isVisible || isDisabled) continue;
 
-                        // So khớp các biểu tượng và từ khóa chuyển trang
+                        // So khớp các biểu tượng và từ khóa chuyển trang hoặc Xem thêm
                         const matchIcon = text === '>' || text === '»' || text === '▶' || text === '›' || text === 'next' || text === 'sau' || text === 'kế tiếp' || text === 'tiếp theo';
                         const matchText = text.includes('kế tiếp') || text.includes('trang sau') || text.includes('next page') || text.includes('trang tiếp') || text.includes('tiếp theo');
-                        const matchAttr = relAttr === 'next' || className.includes('next') || titleAttr.includes('next') || titleAttr.includes('sau') || altAttr.includes('next') || ariaLabel.includes('next');
+                        const matchShowMore = text.includes('xem thêm') || text.includes('xem-them') || text.includes('load more') || text.includes('show more');
+                        const matchAttr = relAttr === 'next' || className.includes('next') || className.includes('more') || titleAttr.includes('next') || titleAttr.includes('sau') || titleAttr.includes('more') || altAttr.includes('next') || ariaLabel.includes('next');
                         
                         // Loại trừ các thẻ cha chứa quá nhiều con (để lấy chính xác thẻ nút)
                         const isNotBigContainer = el.querySelectorAll('*').length <= 6;
                         
-                        if ((matchIcon || matchText || matchAttr) && isNotBigContainer) {
+                        if ((matchIcon || matchText || matchShowMore || matchAttr) && isNotBigContainer) {
                             // Cố gắng tìm thẻ a hoặc button bên trong nếu nó là li
                             if (el.tagName === 'LI') {
                                 const childLink = el.querySelector('a, button');
@@ -960,10 +961,10 @@ app.get('/api/stream-scrape', async (req, res) => {
 
                 if (phatHienNutNext) {
                     numPage++;
-                    logToClient(`Đã click nút Next. Chờ ${delay}ms để chuyển hướng trang...`);
+                    logToClient(`Đã phát hiện và click nút chuyển tiếp/Xem thêm. Chờ ${delay}ms để tải dữ liệu mới...`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 } else {
-                    logToClient(`Không phát hiện nút chuyển tiếp trên trang này. Dừng tiến trình cào.`, 'warning');
+                    logToClient(`Không phát hiện thêm nút chuyển tiếp hoặc Xem thêm trên trang này. Dừng tiến trình cào.`, 'warning');
                     tiepTucQuetMultiPage = false;
                 }
             } else {
