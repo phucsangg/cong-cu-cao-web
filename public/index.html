@@ -336,14 +336,10 @@
                                         <label for="timeoutInput" class="form-label small fw-semibold text-muted">Chờ tải trang (ms):</label>
                                         <input type="number" id="timeoutInput" class="form-control form-control-sm" value="30000" min="5000" max="120000" step="5000">
                                     </div>
-                                    <div class="col-12 mt-3 d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between">
+                                    <div class="col-12 mt-3 d-flex align-items-center justify-content-between">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input bg-success border-secondary" type="checkbox" id="blockResources" checked>
                                             <label class="form-check-label small text-muted" for="blockResources">Chặn tải Ảnh & Tài nguyên rác (Tăng tốc độ cào)</label>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input bg-success border-secondary" type="checkbox" id="parallelScrape" disabled>
-                                            <label class="form-check-label small text-muted" for="parallelScrape">Chạy song song (Parallel - Chỉ dùng cho Tham số URL)</label>
                                         </div>
                                         <span class="badge bg-secondary bg-opacity-10 text-muted border border-secondary border-opacity-10 py-1 px-2" style="font-size: 0.75rem;">Chrome Headless</span>
                                     </div>
@@ -448,15 +444,11 @@
         function togglePaginationField() {
             const mode = document.getElementById('paginationMode').value;
             const field = document.getElementById('pageParam');
-            const parallelCheckbox = document.getElementById('parallelScrape');
             if (mode === 'url') {
                 field.disabled = false;
-                parallelCheckbox.disabled = false;
                 field.focus();
             } else {
                 field.disabled = true;
-                parallelCheckbox.checked = false;
-                parallelCheckbox.disabled = true;
             }
         }
 
@@ -533,8 +525,6 @@
             }
         }
 
-        let shouldStopScraping = false;
-
         async function kichHoatHeThongStream() {
             const urlInput = document.getElementById('urlInput').value.trim();
             if(!urlInput) {
@@ -544,15 +534,13 @@
 
             const paginationMode = document.getElementById('paginationMode').value;
             const pageParam = document.getElementById('pageParam').value.trim() || 'page';
-            const maxPages = parseInt(document.getElementById('maxPages').value) || 10;
-            const delay = Math.max(parseInt(document.getElementById('delayInput').value) || 2000, 500);
-            const timeout = Math.max(parseInt(document.getElementById('timeoutInput').value) || 30000, 5000);
+            const maxPages = document.getElementById('maxPages').value || 10;
+            const delay = document.getElementById('delayInput').value || 2000;
+            const timeout = document.getElementById('timeoutInput').value || 30000;
             const blockResources = document.getElementById('blockResources').checked;
-            const parallelScrape = document.getElementById('parallelScrape').checked && paginationMode === 'url';
 
             // Khởi tạo lại trạng thái
             mangDuLieuToanCuc = [];
-            shouldStopScraping = false;
             document.getElementById('vungDuLieu').innerHTML = '';
             document.getElementById('statProducts').innerText = '0';
             document.getElementById('statPages').innerText = `0 / ${maxPages}`;
@@ -566,200 +554,104 @@
             document.getElementById('btnStart').innerHTML = '<span>⏳</span> Đang cào...';
             document.getElementById('btnStop').disabled = false;
 
+            // Đóng kết nối cũ
+            if (eventSource) eventSource.close();
             clearConsole();
-            writeToConsole(`Kích hoạt bot. Đang kết nối tới Netlify Functions (Chế độ: ${parallelScrape ? 'Song song' : 'Tuần tự'})...`);
+            writeToConsole(`Kích hoạt bot. Đang kết nối luồng dữ liệu thời gian thực tới Backend...`);
             
             startTimer();
 
-            let globalIndex = 0;
-            const tatCaTenDaQuetToanCuc = new Set();
+            // Mở luồng kết nối động EventSource gửi đầy đủ tham số
+            const queryParams = new URLSearchParams({
+                url: urlInput,
+                paginationMode,
+                pageParam,
+                maxPages,
+                delay,
+                timeout,
+                blockResources: blockResources ? 'true' : 'false'
+            });
 
-            if (parallelScrape) {
-                writeToConsole(`Khởi chạy đồng thời ${maxPages} trang cào...`);
-                const requests = [];
-                
-                for (let currentPage = 1; currentPage <= maxPages; currentPage++) {
-                    const queryParams = new URLSearchParams({
-                        url: urlInput,
-                        paginationMode,
-                        pageParam,
-                        pageNum: currentPage,
-                        delay,
-                        timeout,
-                        blockResources: blockResources ? 'true' : 'false'
-                    });
+            eventSource = new EventSource(`/api/stream-scrape?${queryParams.toString()}`);
 
-                    const reqPromise = fetch(`/api/scrape?${queryParams.toString()}`)
-                        .then(async response => {
-                            if (!response.ok) {
-                                const errData = await response.json().catch(() => ({}));
-                                throw new Error(errData.error || `HTTP status: ${response.status}`);
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (shouldStopScraping) return;
-
-                            // In logs từ serverless ra terminal của giao diện
-                            if (data.logs && Array.isArray(data.logs)) {
-                                data.logs.forEach(l => {
-                                    writeToConsole(`[Trang ${currentPage}] ${l.message}`, l.level);
-                                });
-                            }
-
-                            const products = data.products || [];
-                            let soLuongMoiThucTe = 0;
-                            products.forEach(prod => {
-                                const uniqueKey = prod.link || prod.ten;
-                                if (!tatCaTenDaQuetToanCuc.has(uniqueKey)) {
-                                    tatCaTenDaQuetToanCuc.add(uniqueKey);
-                                    globalIndex++;
-                                    prod.stt = globalIndex;
-                                    mangDuLieuToanCuc.push(prod);
-                                    soLuongMoiThucTe++;
-
-                                    // Tạo dòng dữ liệu hiển thị
-                                    const row = document.createElement('tr');
-                                    row.className = 'row-animate';
-                                    
-                                    const imageHtml = prod.anh 
-                                        ? `<img src="${prod.anh}" class="product-thumb" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/>`
-                                        : `<img src="${fallbackImgSrc}" class="product-thumb bg-secondary border-0" />`;
-
-                                    const nameHtml = prod.link 
-                                        ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.ten}</a></div>`
-                                        : `<div class="product-title-cell text-light fw-semibold">${prod.ten}</div>`;
-
-                                    row.innerHTML = `
-                                        <td class="text-center text-muted fw-bold">${prod.stt}</td>
-                                        <td class="text-center">${imageHtml}</td>
-                                        <td>${nameHtml}</td>
-                                        <td class="text-center price-badge">${prod.gia}</td>
-                                        <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
-                                    `;
-                                    document.getElementById('vungDuLieu').appendChild(row);
-                                }
-                            });
-
-                            document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
-                            writeToConsole(`[Trang ${currentPage}] Cào thành công. Thêm mới ${soLuongMoiThucTe} sản phẩm.`, 'success');
-                        })
-                        .catch(error => {
-                            writeToConsole(`[Trang ${currentPage}] Lỗi: ${error.message}`, 'error');
-                        });
-                    requests.push(reqPromise);
+            // Nhận tin nhắn từ luồng SSE
+            eventSource.onmessage = function(event) {
+                let packet;
+                try {
+                    packet = JSON.parse(event.data);
+                } catch(e) {
+                    writeToConsole(`Lỗi phân tích dữ liệu gói tin SSE: ${event.data}`, 'error');
+                    return;
                 }
 
-                await Promise.all(requests);
+                if (packet.type === 'log') {
+                    writeToConsole(packet.message, packet.level);
+                } 
+                else if (packet.type === 'product') {
+                    const prod = packet;
+                    mangDuLieuToanCuc.push(prod);
+                    
+                    document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
 
-            } else {
-                for (let currentPage = 1; currentPage <= maxPages; currentPage++) {
-                    if (shouldStopScraping) {
-                        writeToConsole(`Đã dừng hoạt động bot theo lệnh của người dùng.`, 'warning');
-                        break;
-                    }
+                    // Tạo dòng dữ liệu hiển thị
+                    const row = document.createElement('tr');
+                    row.className = 'row-animate';
+                    
+                    // Render ảnh sản phẩm kèm fallback thông minh
+                    const imageHtml = prod.anh 
+                        ? `<img src="${prod.anh}" class="product-thumb" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/>`
+                        : `<img src="${fallbackImgSrc}" class="product-thumb bg-secondary border-0" />`;
 
-                    writeToConsole(`======================= TRANG ${currentPage} / ${maxPages} =======================`);
-                    document.getElementById('statPages').innerText = `${currentPage} / ${maxPages}`;
+                    // Render tên kèm link nếu có
+                    const nameHtml = prod.link 
+                        ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.ten}</a></div>`
+                        : `<div class="product-title-cell text-light fw-semibold">${prod.ten}</div>`;
 
-                    const queryParams = new URLSearchParams({
-                        url: urlInput,
-                        paginationMode,
-                        pageParam,
-                        pageNum: currentPage,
-                        delay,
-                        timeout,
-                        blockResources: blockResources ? 'true' : 'false'
-                    });
-
-                    try {
-                        const response = await fetch(`/api/scrape?${queryParams.toString()}`);
-                        if (!response.ok) {
-                            const errData = await response.json().catch(() => ({}));
-                            throw new Error(errData.error || `HTTP error! status: ${response.status}`);
-                        }
-
-                        const data = await response.json();
-                        
-                        // In logs từ server ra terminal của giao diện
-                        if (data.logs && Array.isArray(data.logs)) {
-                            data.logs.forEach(l => {
-                                writeToConsole(l.message, l.level);
-                            });
-                        }
-
-                        const products = data.products || [];
-                        if (products.length === 0) {
-                            writeToConsole(`Không tìm thấy sản phẩm nào ở trang ${currentPage}. Dừng cào sớm.`, 'warning');
-                            break;
-                        }
-
-                        let soLuongMoiThucTe = 0;
-                        products.forEach(prod => {
-                            const uniqueKey = prod.link || prod.ten;
-                            if (!tatCaTenDaQuetToanCuc.has(uniqueKey)) {
-                                tatCaTenDaQuetToanCuc.add(uniqueKey);
-                                globalIndex++;
-                                prod.stt = globalIndex;
-                                mangDuLieuToanCuc.push(prod);
-                                soLuongMoiThucTe++;
-
-                                // Tạo dòng dữ liệu hiển thị
-                                const row = document.createElement('tr');
-                                row.className = 'row-animate';
-                                
-                                const imageHtml = prod.anh 
-                                    ? `<img src="${prod.anh}" class="product-thumb" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/>`
-                                    : `<img src="${fallbackImgSrc}" class="product-thumb bg-secondary border-0" />`;
-
-                                const nameHtml = prod.link 
-                                    ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.ten}</a></div>`
-                                    : `<div class="product-title-cell text-light fw-semibold">${prod.ten}</div>`;
-
-                                row.innerHTML = `
-                                    <td class="text-center text-muted fw-bold">${prod.stt}</td>
-                                    <td class="text-center">${imageHtml}</td>
-                                    <td>${nameHtml}</td>
-                                    <td class="text-center price-badge">${prod.gia}</td>
-                                    <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
-                                `;
-                                document.getElementById('vungDuLieu').appendChild(row);
-                            }
-                        });
-
-                        document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
-                        writeToConsole(`Trích xuất thêm ${soLuongMoiThucTe} sản phẩm mới (Trùng lặp: ${products.length - soLuongMoiThucTe}).`, 'success');
-
-                        if (soLuongMoiThucTe === 0) {
-                            writeToConsole(`Không phát hiện thêm sản phẩm mới nào ở Trang ${currentPage}. Dừng cào sớm.`, 'warning');
-                            break;
-                        }
-
-                        // Chờ một khoảng nghỉ trước khi cào tiếp
-                        if (currentPage < maxPages) {
-                            writeToConsole(`Đang nghỉ ${delay}ms trước khi mở trang tiếp theo...`);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                        }
-
-                    } catch (error) {
-                        writeToConsole(`Lỗi nghiêm trọng khi cào trang ${currentPage}: ${error.message}`, 'error');
-                        alert(`Đã xảy ra lỗi: ${error.message}`);
-                        break;
-                    }
+                    row.innerHTML = `
+                        <td class="text-center text-muted fw-bold">${prod.stt}</td>
+                        <td class="text-center">${imageHtml}</td>
+                        <td>${nameHtml}</td>
+                        <td class="text-center price-badge">${prod.gia}</td>
+                        <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
+                    `;
+                    document.getElementById('vungDuLieu').appendChild(row);
                 }
-            }
+                else if (packet.type === 'stats') {
+                    document.getElementById('statPages').innerText = `${packet.stats.currentPage} / ${maxPages}`;
+                }
+                else if (packet.type === 'done') {
+                    stopTimer();
+                    writeToConsole(`Quá trình hoàn thành! Tổng cộng trích xuất được ${packet.totalItems} sản phẩm từ ${packet.totalPages} trang.`, 'success');
+                    alert(`Hoàn thành xuất sắc! Đã quét sạch ${packet.totalItems} sản phẩm.`);
+                    resetControlsState();
+                    eventSource.close();
+                }
+                else if (packet.type === 'error') {
+                    stopTimer();
+                    writeToConsole(`Lỗi trong tiến trình: ${packet.message}`, 'error');
+                    alert(`Đã xảy ra lỗi: ${packet.message}`);
+                    resetControlsState();
+                    eventSource.close();
+                }
+            };
 
-            stopTimer();
-            writeToConsole(`=== CHIẾN DỊCH HOÀN THÀNH XUẤT SẮC ===`, 'success');
-            writeToConsole(`Đã hoàn thành cào dữ liệu. Tổng cộng nhận được ${mangDuLieuToanCuc.length} sản phẩm.`);
-            alert(`Hoàn thành xuất sắc! Đã quét sạch ${mangDuLieuToanCuc.length} sản phẩm.`);
-            resetControlsState();
+            eventSource.onerror = function() {
+                writeToConsole(`Kết nối EventSource bị ngắt đột ngột hoặc xảy ra lỗi mạng.`, 'error');
+                stopTimer();
+                resetControlsState();
+                if(eventSource) eventSource.close();
+            };
         }
 
         function dungHeThongQuet() {
-            shouldStopScraping = true;
-            writeToConsole(`Đang gửi lệnh dừng bot...`, 'warning');
-            document.getElementById('btnStop').disabled = true;
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            stopTimer();
+            writeToConsole(`Đã dừng hoạt động bot theo lệnh của người dùng.`, 'warning');
+            resetControlsState();
+            alert(`Đã gửi lệnh dừng bot. Dữ liệu trích xuất hiện tại (${mangDuLieuToanCuc.length} sản phẩm) vẫn có thể tải về.`);
         }
 
         function resetControlsState() {
