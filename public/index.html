@@ -868,9 +868,9 @@
 
             const paginationMode = document.getElementById('paginationMode').value;
             const pageParam = document.getElementById('pageParam').value.trim() || 'page';
-            const maxPages = document.getElementById('maxPages').value || 10;
-            const delay = document.getElementById('delayInput').value || 2000;
-            const timeout = document.getElementById('timeoutInput').value || 30000;
+            const maxPages = parseInt(document.getElementById('maxPages').value) || 10;
+            const delay = parseInt(document.getElementById('delayInput').value) || 2000;
+            const timeout = parseInt(document.getElementById('timeoutInput').value) || 30000;
             const blockResources = document.getElementById('blockResources').checked;
             const parallelScrape = document.getElementById('parallelScrape').checked;
             const concurrency = document.getElementById('concurrencyInput').value || 3;
@@ -896,149 +896,225 @@
 
             // Đóng kết nối cũ
             if (eventSource) eventSource.close();
-            scrapingCompleted = false; // Reset flag mỗi lần chạy mới
+            scrapingCompleted = false;
             clearConsole();
-            writeToConsole(`Kích hoạt bot. Đang kết nối luồng dữ liệu thời gian thực tới Backend...`);
-            
+
             startTimer();
 
-            // Mở luồng kết nối động EventSource gửi đầy đủ tham số
-            const queryParams = new URLSearchParams({
-                url: urlInput,
-                paginationMode,
-                pageParam,
-                maxPages,
-                delay,
-                timeout,
-                blockResources: blockResources ? 'true' : 'false',
-                parallel: parallelScrape ? 'true' : 'false',
-                concurrency
-            });
+            // ==== AUTO-DETECT MÔI TRƯỜNG ====
+            // Local server (localhost) → SSE stream
+            // Netlify (*.netlify.app hoặc custom domain) → REST polling từng trang
+            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 
-            eventSource = new EventSource(`/api/stream-scrape?${queryParams.toString()}`);
-
-            // Nhận tin nhắn từ luồng SSE
-            eventSource.onmessage = function(event) {
-                let packet;
-                try {
-                    packet = JSON.parse(event.data);
-                } catch(e) {
-                    writeToConsole(`Lỗi phân tích dữ liệu gói tin SSE: ${event.data}`, 'error');
-                    return;
-                }
-
-                if (packet.type === 'log') {
-                    writeToConsole(packet.message, packet.level);
-                } 
-                else if (packet.type === 'product') {
-                    const prod = packet;
-                    mangDuLieuToanCuc.push(prod);
-                    
-                    document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
-
-                    // Ẩn empty state và mở viewport tương ứng
-                    document.getElementById('emptyState').classList.add('d-none');
-                    if (activeViewMode === 'grid') {
-                        document.getElementById('gridContainer').classList.remove('d-none');
-                    } else {
-                        document.getElementById('tableContainer').classList.remove('d-none');
+            if (isLocal) {
+                // ──────────────── CHẾ ĐỘ LOCAL: SSE STREAM ────────────────
+                writeToConsole(`[LOCAL] Kết nối SSE stream tới server cục bộ...`);
+                const queryParams = new URLSearchParams({
+                    url: urlInput, paginationMode, pageParam, maxPages, delay,
+                    timeout, blockResources: blockResources ? 'true' : 'false',
+                    parallel: parallelScrape ? 'true' : 'false', concurrency
+                });
+                eventSource = new EventSource(`/api/stream-scrape?${queryParams.toString()}`);
+                eventSource.onmessage = function(event) {
+                    let packet;
+                    try { packet = JSON.parse(event.data); } catch(e) { return; }
+                    handleSSEPacket(packet, maxPages);
+                };
+                eventSource.onerror = function(e) {
+                    if (scrapingCompleted) return;
+                    if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+                        writeToConsole(`Kết nối tới server bị ngắt. Hãy chắc chắn server đang chạy (node server.js).`, 'error');
+                        stopTimer(); resetControlsState(); eventSource.close();
+                    } else if (eventSource && eventSource.readyState === EventSource.CONNECTING) {
+                        writeToConsole(`Kết nối gián đoạn, đang thử lại...`, 'warning');
                     }
-
-                    // 1. Tạo dòng dữ liệu cho Table view
-                    const row = document.createElement('tr');
-                    row.className = 'row-animate';
-                    
-                    const imageHtml = prod.anh 
-                        ? `<img src="${prod.anh}" class="product-thumb" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/>`
-                        : `<img src="${fallbackImgSrc}" class="product-thumb" />`;
-
-                    const nameHtml = prod.link 
-                        ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.ten}</a></div>`
-                        : `<div class="product-title-cell text-light fw-semibold">${prod.ten}</div>`;
-
-                    row.innerHTML = `
-                        <td class="text-center text-muted fw-bold">${prod.stt}</td>
-                        <td class="text-center">${imageHtml}</td>
-                        <td>${nameHtml}</td>
-                        <td class="text-center price-badge">${prod.gia}</td>
-                        <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
-                    `;
-                    document.getElementById('vungDuLieu').appendChild(row);
-
-                    // 2. Tạo thẻ sản phẩm cho Grid view
-                    const cardCol = document.createElement('div');
-                    cardCol.className = 'col product-grid-card-col row-animate';
-                    
-                    const cardImageHtml = prod.anh
-                        ? `<div class="product-card-img-wrapper"><img src="${prod.anh}" class="product-card-img" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/></div>`
-                        : `<div class="product-card-img-wrapper"><img src="${fallbackImgSrc}" class="product-card-img" /></div>`;
-                    
-                    const cardTitleHtml = prod.link
-                        ? `<a href="${prod.link}" target="_blank" class="product-card-title">${prod.ten}</a>`
-                        : `<div class="product-card-title">${prod.ten}</div>`;
-                        
-                    cardCol.innerHTML = `
-                        <div class="product-card">
-                            ${cardImageHtml}
-                            ${cardTitleHtml}
-                            <div class="product-card-price-row">
-                                <span class="product-card-price">${prod.gia}</span>
-                                <span class="product-card-source">Trang ${prod.trang}</span>
-                            </div>
-                        </div>
-                    `;
-                    document.getElementById('vungLuoi').appendChild(cardCol);
-
-                    // Tự động cuộn xuống ở cả hai view
-                    const tableContainer = document.getElementById('tableContainer');
-                    const gridContainer = document.getElementById('gridContainer');
-                    if (tableContainer) tableContainer.scrollTop = tableContainer.scrollHeight;
-                    if (gridContainer) gridContainer.scrollTop = gridContainer.scrollHeight;
-                }
-                else if (packet.type === 'stats') {
-                    document.getElementById('statPages').innerText = `${packet.stats.currentPage} / ${maxPages}`;
-                }
-                else if (packet.type === 'done') {
-                    scrapingCompleted = true;
-                    stopTimer();
-                    writeToConsole(`Quá trình hoàn thành! Tổng cộng trích xuất được ${packet.totalItems} sản phẩm từ ${packet.totalPages} trang.`, 'success');
-                    alert(`Hoàn thành xuất sắc! Đã quét sạch ${packet.totalItems} sản phẩm.`);
-                    resetControlsState();
-                    eventSource.close();
-                }
-                else if (packet.type === 'error') {
-                    scrapingCompleted = true;
-                    stopTimer();
-                    writeToConsole(`Lỗi trong tiến trình: ${packet.message}`, 'error');
-                    alert(`Đã xảy ra lỗi: ${packet.message}`);
-                    resetControlsState();
-                    eventSource.close();
-                }
-            };
-
-            eventSource.onerror = function(e) {
-                // Bỏ qua onerror nếu đã hoàn thành bình thường (server đóng stream sau done/error)
-                if (scrapingCompleted) return;
-
-                // EventSource.CONNECTING = 0 — đang thử kết nối lại (chưa thực sự lỗi)
-                // Chỉ báo lỗi thực sự khi connection bị từ chối hoàn toàn
-                if (eventSource && eventSource.readyState === EventSource.CLOSED) {
-                    writeToConsole(`Kết nối tới server bị ngắt đột ngột. Vui lòng kiểm tra server đang chạy.`, 'error');
-                    stopTimer();
-                    resetControlsState();
-                    eventSource.close();
-                } else if (eventSource && eventSource.readyState === EventSource.CONNECTING) {
-                    // Đang thử kết nối lại — chưa phải lỗi thực sự
-                    writeToConsole(`Kết nối gián đoạn, đang thử kết nối lại...`, 'warning');
-                }
-            };
+                };
+            } else {
+                // ──────────────── CHẾ ĐỘ NETLIFY: REST POLLING ────────────────
+                writeToConsole(`[NETLIFY] Chế độ cào REST từng trang (Tối đa ${maxPages} trang)...`);
+                netlifyScrapingActive = true;
+                await runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, delay, timeout, blockResources });
+            }
         }
 
+        // ── Xử lý chung packet từ SSE (dùng cho local stream) ──
+        function handleSSEPacket(packet, maxPages) {
+            if (packet.type === 'log') {
+                writeToConsole(packet.message, packet.level);
+            } 
+            else if (packet.type === 'product') {
+                addProduct(packet);
+            }
+            else if (packet.type === 'stats') {
+                document.getElementById('statPages').innerText = `${packet.stats.currentPage} / ${maxPages}`;
+            }
+            else if (packet.type === 'done') {
+                scrapingCompleted = true;
+                stopTimer();
+                writeToConsole(`Quá trình hoàn thành! Tổng cộng trích xuất được ${packet.totalItems} sản phẩm từ ${packet.totalPages} trang.`, 'success');
+                alert(`Hoàn thành xuất sắc! Đã quét sạch ${packet.totalItems} sản phẩm.`);
+                resetControlsState();
+                eventSource.close();
+            }
+            else if (packet.type === 'error') {
+                scrapingCompleted = true;
+                stopTimer();
+                writeToConsole(`Lỗi trong tiến trình: ${packet.message}`, 'error');
+                alert(`Đã xảy ra lỗi: ${packet.message}`);
+                resetControlsState();
+                eventSource.close();
+            }
+        }
+
+        // ── Thêm sản phẩm vào cả Table và Grid view ──
+        function addProduct(prod) {
+            mangDuLieuToanCuc.push(prod);
+            document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
+
+            document.getElementById('emptyState').classList.add('d-none');
+            if (activeViewMode === 'grid') {
+                document.getElementById('gridContainer').classList.remove('d-none');
+            } else {
+                document.getElementById('tableContainer').classList.remove('d-none');
+            }
+
+            // Table row
+            const row = document.createElement('tr');
+            row.className = 'row-animate';
+            const imageHtml = prod.anh 
+                ? `<img src="${prod.anh}" class="product-thumb" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/>`
+                : `<img src="${fallbackImgSrc}" class="product-thumb" />`;
+            const nameHtml = prod.link 
+                ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.ten}</a></div>`
+                : `<div class="product-title-cell text-light fw-semibold">${prod.ten}</div>`;
+            row.innerHTML = `
+                <td class="text-center text-muted fw-bold">${prod.stt}</td>
+                <td class="text-center">${imageHtml}</td>
+                <td>${nameHtml}</td>
+                <td class="text-center price-badge">${prod.gia}</td>
+                <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
+            `;
+            document.getElementById('vungDuLieu').appendChild(row);
+
+            // Grid card
+            const cardCol = document.createElement('div');
+            cardCol.className = 'col product-grid-card-col row-animate';
+            const cardImageHtml = prod.anh
+                ? `<div class="product-card-img-wrapper"><img src="${prod.anh}" class="product-card-img" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/></div>`
+                : `<div class="product-card-img-wrapper"><img src="${fallbackImgSrc}" class="product-card-img" /></div>`;
+            const cardTitleHtml = prod.link
+                ? `<a href="${prod.link}" target="_blank" class="product-card-title">${prod.ten}</a>`
+                : `<div class="product-card-title">${prod.ten}</div>`;
+            cardCol.innerHTML = `
+                <div class="product-card">
+                    ${cardImageHtml}
+                    ${cardTitleHtml}
+                    <div class="product-card-price-row">
+                        <span class="product-card-price">${prod.gia}</span>
+                        <span class="product-card-source">Trang ${prod.trang}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('vungLuoi').appendChild(cardCol);
+
+            const tableContainer = document.getElementById('tableContainer');
+            const gridContainer = document.getElementById('gridContainer');
+            if (tableContainer) tableContainer.scrollTop = tableContainer.scrollHeight;
+            if (gridContainer) gridContainer.scrollTop = gridContainer.scrollHeight;
+        }
+
+        // ── Netlify REST polling: gọi /api/scrape cho từng trang tuần tự ──
+        let netlifyScrapingActive = false;
+        async function runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, delay, timeout, blockResources }) {
+            let globalIndex = 0;
+            const seenKeys = new Set();
+
+            for (let p = 1; p <= maxPages; p++) {
+                if (!netlifyScrapingActive) {
+                    writeToConsole(`Đã dừng theo lệnh người dùng.`, 'warning');
+                    break;
+                }
+
+                document.getElementById('statPages').innerText = `${p} / ${maxPages}`;
+                writeToConsole(`======================= TRANG ${p} / ${maxPages} =======================`);
+
+                const params = new URLSearchParams({
+                    url: urlInput, paginationMode, pageParam, pageNum: p,
+                    delay, timeout, blockResources: blockResources ? 'true' : 'false'
+                });
+
+                try {
+                    writeToConsole(`Đang gửi yêu cầu tới Netlify Function...`);
+                    const resp = await fetch(`/api/scrape?${params.toString()}`);
+                    
+                    if (!resp.ok) {
+                        const errBody = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+                        writeToConsole(`Lỗi trang ${p}: ${errBody.error || resp.statusText}`, 'error');
+                        break;
+                    }
+
+                    const data = await resp.json();
+
+                    // Ghi log từ function
+                    if (data.logs) {
+                        data.logs.forEach(log => writeToConsole(log.message, log.level));
+                    }
+
+                    if (data.error) {
+                        writeToConsole(`Lỗi nghiêm trọng: ${data.error}`, 'error');
+                        break;
+                    }
+
+                    const products = data.products || [];
+                    let newCount = 0;
+                    products.forEach(sp => {
+                        const key = sp.link || sp.ten;
+                        if (!key || seenKeys.has(key)) return;
+                        seenKeys.add(key);
+                        globalIndex++;
+                        newCount++;
+                        addProduct({ ...sp, stt: globalIndex });
+                    });
+
+                    writeToConsole(`Trang ${p}: trích xuất ${products.length} sản phẩm, ${newCount} mới (trùng: ${products.length - newCount}).`, 'success');
+
+                    // Nếu không tìm thấy sp mới hoặc ít hơn threshold → dừng
+                    if (products.length === 0) {
+                        writeToConsole(`Không còn sản phẩm ở trang ${p}. Dừng cào sớm.`, 'warning');
+                        break;
+                    }
+
+                } catch (fetchErr) {
+                    writeToConsole(`Lỗi kết nối trang ${p}: ${fetchErr.message}`, 'error');
+                    break;
+                }
+
+                // Delay giữa các trang
+                if (p < maxPages && netlifyScrapingActive) {
+                    writeToConsole(`Chờ ${delay}ms trước trang tiếp theo...`);
+                    await new Promise(r => setTimeout(r, delay));
+                }
+            }
+
+            netlifyScrapingActive = false;
+            scrapingCompleted = true;
+            stopTimer();
+            writeToConsole(`=== HOÀN THÀNH! Tổng cộng ${globalIndex} sản phẩm từ ${document.getElementById('statPages').innerText.split('/')[0].trim()} trang. ===`, 'success');
+            if (globalIndex > 0) alert(`Hoàn thành! Đã thu thập ${globalIndex} sản phẩm.`);
+            resetControlsState();
+        }
+
+
+
         function dungHeThongQuet() {
+            // Dừng SSE local stream
             if (eventSource) {
                 eventSource.close();
                 eventSource = null;
             }
+            // Dừng Netlify REST polling loop
+            netlifyScrapingActive = false;
+            scrapingCompleted = true;
             stopTimer();
             writeToConsole(`Đã dừng hoạt động bot theo lệnh của người dùng.`, 'warning');
             resetControlsState();
