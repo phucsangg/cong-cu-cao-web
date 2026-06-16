@@ -236,22 +236,69 @@ app.get('/api/stream-scrape', async (req, res) => {
                 // Lấy tất cả các thẻ trong trang
                 const tatCaThe = Array.from(document.querySelectorAll('*'));
                 
+                function getPriceText(el) {
+                    const clone = el.cloneNode(true);
+                    const removeOldPrices = (node) => {
+                        if (!node || !node.children) return;
+                        Array.from(node.children).forEach(child => {
+                            const className = child.className ? String(child.className).toLowerCase() : "";
+                            const tagName = child.tagName ? String(child.tagName).toLowerCase() : "";
+                            
+                            let isLineThrough = false;
+                            try {
+                                const computedStyle = window.getComputedStyle(child);
+                                isLineThrough = computedStyle.textDecorationLine === 'line-through' || 
+                                                computedStyle.textDecoration === 'line-through' ||
+                                                computedStyle.textDecoration.includes('line-through');
+                            } catch (e) {}
+
+                            if (className.includes('line') || className.includes('old') || className.includes('del') || tagName === 'del' || tagName === 's' || isLineThrough) {
+                                try {
+                                    node.removeChild(child);
+                                } catch (e) {}
+                            } else {
+                                removeOldPrices(child);
+                            }
+                        });
+                    };
+                    removeOldPrices(clone);
+                    return clone.innerText ? clone.innerText.trim() : "";
+                }
+
                 // Bộ lọc lấy các nút chứa giá tiền, đảm bảo là phần tử sâu nhất chứa giá trị đó
                 const theChuaGia = tatCaThe.filter(el => {
-                    const text = el.innerText ? el.innerText.trim() : "";
+                    const text = getPriceText(el);
                     if (!checkIfPrice(text)) return false;
                     
                     // Đảm bảo không có thẻ con nào của nó cũng chứa giá tiền (để lấy phần tử nhỏ nhất)
                     const hasChildWithPrice = Array.from(el.children).some(child => {
-                        return checkIfPrice(child.innerText || "");
+                        return checkIfPrice(getPriceText(child));
                     });
                     return !hasChildWithPrice;
                 });
 
                 theChuaGia.forEach(priceNode => {
-                    const rawPrice = priceNode.innerText.replace(/\s+/g, ' ').trim();
+                    const rawPrice = getPriceText(priceNode);
                     let parent = priceNode.parentElement;
                     let foundProduct = null;
+
+                    const classNameNode = priceNode.className ? String(priceNode.className).toLowerCase() : "";
+                    const tagNameNode = priceNode.tagName ? String(priceNode.tagName).toLowerCase() : "";
+                    
+                    let isLineThrough = false;
+                    try {
+                        const computedStyle = window.getComputedStyle(priceNode);
+                        isLineThrough = computedStyle.textDecorationLine === 'line-through' || 
+                                        computedStyle.textDecoration === 'line-through' ||
+                                        computedStyle.textDecoration.includes('line-through');
+                    } catch (e) {}
+
+                    const isOriginal = classNameNode.includes('line') || 
+                                       classNameNode.includes('old') || 
+                                       classNameNode.includes('del') || 
+                                       tagNameNode === 'del' || 
+                                       tagNameNode === 's' || 
+                                       isLineThrough;
 
                     // Duyệt ngược lên tối đa 5 cấp để tìm container sản phẩm
                     for (let step = 0; step < 5; step++) {
@@ -348,7 +395,8 @@ app.get('/api/stream-scrape', async (req, res) => {
                                 gia: rawPrice,
                                 trang: currentPageNum,
                                 link: absoluteLink,
-                                anh: absoluteImg
+                                anh: absoluteImg,
+                                isOriginal: isOriginal
                             };
                             break;
                         }
@@ -364,7 +412,7 @@ app.get('/api/stream-scrape', async (req, res) => {
                 return ketQuaTrang;
             }, numPage, page.url());
 
-            // Loại bỏ trùng lặp trong nội bộ trang này, giữ lại giá bán rẻ nhất (giá sale) nếu bị trùng link/tên
+            // Loại bỏ trùng lặp trong nội bộ trang này, ưu tiên giá khuyến mãi (không bị gạch), sau đó chọn giá rẻ nhất
             const uniqueMap = new Map();
             sanPhamTrangNay.forEach(sp => {
                 const uniqueKey = sp.link || sp.ten;
@@ -372,12 +420,21 @@ app.get('/api/stream-scrape', async (req, res) => {
                 
                 if (uniqueMap.has(uniqueKey)) {
                     const existingSp = uniqueMap.get(uniqueKey);
-                    const valNew = parseInt(sp.gia.replace(/\D/g, '')) || 0;
-                    const valExisting = parseInt(existingSp.gia.replace(/\D/g, '')) || 0;
                     
-                    // Nếu giá mới rẻ hơn giá cũ thì cập nhật (để lấy giá sale rẻ nhất)
-                    if (valNew > 0 && (valExisting === 0 || valNew < valExisting)) {
+                    if (existingSp.isOriginal && !sp.isOriginal) {
+                        // Nếu sản phẩm hiện tại trong map là giá cũ/gốc, sản phẩm mới là giá khuyến mãi -> cập nhật
                         uniqueMap.set(uniqueKey, sp);
+                    } else if (!existingSp.isOriginal && sp.isOriginal) {
+                        // Nếu sản phẩm hiện tại trong map là giá khuyến mãi, sản phẩm mới là giá cũ/gốc -> giữ nguyên giá khuyến mãi
+                        // do nothing
+                    } else {
+                        // Cả hai cùng là giá gốc hoặc cùng là giá khuyến mãi -> chọn giá rẻ nhất
+                        const valNew = parseInt(sp.gia.replace(/\D/g, '')) || 0;
+                        const valExisting = parseInt(existingSp.gia.replace(/\D/g, '')) || 0;
+                        
+                        if (valNew > 0 && (valExisting === 0 || valNew < valExisting)) {
+                            uniqueMap.set(uniqueKey, sp);
+                        }
                     }
                 } else {
                     uniqueMap.set(uniqueKey, sp);
