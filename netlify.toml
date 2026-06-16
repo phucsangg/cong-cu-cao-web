@@ -5,6 +5,9 @@
   node_bundler = "esbuild"
   external_node_modules = ["@sparticuz/chromium"]
 
+[functions.scrape]
+  memory = 3008
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
