@@ -13,60 +13,73 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #090d16;
-            --card-bg: rgba(17, 24, 39, 0.6);
-            --border-color: rgba(255, 255, 255, 0.06);
-            --glow-green: rgba(16, 185, 129, 0.1);
+            --bg-color: #080b19;
+            --card-bg: rgba(13, 20, 35, 0.55);
+            --border-color: rgba(255, 255, 255, 0.05);
+            --glow-green: rgba(16, 185, 129, 0.15);
             --primary-color: #10b981; /* Emerald Green */
             --accent-color: #06b6d4;  /* Cyan */
             --warning-color: #f59e0b; /* Amber */
             --danger-color: #ef4444;  /* Red */
-            --text-main: #f3f4f6;     /* Slate 100 */
-            --text-muted: #8e9aab;    /* Slate 400-ish */
+            --text-main: #f1f5f9;     /* Slate 100 */
+            --text-muted: #64748b;    /* Slate 500 */
+            --text-light: #94a3b8;    /* Slate 400 */
         }
 
         body {
             background-color: var(--bg-color);
             background-image: 
-                radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.04) 0%, transparent 50%),
-                radial-gradient(circle at 50% 100%, rgba(6, 182, 212, 0.02) 0%, transparent 50%);
+                radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.05) 0%, transparent 45%),
+                radial-gradient(circle at 5% 40%, rgba(6, 182, 212, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 95% 80%, rgba(16, 185, 129, 0.02) 0%, transparent 40%);
             background-attachment: fixed;
             color: var(--text-main);
             font-family: 'Plus Jakarta Sans', sans-serif;
             min-height: 100vh;
-            padding-bottom: 4rem;
+            padding-bottom: 2rem;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 0);
+            background-size: 24px 24px;
+            pointer-events: none;
+            z-index: -1;
         }
 
         /* Glassmorphism Panel */
         .glass-card {
             background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 35px 0 rgba(0, 0, 0, 0.35);
         }
 
         /* Form elements */
         .form-control, .form-select {
-            background-color: rgba(17, 24, 39, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(11, 17, 30, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: #fff;
             font-weight: 500;
             transition: all 0.2s ease;
         }
 
         .form-control:focus, .form-select:focus {
-            background-color: rgba(17, 24, 39, 0.85);
+            background-color: rgba(11, 17, 30, 0.9);
             color: #fff;
             border-color: var(--primary-color);
-            box-shadow: 0 0 8px var(--glow-green);
+            box-shadow: 0 0 10px var(--glow-green);
         }
 
         .input-group-text {
-            background-color: rgba(17, 24, 39, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-muted);
+            background-color: rgba(11, 17, 30, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-light);
         }
 
         /* Minimalist Accordion */
@@ -88,29 +101,32 @@
 
         /* Buttons */
         .btn-premium {
-            background: var(--primary-color);
+            background: linear-gradient(135deg, var(--primary-color), #34d399);
             border: none;
             color: #090d16;
-            font-weight: 600;
+            font-weight: 700;
             border-radius: 8px;
-            transition: all 0.2s ease;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
         }
 
-        .btn-premium:hover {
-            background: #34d399;
+        .btn-premium:hover:not(:disabled) {
+            background: linear-gradient(135deg, #34d399, #10b981);
             color: #090d16;
             transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
         }
 
         .btn-premium:disabled {
             background: rgba(255, 255, 255, 0.08);
             color: var(--text-muted);
             transform: none;
+            box-shadow: none;
         }
 
         .btn-stop {
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
             color: #f87171;
             font-weight: 600;
             border-radius: 8px;
@@ -118,48 +134,46 @@
         }
 
         .btn-stop:hover:not(:disabled) {
-            background: rgba(239, 68, 68, 0.25);
+            background: rgba(239, 68, 68, 0.2);
             color: #fff;
+            border-color: rgba(239, 68, 68, 0.45);
         }
 
         .btn-stop:disabled {
             background: transparent;
-            border-color: rgba(255, 255, 255, 0.05);
-            color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.12);
         }
 
         /* Terminal Window */
         .terminal-window {
-            background: #05070f;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
+            background: #04060a;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
             overflow: hidden;
             font-family: 'JetBrains Mono', monospace;
         }
 
         .terminal-header {
-            background: #0a0d17;
-            padding: 8px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: #080c14;
+            padding: 10px 16px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         }
 
         .terminal-body {
             overflow-y: auto;
-            padding: 12px 16px;
-            font-size: 0.8rem;
-            line-height: 1.5;
+            padding: 14px 16px;
+            font-size: 0.78rem;
+            line-height: 1.6;
             color: #cbd5e1;
             scroll-behavior: smooth;
         }
 
         .log-line {
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             display: block;
         }
-        .log-time { color: #64748b; margin-right: 8px; font-size: 0.75rem; }
+        .log-time { color: #475569; margin-right: 10px; font-size: 0.72rem; }
         .log-info { color: #94a3b8; }
         .log-success { color: #34d399; }
         .log-warning { color: #fbbf24; }
@@ -167,18 +181,18 @@
 
         /* Scraped Data Table */
         .table-responsive-container {
-            max-height: 400px;
+            max-height: 480px;
             overflow-y: auto;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            background: rgba(10, 15, 26, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            background: rgba(8, 12, 20, 0.4);
         }
 
         .table-premium {
             margin-bottom: 0;
             vertical-align: middle;
             color: var(--text-main);
-            font-size: 0.9rem;
+            font-size: 0.88rem;
         }
 
         .table-premium thead {
@@ -189,25 +203,29 @@
 
         .table-premium th {
             background-color: #0b0f19;
-            color: var(--text-muted);
-            font-weight: 600;
+            color: var(--text-light);
+            font-weight: 700;
             text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.5px;
-            padding: 12px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            padding: 14px 16px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.05);
         }
 
         .table-premium td {
-            padding: 10px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
         }
 
         .product-title-cell {
-            max-width: 400px;
-            white-space: nowrap;
+            max-width: 420px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            line-height: 1.4;
+            font-size: 0.85rem;
         }
 
         .product-link-btn {
@@ -222,24 +240,212 @@
         .price-badge {
             color: #34d399;
             font-weight: 600;
+            font-size: 0.92rem;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .product-thumb {
-            width: 38px;
-            height: 38px;
+            width: 40px;
+            height: 40px;
             object-fit: contain;
-            border-radius: 4px;
+            border-radius: 6px;
             background-color: #fff;
-            padding: 1px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: transform 0.15s ease;
+            padding: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .product-thumb:hover {
-            transform: scale(1.3);
-            z-index: 2;
+            transform: scale(1.35);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            z-index: 10;
             position: relative;
         }
+
+        /* Stats Cards */
+        .stat-card {
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            padding: 12px 8px;
+            transition: all 0.25s ease;
+        }
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.06);
+            transform: translateY(-1px);
+        }
+        
+        .stat-label {
+            font-size: 0.65rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Premium outline actions */
+        .btn-outline-warning {
+            border-color: rgba(245, 158, 11, 0.25) !important;
+            color: #fbbf24 !important;
+            background: rgba(245, 158, 11, 0.03) !important;
+        }
+        .btn-outline-warning:hover {
+            background: rgba(245, 158, 11, 0.15) !important;
+            border-color: rgba(245, 158, 11, 0.45) !important;
+            color: #fff !important;
+        }
+        .btn-outline-success {
+            border-color: rgba(16, 185, 129, 0.25) !important;
+            color: #34d399 !important;
+            background: rgba(16, 185, 129, 0.03) !important;
+        }
+        .btn-outline-success:hover {
+            background: rgba(16, 185, 129, 0.15) !important;
+            border-color: rgba(16, 185, 129, 0.45) !important;
+            color: #fff !important;
+        }
+        .btn-outline-info {
+            border-color: rgba(6, 182, 212, 0.25) !important;
+            color: #22d3ee !important;
+            background: rgba(6, 182, 212, 0.03) !important;
+        }
+        .btn-outline-info:hover {
+            background: rgba(6, 182, 212, 0.15) !important;
+            border-color: rgba(6, 182, 212, 0.45) !important;
+            color: #fff !important;
+        }
+
+        /* Product Grid styles */
+        .product-grid-card-col {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .product-card {
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 12px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(16, 185, 129, 0.2);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+        }
+        
+        .product-card-img-wrapper {
+            background: #ffffff;
+            border-radius: 8px;
+            height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 8px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        
+        .product-card-img {
+            max-height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            transition: transform 0.25s ease;
+        }
+        
+        .product-card:hover .product-card-img {
+            transform: scale(1.06);
+        }
+        
+        .product-card-title {
+            font-size: 0.82rem;
+            font-weight: 600;
+            line-height: 1.4;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            height: 2.8em;
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+        
+        .product-card-title:hover {
+            color: var(--primary-color);
+        }
+        
+        .product-card-price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 6px;
+        }
+        
+        .product-card-price {
+            color: #34d399;
+            font-weight: 700;
+            font-size: 0.95rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .product-card-source {
+            font-size: 0.7rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            color: var(--text-light);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .btn-view-mode {
+            color: var(--text-light) !important;
+            border: none !important;
+            font-size: 0.75rem !important;
+            font-weight: 600 !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        .btn-view-mode.active {
+            background: var(--primary-color) !important;
+            color: #090d16 !important;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2) !important;
+        }
+        
+        .btn-view-mode:hover:not(.active) {
+            color: #fff !important;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        
+        .status-dot.bg-success { box-shadow: 0 0 8px #10b981; }
+        .status-dot.bg-primary { box-shadow: 0 0 8px #06b6d4; }
+        .status-dot.bg-warning { box-shadow: 0 0 8px #f59e0b; }
+        .status-dot.bg-danger { box-shadow: 0 0 8px #ef4444; }
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(6px); }
@@ -251,107 +457,129 @@
         }
 
         ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.15);
         }
     </style>
 </head>
 <body>
-    <div class="container mt-5" style="max-width: 960px;">
-        <!-- Card Chính -->
-        <div class="card glass-card p-4 shadow-lg mb-5 border-0">
-            <!-- Header -->
-            <div class="text-center pb-4 pt-2 border-bottom border-secondary border-opacity-10 mb-4">
-                <div class="d-inline-flex align-items-center justify-content-center mb-2 bg-success bg-opacity-10 text-success p-2 rounded-circle" style="width: 48px; height: 48px;">
+    <!-- Main Wrapper -->
+    <div class="container-fluid py-4" style="max-width: 1360px;">
+        <!-- Header -->
+        <header class="d-flex justify-content-between align-items-center mb-4 px-2">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-success bg-opacity-10 text-success p-2 rounded-3 border border-success border-opacity-20 shadow-sm" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-cpu"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
                 </div>
-                <h1 class="mb-1 fw-bold text-white" style="letter-spacing: -0.5px; font-size: 1.8rem;">Trình Cào Dữ Liệu Web</h1>
-                <p class="mb-0 text-muted" style="font-size: 0.9rem;">Trích xuất sản phẩm thời gian thực nhanh chóng và tự động qua Puppeteer & SSE</p>
+                <div>
+                    <h1 class="mb-0 fw-extrabold text-white" style="letter-spacing: -0.5px; font-size: 1.5rem;">Trình Cào Dữ Liệu Web</h1>
+                    <p class="mb-0 text-muted small" style="font-size: 0.8rem;">Hệ thống trích xuất sản phẩm thời gian thực bằng Puppeteer & SSE</p>
+                </div>
             </div>
             
-            <div class="card-body p-0">
-                <!-- Cấu hình chính (URL và Điều khiển) -->
-                <div class="row g-2 mb-3">
-                    <div class="col-md-9">
+            <!-- Live Indicator -->
+            <div class="d-flex align-items-center gap-2 px-3 py-1.5 glass-card rounded-pill" style="border: 1px solid rgba(255, 255, 255, 0.05);">
+                <span id="statusDot" class="status-dot rounded-circle bg-secondary"></span>
+                <span id="statusText" class="text-light small fw-medium" style="font-size: 0.78rem;">Hệ thống đang chờ lệnh...</span>
+            </div>
+        </header>
+
+        <!-- Main Split Pane -->
+        <div class="row g-4">
+            <!-- Left Panel (Control and Stats) -->
+            <div class="col-lg-4 left-panel">
+                <!-- Config Card -->
+                <div class="card glass-card border-0 mb-4 p-3 shadow-lg">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center text-white" style="font-size: 0.95rem;">
+                        <span class="me-2">⚙️</span> Cấu Hình Scraper
+                    </h5>
+                    
+                    <!-- Main Fields -->
+                    <div class="mb-3">
+                        <label for="urlInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.78rem;">Đường dẫn danh mục:</label>
                         <div class="input-group">
-                            <span class="input-group-text bg-dark border-secondary text-success border-opacity-20">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                            <span class="input-group-text bg-dark border-secondary border-opacity-10 text-success">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                             </span>
-                            <input type="url" id="urlInput" class="form-control" 
-                                   value="https://bepxanh.com/bep-tu.html" placeholder="Nhập đường dẫn danh mục cần cào...">
+                            <input type="url" id="urlInput" class="form-control" value="https://bepxanh.com/bep-tu.html" placeholder="https://example.com/category">
                         </div>
                     </div>
-                    <div class="col-md-3 d-flex gap-2">
-                        <button id="btnStart" onclick="kichHoatHeThongStream()" class="btn btn-premium w-100 py-2 d-flex align-items-center justify-content-center gap-2">
-                            <span>🚀</span> Chạy
-                        </button>
-                        <button id="btnStop" onclick="dungHeThongQuet()" class="btn btn-stop w-100 py-2 d-flex align-items-center justify-content-center gap-2" disabled>
-                            <span>⏹</span> Dừng
-                        </button>
-                    </div>
-                </div>
 
-                <!-- Cấu hình Nâng cao (Collapsible Accordion) -->
-                <div class="accordion accordion-flush mb-4" id="advancedAccordion">
-                    <div class="accordion-item bg-transparent border-0">
-                        <h2 class="accordion-header" id="headingAdvanced">
-                            <button class="accordion-button collapsed bg-transparent text-muted fw-semibold shadow-none border-0 px-1 py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdvanced" aria-expanded="false" aria-controls="collapseAdvanced" style="font-size: 0.85rem;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                                Cấu hình nâng cao
+                    <!-- Actions Trigger -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <button id="btnStart" onclick="kichHoatHeThongStream()" class="btn btn-premium w-100 py-2 d-flex align-items-center justify-content-center gap-2">
+                                🚀 Chạy
                             </button>
-                        </h2>
-                        <div id="collapseAdvanced" class="accordion-collapse collapse" aria-labelledby="headingAdvanced" data-bs-parent="#advancedAccordion">
-                            <div class="accordion-body px-1 py-3 text-muted">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label for="paginationMode" class="form-label small fw-semibold text-muted">Chuyển trang:</label>
-                                        <select id="paginationMode" class="form-select form-select-sm" onchange="togglePaginationField()">
-                                            <option value="button" selected>👉 Click nút chuyển tiếp (Next)</option>
-                                            <option value="url">🔗 Điều hướng qua Tham số URL</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label for="pageParam" class="form-label small fw-semibold text-muted" id="lblPageParam">Tham số URL Trang:</label>
-                                        <input type="text" id="pageParam" class="form-control form-control-sm" value="page" disabled placeholder="e.g. page, p">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label for="maxPages" class="form-label small fw-semibold text-muted">Max Trang:</label>
-                                        <input type="number" id="maxPages" class="form-control form-control-sm" value="10" min="1" max="50">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label for="delayInput" class="form-label small fw-semibold text-muted">Độ trễ nghỉ (ms):</label>
-                                        <input type="number" id="delayInput" class="form-control form-control-sm" value="2000" min="500" max="10000" step="500">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="timeoutInput" class="form-label small fw-semibold text-muted">Chờ tải trang (ms):</label>
-                                        <input type="number" id="timeoutInput" class="form-control form-control-sm" value="30000" min="5000" max="120000" step="5000">
-                                    </div>
-                                    <div class="col-md-3" id="parallelGroup" style="display: none;">
-                                        <div class="form-check form-switch mt-4 pt-1">
-                                            <input class="form-check-input bg-success border-secondary" type="checkbox" id="parallelScrape" onchange="toggleParallelScrape()">
-                                            <label class="form-check-label small fw-semibold text-muted" for="parallelScrape">⚡ Cào song song</label>
+                        </div>
+                        <div class="col-6">
+                            <button id="btnStop" onclick="dungHeThongQuet()" class="btn btn-stop w-100 py-2 d-flex align-items-center justify-content-center gap-2" disabled>
+                                ⏹ Dừng
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Config -->
+                    <div class="accordion accordion-flush" id="advancedAccordion">
+                        <div class="accordion-item bg-transparent border-0">
+                            <h2 class="accordion-header" id="headingAdvanced">
+                                <button class="accordion-button collapsed bg-transparent text-light fw-semibold shadow-none border-0 p-0 py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdvanced" aria-expanded="false" aria-controls="collapseAdvanced" style="font-size: 0.8rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                                    Cấu hình nâng cao
+                                </button>
+                            </h2>
+                            <div id="collapseAdvanced" class="accordion-collapse collapse" aria-labelledby="headingAdvanced" data-bs-parent="#advancedAccordion">
+                                <div class="accordion-body p-0 pt-3 text-muted">
+                                    <div class="row g-2">
+                                        <div class="col-12">
+                                            <label for="paginationMode" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.75rem;">Chuyển trang:</label>
+                                            <select id="paginationMode" class="form-select form-select-sm" onchange="togglePaginationField()">
+                                                <option value="button" selected>👉 Click nút chuyển tiếp (Next)</option>
+                                                <option value="url">🔗 Điều hướng qua Tham số URL</option>
+                                            </select>
                                         </div>
-                                    </div>
-                                    <div class="col-md-2" id="concurrencyGroup" style="display: none;">
-                                        <label for="concurrencyInput" class="form-label small fw-semibold text-muted">Số luồng cào:</label>
-                                        <input type="number" id="concurrencyInput" class="form-control form-control-sm" value="3" min="2" max="10">
-                                    </div>
-                                    <div class="col-12 mt-3 d-flex align-items-center justify-content-between">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input bg-success border-secondary" type="checkbox" id="blockResources" checked>
-                                            <label class="form-check-label small text-muted" for="blockResources">Chặn tải Ảnh & Tài nguyên rác (Tăng tốc độ cào)</label>
+                                        <div class="col-6">
+                                            <label for="pageParam" class="form-label small fw-semibold text-light mb-1" id="lblPageParam" style="font-size: 0.75rem;">Tham số URL:</label>
+                                            <input type="text" id="pageParam" class="form-control form-control-sm" value="page" disabled placeholder="e.g. page">
                                         </div>
-                                        <span class="badge bg-secondary bg-opacity-10 text-muted border border-secondary border-opacity-10 py-1 px-2" style="font-size: 0.75rem;">Chrome Headless</span>
+                                        <div class="col-6">
+                                            <label for="maxPages" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.75rem;">Max Trang:</label>
+                                            <input type="number" id="maxPages" class="form-control form-control-sm" value="10" min="1" max="50">
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="delayInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.75rem;">Độ trễ nghỉ (ms):</label>
+                                            <input type="number" id="delayInput" class="form-control form-control-sm" value="2000" min="500" max="10000" step="500">
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="timeoutInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.75rem;">Chờ tải trang (ms):</label>
+                                            <input type="number" id="timeoutInput" class="form-control form-control-sm" value="30000" min="5000" max="120000" step="5000">
+                                        </div>
+                                        <div class="col-6" id="parallelGroup" style="display: none;">
+                                            <div class="form-check form-switch mt-2">
+                                                <input class="form-check-input bg-success border-secondary" type="checkbox" id="parallelScrape" onchange="toggleParallelScrape()">
+                                                <label class="form-check-label small fw-semibold text-light" for="parallelScrape" style="font-size: 0.75rem;">⚡ Cào song song</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-6" id="concurrencyGroup" style="display: none;">
+                                            <label for="concurrencyInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.75rem;">Số luồng cào:</label>
+                                            <input type="number" id="concurrencyInput" class="form-control form-control-sm" value="3" min="2" max="10">
+                                        </div>
+                                        <div class="col-12 mt-2">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input bg-success border-secondary" type="checkbox" id="blockResources" checked>
+                                                <label class="form-check-label small text-light" for="blockResources" style="font-size: 0.75rem;">Chặn tải Ảnh & Tài nguyên rác</label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -359,82 +587,133 @@
                     </div>
                 </div>
 
-                <!-- Live Stats (Minimalist Style) -->
-                <div class="row text-center py-3 g-2 mb-4 border-top border-bottom border-secondary border-opacity-10">
-                    <div class="col-3 border-end border-secondary border-opacity-10">
-                        <div class="mb-1 text-muted" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Đã trích xuất</div>
-                        <div id="statProducts" class="fs-4 fw-bold text-success" style="font-family: 'JetBrains Mono', monospace;">0</div>
+                <!-- Stats Dashboard Grid -->
+                <div class="card glass-card border-0 p-3 shadow-lg">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center text-white" style="font-size: 0.95rem;">
+                        <span class="me-2">📊</span> Thống Kê Tiến Trình
+                    </h5>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Đã trích xuất</div>
+                                <div id="statProducts" class="stat-value text-success">0</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Số trang quét</div>
+                                <div id="statPages" class="stat-value text-white">0 / 0</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Tốc độ (sp/phút)</div>
+                                <div id="statSpeed" class="stat-value text-warning">0</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Thời gian chạy</div>
+                                <div id="statTime" class="stat-value text-info">00:00</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-3 border-end border-secondary border-opacity-10">
-                        <div class="mb-1 text-muted" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Số trang quét</div>
-                        <div id="statPages" class="fs-4 fw-bold text-white" style="font-family: 'JetBrains Mono', monospace;">0 / 0</div>
+                </div>
+            </div>
+
+            <!-- Right Panel (Results & Logs) -->
+            <div class="col-lg-8 right-panel">
+                <!-- Result Card -->
+                <div class="card glass-card border-0 p-3 shadow-lg mb-4 d-flex flex-column" style="min-height: 480px;">
+                    <!-- Filter and View Mode Toolbar -->
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3 border-bottom border-white border-opacity-5 pb-3">
+                        <div class="position-relative flex-grow-1" style="max-width: 320px;">
+                            <input type="text" id="searchFilter" onkeyup="locDuLieu()" class="form-control form-control-sm border-white border-opacity-10 bg-dark bg-opacity-30" placeholder="🔍 Lọc nhanh theo tên sản phẩm...">
+                        </div>
+                        
+                        <div class="d-flex gap-2 justify-content-between justify-content-md-end flex-wrap align-items-center">
+                            <!-- Grid / Table Selector -->
+                            <div class="btn-group btn-group-sm rounded-pill p-1 bg-dark bg-opacity-50 border border-white border-opacity-5" role="group" aria-label="Chế độ hiển thị">
+                                <button type="button" onclick="setCheDoXem('grid')" id="btnViewGrid" class="btn rounded-pill px-3 btn-view-mode active">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>Lưới
+                                </button>
+                                <button type="button" onclick="setCheDoXem('table')" id="btnViewTable" class="btn rounded-pill px-3 btn-view-mode">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>Bảng
+                                </button>
+                            </div>
+                            
+                            <!-- Export Dropdown -->
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-light dropdown-toggle border-white border-opacity-10 py-1" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem;">
+                                    📥 Xuất Dữ Liệu
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end border-white border-opacity-10 shadow-lg" aria-labelledby="exportDropdown">
+                                    <li><button onclick="taiFileCSV()" class="dropdown-item d-flex align-items-center gap-2 py-2" style="font-size: 0.78rem;">📊 Tải CSV Tiêu chuẩn</button></li>
+                                    <li><button onclick="taiFileShopify()" class="dropdown-item d-flex align-items-center gap-2 py-2" style="font-size: 0.78rem;">🛍️ Tải Shopify Import CSV</button></li>
+                                    <li><hr class="dropdown-divider border-white border-opacity-5"></li>
+                                    <li><button onclick="taiFileJSON()" class="dropdown-item d-flex align-items-center gap-2 py-2 text-info" style="font-size: 0.78rem;">📄 Tải file JSON</button></li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-3 border-end border-secondary border-opacity-10">
-                        <div class="mb-1 text-muted" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Tốc độ (sp/phút)</div>
-                        <div id="statSpeed" class="fs-4 fw-bold text-warning" style="font-family: 'JetBrains Mono', monospace;">0</div>
-                    </div>
-                    <div class="col-3">
-                        <div class="mb-1 text-muted" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Thời gian chạy</div>
-                        <div id="statTime" class="fs-4 fw-bold text-info" style="font-family: 'JetBrains Mono', monospace;">00:00</div>
+
+                    <!-- Dynamic Render Viewports -->
+                    <div id="kqKhongGian" class="flex-grow-1 d-flex flex-column position-relative">
+                        <!-- Table Wrapper -->
+                        <div id="tableContainer" class="table-responsive-container flex-grow-1 d-none">
+                            <table class="table table-dark table-hover table-premium mb-0 align-middle">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;" class="text-center">STT</th>
+                                        <th style="width: 70px;" class="text-center">Hình Ảnh</th>
+                                        <th>Tên Sản Phẩm</th>
+                                        <th style="width: 140px;" class="text-center">Giá Bán</th>
+                                        <th style="width: 100px;" class="text-center">Nguồn</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vungDuLieu">
+                                    <!-- Dynamic rows from SSE -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Grid/Card Wrapper -->
+                        <div id="gridContainer" class="grid-view-container flex-grow-1 overflow-y-auto d-none" style="max-height: 480px; padding: 4px;">
+                            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3" id="vungLuoi">
+                                <!-- Dynamic cards from SSE -->
+                            </div>
+                        </div>
+
+                        <!-- Empty Placeholder State -->
+                        <div id="emptyState" class="my-auto text-center py-5 text-muted d-flex flex-column align-items-center justify-content-center">
+                            <div class="mb-2 text-light text-opacity-20" style="font-size: 3rem;">📥</div>
+                            <h6 class="text-light text-opacity-80 fw-semibold mb-1" style="font-size: 0.9rem;">Chưa có dữ liệu sản phẩm</h6>
+                            <p class="small text-muted mb-0" style="font-size: 0.78rem;">Vui lòng điền link URL và nhấn nút <strong>Chạy</strong> ở bên trái để lấy dữ liệu.</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Trạng thái nhanh & Terminal Logs (Collapsible) -->
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-1 px-1">
-                        <div class="d-flex align-items-center gap-2">
-                            <span id="statusDot" class="d-inline-block rounded-circle bg-secondary" style="width: 8px; height: 8px; transition: all 0.3s ease;"></span>
-                            <span id="statusText" class="text-muted" style="font-size: 0.85rem;">Hệ thống đang chờ lệnh khởi chạy...</span>
+                <!-- macOS style live logs -->
+                <div class="card glass-card border-0 p-0 shadow-lg overflow-hidden">
+                    <div class="terminal-header d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="rounded-circle bg-danger bg-opacity-80" style="width: 7px; height: 7px; display: inline-block;"></span>
+                            <span class="rounded-circle bg-warning bg-opacity-80" style="width: 7px; height: 7px; display: inline-block;"></span>
+                            <span class="rounded-circle bg-success bg-opacity-80" style="width: 7px; height: 7px; display: inline-block;"></span>
+                            <span class="text-light opacity-50 fw-bold ms-2" style="font-size: 0.7rem; letter-spacing: 0.5px;">LIVE CONSOLE OUTPUT</span>
                         </div>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLogs" aria-expanded="false" aria-controls="collapseLogs" style="font-size: 0.7rem;">
-                            Nhật ký chi tiết
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-semibold" onclick="clearConsole()" style="font-size: 0.65rem; border-color: rgba(255,255,255,0.08); color: var(--text-light);">Xóa Nhật Ký</button>
+                            <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLogs" aria-expanded="true" aria-controls="collapseLogs" style="font-size: 0.65rem; border-color: rgba(255,255,255,0.08); color: var(--text-light);">Thu gọn</button>
+                        </div>
                     </div>
                     
-                    <div id="collapseLogs" class="collapse">
-                        <div class="terminal-window mt-2">
-                            <div class="terminal-header py-2 px-3">
-                                <span class="text-muted fw-bold" style="font-size: 0.7rem;">LIVE TERMINAL LOGS</span>
-                                <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-semibold" onclick="clearConsole()" style="font-size: 0.65rem;">Clear Log</button>
-                            </div>
-                            <div id="terminalBody" class="terminal-body" style="height: 180px;">
-                                <span class="log-line"><span class="log-time">00:00:00</span><span class="log-info">Hệ thống đang chờ lệnh khởi chạy... Nhấn nút Chạy ở trên để bắt đầu.</span></span>
-                            </div>
+                    <div id="collapseLogs" class="collapse show">
+                        <div class="terminal-body" id="terminalBody" style="height: 145px;">
+                            <span class="log-line"><span class="log-time">00:00:00</span><span class="log-info">Hệ thống sẵn sàng. Vui lòng nhập danh mục và nhấn nút Chạy để bot quét dữ liệu.</span></span>
                         </div>
                     </div>
                 </div>
-
-                <!-- Bảng Hiển Thị Kết Quả -->
-                <div id="kqKhongGian" class="d-none">
-                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-2">
-                        <div class="position-relative flex-grow-1 me-sm-3" style="max-width: 320px;">
-                            <input type="text" id="searchFilter" onkeyup="locDuLieuBang()" class="form-control form-control-sm border-secondary border-opacity-20" placeholder="🔍 Lọc nhanh theo tên sản phẩm...">
-                        </div>
-                        <div class="d-flex gap-2 justify-content-end flex-wrap">
-                            <button onclick="taiFileCSV()" class="btn btn-sm btn-outline-warning fw-semibold px-3" style="font-size: 0.75rem;">📊 Tải CSV</button>
-                            <button onclick="taiFileShopify()" class="btn btn-sm btn-outline-success fw-semibold px-3" style="font-size: 0.75rem;">🛍️ Tải Shopify CSV</button>
-                            <button onclick="taiFileJSON()" class="btn btn-sm btn-outline-info fw-semibold px-3" style="font-size: 0.75rem;">📄 Tải JSON</button>
-                        </div>
-                    </div>
-
-                    <div class="table-responsive-container">
-                        <table class="table table-dark table-hover table-premium mb-0 align-middle">
-                            <thead>
-                                <tr>
-                                    <th style="width: 60px;" class="text-center">STT</th>
-                                    <th style="width: 80px;" class="text-center">Hình Ảnh</th>
-                                    <th>Tên Sản Phẩm</th>
-                                    <th style="width: 140px;" class="text-center">Giá Bán</th>
-                                    <th style="width: 110px;" class="text-center">Nguồn</th>
-                                </tr>
-                            </thead>
-                            <tbody id="vungDuLieu">
-                                <!-- Chèn sản phẩm động bằng Javascript -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
@@ -448,8 +727,9 @@
         let eventSource = null;
         let elapsedInterval = null;
         let startTime = null;
+        let activeViewMode = 'grid'; // Default layout is Grid view
 
-        const fallbackImgSrc = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY0NzQ4YiI+PHBhdGggZD0iTTIxIDE5VjVjMC0xLjEtLjktMi0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnpNOC41IDEzLjVsMi41IDMuMDFMMTQuNSAxMmw0LjUgNkg1bDMuNS00LjV6Ii8+PC9zdmc+';
+        const fallbackImgSrc = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzk0YTNCOCI+PHBhdGggZD0iTTIxIDE5VjVjMC0xLjEtLjktMi0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnpNOC41IDEzLjVsMi41IDMuMDFMMTQuNSAxMmw0LjUgNkg1bDMuNS00LjV6Ii8+PC9zdmc+';
 
         function togglePaginationField() {
             const mode = document.getElementById('paginationMode').value;
@@ -478,6 +758,30 @@
                 if (concurrencyGroup) concurrencyGroup.style.display = 'block';
             } else {
                 if (concurrencyGroup) concurrencyGroup.style.display = 'none';
+            }
+        }
+
+        function setCheDoXem(mode) {
+            activeViewMode = mode;
+            const btnGrid = document.getElementById('btnViewGrid');
+            const btnTable = document.getElementById('btnViewTable');
+            const tableDiv = document.getElementById('tableContainer');
+            const gridDiv = document.getElementById('gridContainer');
+            
+            if (mode === 'grid') {
+                btnGrid.classList.add('active');
+                btnTable.classList.remove('active');
+                if (mangDuLieuToanCuc.length > 0) {
+                    gridDiv.classList.remove('d-none');
+                    tableDiv.classList.add('d-none');
+                }
+            } else {
+                btnTable.classList.add('active');
+                btnGrid.classList.remove('active');
+                if (mangDuLieuToanCuc.length > 0) {
+                    tableDiv.classList.remove('d-none');
+                    gridDiv.classList.add('d-none');
+                }
             }
         }
 
@@ -512,7 +816,7 @@
             const statusTextEl = document.getElementById('statusText');
             const statusDotEl = document.getElementById('statusDot');
             if (statusTextEl && statusDotEl) {
-                statusDotEl.className = 'd-inline-block rounded-circle ' + dotClass;
+                statusDotEl.className = 'status-dot rounded-circle ' + dotClass;
                 statusTextEl.innerText = message;
             }
         }
@@ -573,16 +877,20 @@
             // Khởi tạo lại trạng thái
             mangDuLieuToanCuc = [];
             document.getElementById('vungDuLieu').innerHTML = '';
+            document.getElementById('vungLuoi').innerHTML = '';
             document.getElementById('statProducts').innerText = '0';
             document.getElementById('statPages').innerText = `0 / ${maxPages}`;
             document.getElementById('statSpeed').innerText = '0';
             document.getElementById('searchFilter').value = '';
             
-            document.getElementById('kqKhongGian').classList.remove('d-none');
+            // Ẩn các khu vực dữ liệu cũ, hiện emptyState
+            document.getElementById('emptyState').classList.remove('d-none');
+            document.getElementById('tableContainer').classList.add('d-none');
+            document.getElementById('gridContainer').classList.add('d-none');
             
             // Thiết lập nút bấm và giao diện
             document.getElementById('btnStart').disabled = true;
-            document.getElementById('btnStart').innerHTML = '<span>⏳</span> Đang cào...';
+            document.getElementById('btnStart').innerHTML = '⏳ Đang chạy...';
             document.getElementById('btnStop').disabled = false;
 
             // Đóng kết nối cũ
@@ -626,16 +934,22 @@
                     
                     document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
 
-                    // Tạo dòng dữ liệu hiển thị
+                    // Ẩn empty state và mở viewport tương ứng
+                    document.getElementById('emptyState').classList.add('d-none');
+                    if (activeViewMode === 'grid') {
+                        document.getElementById('gridContainer').classList.remove('d-none');
+                    } else {
+                        document.getElementById('tableContainer').classList.remove('d-none');
+                    }
+
+                    // 1. Tạo dòng dữ liệu cho Table view
                     const row = document.createElement('tr');
                     row.className = 'row-animate';
                     
-                    // Render ảnh sản phẩm kèm fallback thông minh
                     const imageHtml = prod.anh 
                         ? `<img src="${prod.anh}" class="product-thumb" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/>`
-                        : `<img src="${fallbackImgSrc}" class="product-thumb bg-secondary border-0" />`;
+                        : `<img src="${fallbackImgSrc}" class="product-thumb" />`;
 
-                    // Render tên kèm link nếu có
                     const nameHtml = prod.link 
                         ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.ten}</a></div>`
                         : `<div class="product-title-cell text-light fw-semibold">${prod.ten}</div>`;
@@ -648,6 +962,36 @@
                         <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
                     `;
                     document.getElementById('vungDuLieu').appendChild(row);
+
+                    // 2. Tạo thẻ sản phẩm cho Grid view
+                    const cardCol = document.createElement('div');
+                    cardCol.className = 'col product-grid-card-col row-animate';
+                    
+                    const cardImageHtml = prod.anh
+                        ? `<div class="product-card-img-wrapper"><img src="${prod.anh}" class="product-card-img" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/></div>`
+                        : `<div class="product-card-img-wrapper"><img src="${fallbackImgSrc}" class="product-card-img" /></div>`;
+                    
+                    const cardTitleHtml = prod.link
+                        ? `<a href="${prod.link}" target="_blank" class="product-card-title">${prod.ten}</a>`
+                        : `<div class="product-card-title">${prod.ten}</div>`;
+                        
+                    cardCol.innerHTML = `
+                        <div class="product-card">
+                            ${cardImageHtml}
+                            ${cardTitleHtml}
+                            <div class="product-card-price-row">
+                                <span class="product-card-price">${prod.gia}</span>
+                                <span class="product-card-source">Trang ${prod.trang}</span>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('vungLuoi').appendChild(cardCol);
+
+                    // Tự động cuộn xuống ở cả hai view
+                    const tableContainer = document.getElementById('tableContainer');
+                    const gridContainer = document.getElementById('gridContainer');
+                    if (tableContainer) tableContainer.scrollTop = tableContainer.scrollHeight;
+                    if (gridContainer) gridContainer.scrollTop = gridContainer.scrollHeight;
                 }
                 else if (packet.type === 'stats') {
                     document.getElementById('statPages').innerText = `${packet.stats.currentPage} / ${maxPages}`;
@@ -689,14 +1033,15 @@
 
         function resetControlsState() {
             document.getElementById('btnStart').disabled = false;
-            document.getElementById('btnStart').innerHTML = '<span>🚀</span> Chạy';
+            document.getElementById('btnStart').innerHTML = '🚀 Chạy';
             document.getElementById('btnStop').disabled = true;
         }
 
-        function locDuLieuBang() {
+        function locDuLieu() {
             const query = document.getElementById('searchFilter').value.toLowerCase().trim();
-            const rows = document.querySelectorAll('#vungDuLieu tr');
             
+            // Lọc bảng
+            const rows = document.querySelectorAll('#vungDuLieu tr');
             rows.forEach(row => {
                 const titleCell = row.querySelector('.product-title-cell');
                 if (titleCell) {
@@ -705,6 +1050,20 @@
                         row.classList.remove('d-none');
                     } else {
                         row.classList.add('d-none');
+                    }
+                }
+            });
+
+            // Lọc lưới
+            const cards = document.querySelectorAll('#vungLuoi .product-grid-card-col');
+            cards.forEach(card => {
+                const titleEl = card.querySelector('.product-card-title');
+                if (titleEl) {
+                    const text = titleEl.innerText.toLowerCase();
+                    if (text.includes(query)) {
+                        card.classList.remove('d-none');
+                    } else {
+                        card.classList.add('d-none');
                     }
                 }
             });
