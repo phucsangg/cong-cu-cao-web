@@ -728,6 +728,7 @@
         let elapsedInterval = null;
         let startTime = null;
         let activeViewMode = 'grid'; // Default layout is Grid view
+        let scrapingCompleted = false; // Ngăn onerror giả sau khi server đóng kết nối bình thường
 
         const fallbackImgSrc = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzk0YTNCOCI+PHBhdGggZD0iTTIxIDE5VjVjMC0xLjEtLjktMi0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnpNOC41IDEzLjVsMi41IDMuMDFMMTQuNSAxMmw0LjUgNkg1bDMuNS00LjV6Ii8+PC9zdmc+';
 
@@ -895,6 +896,7 @@
 
             // Đóng kết nối cũ
             if (eventSource) eventSource.close();
+            scrapingCompleted = false; // Reset flag mỗi lần chạy mới
             clearConsole();
             writeToConsole(`Kích hoạt bot. Đang kết nối luồng dữ liệu thời gian thực tới Backend...`);
             
@@ -997,6 +999,7 @@
                     document.getElementById('statPages').innerText = `${packet.stats.currentPage} / ${maxPages}`;
                 }
                 else if (packet.type === 'done') {
+                    scrapingCompleted = true;
                     stopTimer();
                     writeToConsole(`Quá trình hoàn thành! Tổng cộng trích xuất được ${packet.totalItems} sản phẩm từ ${packet.totalPages} trang.`, 'success');
                     alert(`Hoàn thành xuất sắc! Đã quét sạch ${packet.totalItems} sản phẩm.`);
@@ -1004,6 +1007,7 @@
                     eventSource.close();
                 }
                 else if (packet.type === 'error') {
+                    scrapingCompleted = true;
                     stopTimer();
                     writeToConsole(`Lỗi trong tiến trình: ${packet.message}`, 'error');
                     alert(`Đã xảy ra lỗi: ${packet.message}`);
@@ -1012,11 +1016,21 @@
                 }
             };
 
-            eventSource.onerror = function() {
-                writeToConsole(`Kết nối EventSource bị ngắt đột ngột hoặc xảy ra lỗi mạng.`, 'error');
-                stopTimer();
-                resetControlsState();
-                if(eventSource) eventSource.close();
+            eventSource.onerror = function(e) {
+                // Bỏ qua onerror nếu đã hoàn thành bình thường (server đóng stream sau done/error)
+                if (scrapingCompleted) return;
+
+                // EventSource.CONNECTING = 0 — đang thử kết nối lại (chưa thực sự lỗi)
+                // Chỉ báo lỗi thực sự khi connection bị từ chối hoàn toàn
+                if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+                    writeToConsole(`Kết nối tới server bị ngắt đột ngột. Vui lòng kiểm tra server đang chạy.`, 'error');
+                    stopTimer();
+                    resetControlsState();
+                    eventSource.close();
+                } else if (eventSource && eventSource.readyState === EventSource.CONNECTING) {
+                    // Đang thử kết nối lại — chưa phải lỗi thực sự
+                    writeToConsole(`Kết nối gián đoạn, đang thử kết nối lại...`, 'warning');
+                }
             };
         }
 
