@@ -7,6 +7,7 @@
 
 [functions.scrape]
   memory = 3008
+  timeout = 26
 
 [[redirects]]
   from = "/api/*"
