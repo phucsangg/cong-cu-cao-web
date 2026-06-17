@@ -25,7 +25,9 @@ function extractCategoryLinksCheerio(html, baseUrl) {
         return [];
     }
 
-    $('nav a, .menu a, #menu a, [class*="menu"] a, .navigation a, [class*="nav"] a').each((i, el) => {
+    const selector = 'nav a, #nav a, [id*="nav"] a, [class*="nav"] a, [id*="menu"] a, [class*="menu"] a, [id*="category"] a, [class*="category"] a, [id*="categories"] a, [class*="categories"] a, .megamenu a';
+
+    $(selector).each((i, el) => {
         let href = $(el).attr('href');
         if (!href) return;
         href = href.trim();
@@ -53,17 +55,41 @@ function extractCategoryLinksCheerio(html, baseUrl) {
         const exclusions = [
             '/tin-tuc', '/lien-he', '/gioi-thieu', '/cart', '/checkout', '/login', 
             '/register', '/account', '/search', '/tin-cong-nghe', '/chinh-sach',
-            '/huong-dan', '/tuyen-dung', '/show-room', '/bao-hanh', '/tra-gop'
+            '/huong-dan', '/tuyen-dung', '/show-room', '/bao-hanh', '/tra-gop',
+            '/he-thong-dai-ly', '/hinh-thuc-mua-hang', '/hinh-thuc-thanh-toan',
+            '/dieu-khoan-su-dung', '/chinh-sach-bao-mat', '/chinh-sach-doi-tra',
+            '/chinh-sach-giao-nhan', '/chinh-sach-bao-mat-thong-tin', '/taikhoan'
         ];
         
         if (path === '/' || path === '' || path === '/index.html' || path === '/index.php' || path === '/index.htm') return;
         
         if (exclusions.some(exc => path.includes(exc))) return;
 
-        links.add(absoluteUrl);
+        // Add URL without query string
+        links.add(parsedUrl.origin + parsedUrl.pathname);
     });
 
-    return Array.from(links);
+    const uniqueLinks = Array.from(links);
+    
+    // Heuristic: filter out subcategory links if the parent category link exists.
+    // e.g. if we have '/bep-tu.html', filter out '/bep-tu-bosch.html'
+    const filteredLinks = uniqueLinks.filter(url => {
+        try {
+            const p = new URL(url).pathname.replace('.html', '').toLowerCase();
+            const hasParent = uniqueLinks.some(otherUrl => {
+                if (otherUrl === url) return false;
+                const otherP = new URL(otherUrl).pathname.replace('.html', '').toLowerCase();
+                if (otherP.length >= p.length) return false;
+                return p.startsWith(otherP + '-') || p.includes('/' + otherP + '-');
+            });
+            return !hasParent;
+        } catch (e) {
+            return true;
+        }
+    });
+
+    // Limit to max 150 categories to protect client execution
+    return filteredLinks.slice(0, 150);
 }
 
 
