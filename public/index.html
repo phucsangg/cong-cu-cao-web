@@ -667,6 +667,7 @@
                                         <th style="width: 50px;" class="text-center">STT</th>
                                         <th style="width: 70px;" class="text-center">Hình Ảnh</th>
                                         <th>Tên Sản Phẩm</th>
+                                        <th style="width: 150px;">Mã Sản Phẩm</th>
                                         <th style="width: 140px;" class="text-center">Giá Bán</th>
                                         <th style="width: 100px;" class="text-center">Nguồn</th>
                                     </tr>
@@ -730,6 +731,70 @@
         let scrapingCompleted = false; 
 
         const fallbackImgSrc = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzk0YTNCOCI+PHBhdGggZD0iTTIxIDE5VjVjMC0xLjEtLjktMi0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnpNOC41IDEzLjVsMi41IDMuMDFMMTQuNSAxMmw0LjUgNkg1bDMuNS00LjV6Ii8+PC9zdmc+';
+
+        function extractSku(fullName) {
+            let codes = [];
+            
+            // Pattern 1: Hafele article number (e.g. 536.61.787 or 536.66.850)
+            const hafeleReg = /\b\d{3}\.\d{2}\.\d{3}\b/g;
+            let match;
+            while ((match = hafeleReg.exec(fullName)) !== null) {
+                codes.push(match[0]);
+            }
+            
+            // Pattern 2: Chefs models
+            const chefsReg = /\bEH-DIH\s?\d+(?:\s?PLUS)?\b/gi;
+            while ((match = chefsReg.exec(fullName)) !== null) {
+                codes.push(match[0]);
+            }
+
+            // Pattern 3: Lorca models
+            const lorcaReg = /\bLCI[- ]?\d+(?:\s?(?:Plus|PLUS))?\b/gi;
+            while ((match = lorcaReg.exec(fullName)) !== null) {
+                codes.push(match[0]);
+            }
+
+            // Pattern 4: Spelier models
+            const spelierReg = /\b(?:SPE[- ]?IC\d+|SPM[- ]?\d+(?:Iplus|I-plus)?)(?:\s?(?:PLUS|Plus))?\b/gi;
+            while ((match = spelierReg.exec(fullName)) !== null) {
+                codes.push(match[0]);
+            }
+            
+            // Pattern 5: Alphanumeric codes with hyphens (e.g. HC-I752B, HC-I7365B, MH-04I)
+            const hyphenReg = /\b[A-Z]{2,}-[A-Z\d]+\b/gi;
+            while ((match = hyphenReg.exec(fullName)) !== null) {
+                codes.push(match[0]);
+            }
+            
+            // Pattern 6: General alphanumeric model codes (e.g. MH732IN, MH802, PPI82566VN)
+            const generalReg = /\b[A-Z]+\d+[A-Z\d]*\b/gi;
+            while ((match = generalReg.exec(fullName)) !== null) {
+                const val = match[0];
+                const isUnit = /^\d+(?:W|vùng|trang|ms|s|h|kg)$/i.test(val);
+                if (!isUnit) {
+                    codes.push(val);
+                }
+            }
+
+            let uniqueCodes = [...new Set(codes)];
+            uniqueCodes = uniqueCodes.filter(c => {
+                return !uniqueCodes.some(other => other !== c && other.toLowerCase().includes(c.toLowerCase()));
+            });
+            
+            let cleanName = fullName;
+            uniqueCodes.forEach(code => {
+                const escapedCode = code.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const reg = new RegExp(escapedCode, 'gi');
+                cleanName = cleanName.replace(reg, '');
+            });
+            
+            cleanName = cleanName.replace(/\s+/g, ' ').trim();
+            
+            return {
+                sku: uniqueCodes.join(' / '),
+                cleanName: cleanName
+            };
+        }
 
         function togglePaginationField() {
             const mode = document.getElementById('paginationMode').value;
@@ -904,6 +969,10 @@
 
         // ── Thêm sản phẩm vào cả Table và Grid view ──
         function addProduct(prod) {
+            const extracted = extractSku(prod.ten);
+            prod.ma = extracted.sku;
+            prod.tenSạch = extracted.cleanName;
+
             mangDuLieuToanCuc.push(prod);
             document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
 
@@ -918,15 +987,19 @@
             const row = document.createElement('tr');
             row.className = 'row-animate';
             const imageHtml = prod.anh 
-                ? `<img src="${prod.anh}" class="product-thumb" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/>`
+                ? `<img src="${prod.anh}" class="product-thumb" alt="${prod.tenSạch}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/>`
                 : `<img src="${fallbackImgSrc}" class="product-thumb" />`;
             const nameHtml = prod.link 
-                ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.ten}</a></div>`
-                : `<div class="product-title-cell text-light fw-semibold">${prod.ten}</div>`;
+                ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.tenSạch}</a></div>`
+                : `<div class="product-title-cell text-light fw-semibold">${prod.tenSạch}</div>`;
+            const maHtml = prod.ma 
+                ? `<span class="badge bg-primary bg-opacity-25 text-info fw-semibold">${prod.ma}</span>` 
+                : `<span class="text-muted small">-</span>`;
             row.innerHTML = `
                 <td class="text-center text-muted fw-bold">${prod.stt}</td>
                 <td class="text-center">${imageHtml}</td>
                 <td>${nameHtml}</td>
+                <td>${maHtml}</td>
                 <td class="text-center price-badge">${prod.gia}</td>
                 <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
             `;
@@ -936,15 +1009,19 @@
             const cardCol = document.createElement('div');
             cardCol.className = 'col product-grid-card-col row-animate';
             const cardImageHtml = prod.anh
-                ? `<div class="product-card-img-wrapper"><img src="${prod.anh}" class="product-card-img" alt="${prod.ten}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/></div>`
+                ? `<div class="product-card-img-wrapper"><img src="${prod.anh}" class="product-card-img" alt="${prod.tenSạch}" onerror="this.onerror=null; this.src='${fallbackImgSrc}';"/></div>`
                 : `<div class="product-card-img-wrapper"><img src="${fallbackImgSrc}" class="product-card-img" /></div>`;
             const cardTitleHtml = prod.link
-                ? `<a href="${prod.link}" target="_blank" class="product-card-title">${prod.ten}</a>`
-                : `<div class="product-card-title">${prod.ten}</div>`;
+                ? `<a href="${prod.link}" target="_blank" class="product-card-title">${prod.tenSạch}</a>`
+                : `<div class="product-card-title">${prod.tenSạch}</div>`;
+            const cardMaHtml = prod.ma 
+                ? `<div class="mb-2"><span class="badge bg-primary bg-opacity-20 text-info fw-normal" style="font-size: 0.7rem;">${prod.ma}</span></div>`
+                : '';
             cardCol.innerHTML = `
                 <div class="product-card">
                     ${cardImageHtml}
                     ${cardTitleHtml}
+                    ${cardMaHtml}
                     <div class="product-card-price-row">
                         <span class="product-card-price">${prod.gia}</span>
                         <span class="product-card-source">Trang ${prod.trang}</span>
@@ -1066,9 +1143,11 @@
             const rows = document.querySelectorAll('#vungDuLieu tr');
             rows.forEach(row => {
                 const titleCell = row.querySelector('.product-title-cell');
+                const skuCell = row.querySelector('td:nth-child(4)');
                 if (titleCell) {
                     const text = titleCell.innerText.toLowerCase();
-                    if (text.includes(query)) {
+                    const skuText = skuCell ? skuCell.innerText.toLowerCase() : '';
+                    if (text.includes(query) || skuText.includes(query)) {
                         row.classList.remove('d-none');
                     } else {
                         row.classList.add('d-none');
@@ -1080,9 +1159,11 @@
             const cards = document.querySelectorAll('#vungLuoi .product-grid-card-col');
             cards.forEach(card => {
                 const titleEl = card.querySelector('.product-card-title');
+                const skuEl = card.querySelector('.badge');
                 if (titleEl) {
                     const text = titleEl.innerText.toLowerCase();
-                    if (text.includes(query)) {
+                    const skuText = skuEl ? skuEl.innerText.toLowerCase() : '';
+                    if (text.includes(query) || skuText.includes(query)) {
                         card.classList.remove('d-none');
                     } else {
                         card.classList.add('d-none');
@@ -1094,10 +1175,11 @@
         function taiFileCSV() {
             if(mangDuLieuToanCuc.length === 0) return alert("Chưa có dữ liệu sản phẩm để xuất file!");
             
-            const headers = ['STT', 'Ten San Pham', 'Gia Ban', 'Nguon Trang', 'Lien Ket San Pham', 'Link Anh'];
+            const headers = ['STT', 'Ten San Pham', 'Ma San Pham', 'Gia Ban', 'Nguon Trang', 'Lien Ket San Pham', 'Link Anh'];
             const rows = mangDuLieuToanCuc.map((item, index) => [
                 index + 1, 
-                `"${item.ten.replace(/"/g, '""')}"`, 
+                `"${item.tenSạch.replace(/"/g, '""')}"`, 
+                `"${item.ma}"`, 
                 `"${item.gia}"`, 
                 `"Trang ${item.trang}"`,
                 `"${item.link || ''}"`,
@@ -1152,21 +1234,22 @@
             const rows = mangDuLieuToanCuc.map((item, index) => {
                 // Làm sạch giá tiền (chỉ lấy số)
                 const priceClean = item.gia ? item.gia.replace(/[^0-9]/g, '') : '';
-                const handle = generateSlug(item.ten);
+                const handle = generateSlug(item.tenSạch);
                 
                 // Tạo một mảng trống chứa các cột tương ứng với Shopify
                 const rowData = new Array(headers.length).fill('""');
                 
-                rowData[0] = `"${handle}"`;                     // Handle
-                rowData[1] = `"${item.ten.replace(/"/g, '""')}"`;// Title
-                rowData[2] = `""`;                              // Body (HTML)
-                rowData[3] = `"Store Auto Import"`;             // Vendor
-                rowData[6] = `"TRUE"`;                          // Published
-                rowData[7] = `"Title"`;                         // Option1 Name
-                rowData[8] = `"Default Title"`;                 // Option1 Value
-                rowData[19] = `"${priceClean}"`;                // Variant Price
-                rowData[24] = `"${item.anh || ''}"`;            // Image Src
-                rowData[49] = `"active"`;                       // Status
+                rowData[0] = `"${handle}"`;                               // Handle
+                rowData[1] = `"${item.tenSạch.replace(/"/g, '""')}"`;     // Title
+                rowData[2] = `""`;                                        // Body (HTML)
+                rowData[3] = `"Store Auto Import"`;                       // Vendor
+                rowData[6] = `"TRUE"`;                                    // Published
+                rowData[7] = `"Title"`;                                   // Option1 Name
+                rowData[8] = `"Default Title"`;                           // Option1 Value
+                rowData[13] = `"${item.ma}"`;                             // Variant SKU
+                rowData[19] = `"${priceClean}"`;                          // Variant Price
+                rowData[24] = `"${item.anh || ''}"`;                      // Image Src
+                rowData[49] = `"active"`;                                 // Status
 
                 return rowData.join(',');
             });
