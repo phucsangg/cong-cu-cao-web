@@ -19,6 +19,9 @@
   - Merged new UI changes from remote branch. Added SKU (Mã sản phẩm) and Series parsing, display in UI table/grid, searching capabilities, and CSV/Shopify export mapping.
   - Changed the early-exit condition to break the sequential page loop if a page yields 0 new items (`newCount === 0`) instead of `products.length === 0`. This stops useless repeated crawing of identical pages.
   - Cleaned up redundant early stop checks in frontend logic after merging remote `phucsang/main` changes.
+  - Redesigned and updated `extractSku` to use case-sensitive matching, list of excluded common words (e.g. gas, vùng, nấu, etc.), and immediate validation bypass for Hafele dotted codes, resolving inaccurate and false-positive extraction.
+- [test-fetch.mjs](file:///d:/Work/cong-cu-cao-web-ver-2/test-fetch.mjs):
+  - Updated SKU/Series extraction testing logic to align with the frontend improvements.
 
 ## Deleted Files
 - None.
@@ -49,6 +52,7 @@
 - `git fetch phucsang`: Fetched remote branch from phucsang remote.
 - `git merge phucsang/main`: Merged remote commits from phucsang/main into local main.
 - `git push phucsang main`: Pushed final codebase with fixes to phucsang's repository.
+- `node test-fetch.mjs`: Verified updated SKU/Series extraction logic with real catalog data.
 
 ## Bugs Found
 1. **Fallback Path Bypass on Local Dev (Windows)**: `@sparticuz/chromium` was imported and initialized on local Windows machines because the module is installed. `chromium.executablePath()` returned a folder/path that exists, so `fs.promises.access` succeeded, but running `puppeteer.launch` failed because it's not a valid Windows executable. This bypassed the local Chrome/Edge fallback search.
@@ -61,6 +65,7 @@
 8. **Premature Cheerio Fast-Path Success on Dynamic Category Pages**: When crawing dynamic category pages (e.g. `bep-tu.html`), the raw HTML contains no actual products but has a few featured/recommended products statically rendered. The Cheerio fast-path scraped these 4-6 featured products. Since this is >= 3 (the original threshold), the scraper returned them immediately and skipped Puppeteer. On page 2, 3, etc., the scraper fetched the same static HTML, returning the same featured products which were discarded as duplicates, resulting in 0 new products.
 9. **Infinite Page Fetch Loop on Duplicate Pages**: If a category page ignores page parameters (e.g. returning page 1's products on page 2) or has only 1 page, the scraper got stuck in an infinite page-crawing loop because the break condition only checked if `products.length === 0`, which is false since it keeps returning the same products.
 10. **Runaway Page-Wide DOM Distance Calculation & Function Timeout (HTTP 502)**: When crawing pages where certain price nodes did not have valid titles close by, parent traversal went up to the root element (`<body>` or `<html>`). At this level, it performed `parent.querySelectorAll` which returned thousands of elements, and calculated tree-distance for each of them. This O(N^2) complexity froze the browser thread during `page.evaluate`, causing the Netlify Function to hang and time out, resulting in HTTP 502 Bad Gateway after 40 seconds.
+11. **Inaccurate and False-Positive SKU and Series Extraction**: The model extraction regex used case-insensitive matching (`/i`) which caused normal lowercase words like "gas 3" in "Bếp gas 3 vùng nấu" to be incorrectly matched as a product SKU. It also struggled with complex hyphenated model numbers (like `HS20-SSN2R90M` which was split into two separate codes) and failed to extract purely numeric Hafele article codes (`536.01.695`) due to requiring at least one letter.
 
 ## Fixes Applied
 1. Prevented `@sparticuz/chromium` from loading when not on AWS Lambda or when `NETLIFY_DEV` is true.
@@ -73,6 +78,7 @@
 8. **Increased Fast-Path Threshold**: Increased the fast-path Cheerio threshold from 3 to 8. Category pages with fewer than 8 static products will fallback to Puppeteer to execute JS, scroll, and capture all products.
 9. **New Product Exit Condition**: Changed the break condition in sequential crawing to stop if a page yields 0 new/unique products (`newCount === 0`) instead of `products.length === 0`.
 10. **Layout Container Early Break**: Added `isLayoutContainer` check during parent traversal. It immediately breaks the loop when hitting multi-product layout elements (like rows, grids, lists, sections, main, or page body), keeping searches local to single-product cards and avoiding runaway calculations.
+11. **Refined SKU and Series Extraction**: Updated `extractSku` in `public/index.html` to use a strict case-sensitive regex for uppercase brand prefixes and model numbers. Introduced a comprehensive validator (`isValidSku` logic) to filter out common Vietnamese kitchen catalog words and general measurement units. Added an immediate bypass check for Hafele-style dotted codes, and improved hyphenated/slashed model group support.
 
 ## Remaining Issues
 - None.
