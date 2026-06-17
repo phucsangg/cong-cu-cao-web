@@ -32,6 +32,23 @@ const isExcluded = (id, className) => {
     return exclusions.some(w => id.includes(w) || className.includes(w));
 };
 
+// Helper to determine if an element is a layout container rather than a single product container
+const isLayoutContainer = (id, className, tagName) => {
+    const t = (tagName || '').toLowerCase();
+    if (t === 'body' || t === 'html' || t === 'main' || t === 'section' || t === 'article' || t === 'aside' || t === 'header' || t === 'footer') {
+        return true;
+    }
+    const c = (className || '').toLowerCase();
+    const i = (id || '').toLowerCase();
+    
+    if (c.includes('item') || i.includes('item') || c.includes('col-') || i.includes('col-')) {
+        return false;
+    }
+    
+    const layoutTerms = ['grid', 'row', 'list', 'layout', 'content', 'body', 'main', 'wrapper'];
+    return layoutTerms.some(w => c.includes(w) || i.includes(w));
+};
+
 // Heuristic: get price text excluding crossed-out original prices
 function getPriceText($, el) {
     const clone = $(el).clone();
@@ -125,7 +142,8 @@ function runCheerioScrape(html, url, pageNum, log) {
             if (!parent || parent.length === 0) break;
             const idP = parent.attr('id') || '';
             const cnP = parent.attr('class') || '';
-            if (isExcluded(idP.toLowerCase(), cnP.toLowerCase())) break;
+            const tagP = parent.prop('tagName') || '';
+            if (isExcluded(idP.toLowerCase(), cnP.toLowerCase()) || isLayoutContainer(idP, cnP, tagP)) break;
             
             const targetTitles = parent.find('h1,h2,h3,h4,h5,h6,[class*="title"],[class*="name"],.title,.name,a').toArray();
             let candidates = [];
@@ -237,7 +255,8 @@ function runCheerioScrape(html, url, pageNum, log) {
             if (!parent || parent.length === 0) break;
             const idP = parent.attr('id') || '';
             const cnP = parent.attr('class') || '';
-            if (isExcluded(idP.toLowerCase(), cnP.toLowerCase())) break;
+            const tagP = parent.prop('tagName') || '';
+            if (isExcluded(idP.toLowerCase(), cnP.toLowerCase()) || isLayoutContainer(idP, cnP, tagP)) break;
             
             const targetTitles = parent.find('h1,h2,h3,h4,h5,h6,[class*="title"],[class*="name"],.title,.name,a').toArray();
             let candidates = [];
@@ -619,6 +638,20 @@ exports.handler = async (event, context) => {
                     return exclusions.some(w => id.includes(w) || className.includes(w));
                 };
 
+                const isLayoutContainer = (id, className, tagName) => {
+                    const t = (tagName || '').toLowerCase();
+                    if (t === 'body' || t === 'html' || t === 'main' || t === 'section' || t === 'article' || t === 'aside' || t === 'header' || t === 'footer') {
+                        return true;
+                    }
+                    const c = (className || '').toLowerCase();
+                    const i = (id || '').toLowerCase();
+                    if (c.includes('item') || i.includes('item') || c.includes('col-') || i.includes('col-')) {
+                        return false;
+                    }
+                    const layoutTerms = ['grid', 'row', 'list', 'layout', 'content', 'body', 'main', 'wrapper'];
+                    return layoutTerms.some(w => c.includes(w) || i.includes(w));
+                };
+
                 function getPriceText(el) {
                     const clone = el.cloneNode(true);
                     const removeOldPrices = (node) => {
@@ -709,7 +742,8 @@ exports.handler = async (event, context) => {
                         if (!parent) break;
                         const idP = parent.id ? String(parent.id).toLowerCase() : '';
                         const cnP = parent.className ? String(parent.className).toLowerCase() : '';
-                        if (isExcluded(idP, cnP)) break;
+                        const tagP = parent.tagName ? String(parent.tagName).toLowerCase() : '';
+                        if (isExcluded(idP, cnP) || isLayoutContainer(idP, cnP, tagP)) break;
 
                         const targetTitles = Array.from(parent.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="title"],[class*="name"],.title,.name,a'));
                         let candidates = [];
