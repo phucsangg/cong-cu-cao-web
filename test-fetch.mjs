@@ -2,18 +2,25 @@ import fs from 'fs';
 import * as cheerio from 'cheerio';
 
 function extractSku(fullName) {
+    // Clean price patterns like 9,480,000đ, 18.100.000 đ, etc.
+    let cleanText = fullName.replace(/\b\d+(?:[.,]\d{3})*\s*(?:đ|₫|VND|vnđ|vnd)/gi, '');
+    // Clean discount percentage like -48% or 48%
+    cleanText = cleanText.replace(/[-+]\s*\d+\s*%/g, '');
+    // Clean multiple spaces
+    cleanText = cleanText.replace(/\s+/g, ' ').trim();
+
     let codes = [];
     
     // Pattern 1: Dotted codes (Hafele)
     const dotReg = /\b\d{3}\.\d{2}\.\d{3}\b/g;
     let match;
-    while ((match = dotReg.exec(fullName)) !== null) {
+    while ((match = dotReg.exec(cleanText)) !== null) {
         codes.push(match[0]);
     }
     
-    // Pattern 2: Comprehensive alphanumeric model code matching (case-sensitive)
-    const modelReg = /\b(?:[A-Z]{2,4}[- ]?)?[A-Z]*\d+[A-Z0-9]*(?:[-/][A-Z0-9]+)*(?:[- ](?:PLUS|PRO|NOTE|KPLUS|EG|VN|EVN|IN|II|IG|Z|S|G|Plus|Pro|Note|Kplus|Iplus))?\b/g;
-    while ((match = modelReg.exec(fullName)) !== null) {
+    // Pattern 2: Comprehensive alphanumeric model code matching (case-insensitive)
+    const modelReg = /\b(?:[A-Z]{2,4}[- _]?)?[A-Z_]*\d+[A-Z0-9_]*(?:[-/_][A-Z0-9_]+)*(?:[- ]?(?:PLUS|PRO|NOTE|KPLUS|EG|VN|EVN|IN|II|IG|Z|S|G))?\b/gi;
+    while ((match = modelReg.exec(cleanText)) !== null) {
         codes.push(match[0]);
     }
 
@@ -63,10 +70,10 @@ function extractSku(fullName) {
         return !uniqueCodes.some(other => other !== c && other.toLowerCase().includes(c.toLowerCase()));
     });
     
-    let cleanName = fullName;
+    let cleanName = cleanText;
     uniqueCodes.forEach(code => {
         const escapedCode = code.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-        const reg = new RegExp(escapedCode, 'g');
+        const reg = new RegExp(escapedCode, 'gi');
         cleanName = cleanName.replace(reg, '');
     });
     
@@ -130,4 +137,24 @@ async function run() {
     }
 }
 
-run();
+run().then(() => {
+    console.log('--- Custom Test Cases for Underscore Models ---');
+    const cases = [
+        'Bếp từ Kocher BEPTU_DI882',
+        'Bếp từ Kocher BEPTU_DI882M',
+        'Bếp từ Kocher BEPTU_DI882PRO',
+        'Bếp từ đôi Toshiba CIH-55DSU',
+        'Bếp từ đơn Speller SP 09',
+        'Bếp từ Kocher DI-339Pro 9,480,000đ 18,100,000đ -48%',
+        'Bếp từ Kocher 9,120,000đ 16,400,000đ -45%',
+        'Bếp từ Kocher DI-339SE 9,120,000đ 16,400,000đ -45%',
+        'Bếp từ Kocher DI-616Plus 6,900,000đ 13,290,000đ -49%'
+    ];
+    cases.forEach(c => {
+        const ext = extractSku(c);
+        console.log(`Input: "${c}"`);
+        console.log(`  => Clean: "${ext.cleanName}"`);
+        console.log(`  => SKU: "${ext.sku}" | Series: "${ext.series}"`);
+        console.log('');
+    });
+});

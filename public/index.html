@@ -218,7 +218,7 @@
         }
 
         .product-title-cell {
-            max-width: 420px;
+            max-width: 100%;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -737,13 +737,13 @@
                             <table class="table table-dark table-hover table-premium mb-0 align-middle">
                                 <thead>
                                     <tr>
-                                        <th style="width: 50px;" class="text-center">STT</th>
-                                        <th style="width: 70px;" class="text-center">Hình Ảnh</th>
-                                        <th>Tên Sản Phẩm</th>
-                                        <th style="width: 150px;">Mã Sản Phẩm</th>
-                                        <th style="width: 130px;">Dòng / Series</th>
-                                        <th style="width: 140px;" class="text-center">Giá Bán</th>
-                                        <th style="width: 100px;" class="text-center">Nguồn</th>
+                                        <th style="width: 45px;" class="text-center">STT</th>
+                                        <th style="width: 65px;" class="text-center">Hình Ảnh</th>
+                                        <th style="min-width: 250px;">Tên Sản Phẩm</th>
+                                        <th style="width: 120px;">Mã Sản Phẩm</th>
+                                        <th style="width: 100px;">Dòng / Series</th>
+                                        <th style="width: 110px;" class="text-center">Giá Bán</th>
+                                        <th style="width: 85px;" class="text-center">Nguồn</th>
                                     </tr>
                                 </thead>
                                 <tbody id="vungDuLieu">
@@ -870,18 +870,25 @@
         const fallbackImgSrc = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzk0YTNCOCI+PHBhdGggZD0iTTIxIDE5VjVjMC0xLjEtLjktMi0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnpNOC41IDEzLjVsMi41IDMuMDFMMTQuNSAxMmw0LjUgNkg1bDMuNS00LjV6Ii8+PC9zdmc+';
 
         function extractSku(fullName) {
+            // Clean price patterns like 9,480,000đ, 18.100.000 đ, etc.
+            let cleanText = fullName.replace(/\b\d+(?:[.,]\d{3})*\s*(?:đ|₫|VND|vnđ|vnd)/gi, '');
+            // Clean discount percentage like -48% or 48%
+            cleanText = cleanText.replace(/[-+]\s*\d+\s*%/g, '');
+            // Clean multiple spaces
+            cleanText = cleanText.replace(/\s+/g, ' ').trim();
+
             let codes = [];
             
             // Pattern 1: Dotted codes (Hafele)
             const dotReg = /\b\d{3}\.\d{2}\.\d{3}\b/g;
             let match;
-            while ((match = dotReg.exec(fullName)) !== null) {
+            while ((match = dotReg.exec(cleanText)) !== null) {
                 codes.push(match[0]);
             }
             
-            // Pattern 2: Comprehensive alphanumeric model code matching (case-sensitive)
-            const modelReg = /\b(?:[A-Z]{2,4}[- ]?)?[A-Z]*\d+[A-Z0-9]*(?:[-/][A-Z0-9]+)*(?:[- ](?:PLUS|PRO|NOTE|KPLUS|EG|VN|EVN|IN|II|IG|Z|S|G|Plus|Pro|Note|Kplus|Iplus))?\b/g;
-            while ((match = modelReg.exec(fullName)) !== null) {
+            // Pattern 2: Comprehensive alphanumeric model code matching (case-insensitive)
+            const modelReg = /\b(?:[A-Z]{2,4}[- _]?)?[A-Z_]*\d+[A-Z0-9_]*(?:[-/_][A-Z0-9_]+)*(?:[- ]?(?:PLUS|PRO|NOTE|KPLUS|EG|VN|EVN|IN|II|IG|Z|S|G))?\b/gi;
+            while ((match = modelReg.exec(cleanText)) !== null) {
                 codes.push(match[0]);
             }
 
@@ -931,10 +938,10 @@
                 return !uniqueCodes.some(other => other !== c && other.toLowerCase().includes(c.toLowerCase()));
             });
             
-            let cleanName = fullName;
+            let cleanName = cleanText;
             uniqueCodes.forEach(code => {
                 const escapedCode = code.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const reg = new RegExp(escapedCode, 'g');
+                const reg = new RegExp(escapedCode, 'gi');
                 cleanName = cleanName.replace(reg, '');
             });
             
