@@ -1,92 +1,73 @@
-# History of Modifications
+# Lịch sử Chỉnh sửa & Cải tiến Dự án (History of Modifications)
 
-## Added Files
-- [.node-version](file:///d:/Work/cong-cu-cao-web-ver-2/.node-version): Specified Node.js version `22.17.0` for Netlify deployments to fulfill requirements of `@sparticuz/chromium`.
+## File Thêm mới (Added Files)
+- [.node-version](file:///d:/Work/cong-cu-cao-web-ver-2/.node-version): Cấu hình khóa phiên bản Node.js ở `22.17.0` cho môi trường deploy của Netlify để đáp ứng yêu cầu của thư viện `@sparticuz/chromium`.
 
-## Modified Files
+## File Chỉnh sửa (Modified Files)
 - [netlify/functions/scrape.js](file:///d:/Work/cong-cu-cao-web-ver-2/netlify/functions/scrape.js):
-  - Isolated `@sparticuz/chromium` to only load when in production Serverless (AWS Lambda) environments, skipping it in local development (`netlify dev`) to prevent executable spawning errors.
-  - Added try-catch blocks to request interception functions to prevent requests from hanging.
-  - Wrapped `page.evaluate` in a try-catch block to fall back to static HTML scraping via Cheerio if the browser's execution context is destroyed or page is navigating.
-  - Replaced the top-level CommonJS `require('puppeteer-core')` with an asynchronous dynamic `import('puppeteer-core')` inside the handler function to avoid `ERR_REQUIRE_ESM` when running on AWS Lambda.
-  - Implemented DOM tree-distance proximity matching (using custom `getCheerioDistance` and `getDOMDistance` helpers) in both Cheerio and Puppeteer paths to associate each price node with its mathematically closest title/link. This resolves cross-talk and duplication issues when crawing pages containing multiple product sections/grids.
-  - Added `isLayoutContainer` helper to prevent parent traversal from going up into layout-level containers (like grids, rows, lists, body, main). This limits parent traversal to single-product cards, preventing runaway page-wide `querySelectorAll` searches and resolving the HTTP 502 function timeout.
-  - Increased Cheerio fast-path threshold from 3 to 8. This avoids returning recommended/featured items prematurely on category pages that render main products dynamically.
-  - Merged remote `phucsang/main` changes containing general `<script>` tag selection logic for `productSaleSetup` extraction.
+  - Khắc phục lỗi nạp thư viện trình duyệt ảo serverless khi chạy local trên Windows (chỉ chạy trên AWS Lambda).
+  - Chuyển đổi lệnh nạp `puppeteer-core` sang import động `await import()` để sửa lỗi `ERR_REQUIRE_ESM` trên Netlify.
+  - Tích hợp cơ chế cào dữ liệu bằng khoảng cách DOM (DOM Distance Proximity Matching) để ghép cặp giá tiền với tiêu đề/link sản phẩm gần nhất, tránh bị sai lệch chéo thông tin.
+  - Giới hạn độ cao khi duyệt cây DOM bằng bộ lọc `isLayoutContainer` để tránh duyệt lên các container bố cục trang lớn, tránh quá tải CPU và sửa lỗi Timeout 502.
+  - Tăng ngưỡng số lượng sản phẩm của Cheerio nhanh từ 3 lên 8 để tối ưu tốc độ cào.
+  - Tích hợp hàm helper `isHomepage` và `extractCategoryLinksCheerio` để tự động bóc tách các liên kết danh mục từ menu điều hướng khi truy cập trang chủ.
+  - Cải tiến bộ bóc tách link danh mục (`extractCategoryLinksCheerio`): mở rộng selectors hỗ trợ các thuộc tính ID (`#nav`, `[id*="nav"]`, `[id*="menu"]`...) để khắc phục lỗi không nhận diện được menu trên các trang như `bep365.vn`. Đồng thời bổ sung thuật toán lọc loại trừ các danh mục con trùng lặp để giảm thiểu số lượng link quét dư thừa, tăng hiệu năng.
+  - Tích hợp hàm lọc danh mục thông minh `matchesCategory` dựa trên danh sách từ khóa sản phẩm cốt lõi (bếp, hút mùi, rửa chén, chậu vòi, tủ lạnh, máy giặt, nồi chảo...) để chỉ cào các danh mục liên quan theo yêu cầu.
 - [netlify.toml](file:///d:/Work/cong-cu-cao-web-ver-2/netlify.toml):
-  - Added `functions = "netlify/functions"` under `[build]` to ensure the Netlify builder and CLI locate and deploy the serverless functions folder, resolving 404 errors on `/api/*` endpoints.
+  - Thêm cấu hình `functions = "netlify/functions"` trong khối `[build]` để giải quyết triệt để lỗi 404 API khi deploy.
 - [public/index.html](file:///d:/Work/cong-cu-cao-web-ver-2/public/index.html):
-  - Merged new UI changes from remote branch. Added SKU (Mã sản phẩm) and Series parsing, display in UI table/grid, searching capabilities, and CSV/Shopify export mapping.
-  - Changed the early-exit condition to break the sequential page loop if a page yields 0 new items (`newCount === 0`) instead of `products.length === 0`. This stops useless repeated crawing of identical pages.
-  - Cleaned up redundant early stop checks in frontend logic after merging remote `phucsang/main` changes.
-  - Redesigned and updated `extractSku` to use case-sensitive matching, list of excluded common words (e.g. gas, vùng, nấu, etc.), and immediate validation bypass for Hafele dotted codes, resolving inaccurate and false-positive extraction.
-  - Added URL input mode switcher (Single manual URL vs .txt file upload containing a list of newline-separated URLs) to support bulk category crawling in a single execution.
-  - Replaced collapsible accordion with an always-visible, beautifully styled glass advanced settings panel to improve UX.
-  - Added a Jaccard token-based similarity fuzzy matching algorithm (with a 60% threshold, excluding catalog stop words) to match and group products that do not have an extracted SKU/Series.
-  - Added a Price Comparison View ('So sánh' tab mode) that clusters products by SKU or Jaccard similarity and highlights the lowest ('Rẻ nhất') and highest ('Cao nhất') prices in real-time.
+  - Nâng cấp giao diện hiển thị, bổ sung mã sản phẩm (SKU) và dòng sản phẩm (Series).
+  - Thêm tính năng cào hàng loạt từ danh sách URL trong file `.txt`.
+  - Thiết kế lại mục cấu hình nâng cao dạng hộp kính (glassmorphism) đẹp mắt.
+  - Thêm thuật toán Fuzzy Matching (độ tương đồng Jaccard 60%) để gom nhóm sản phẩm không có SKU/Series.
+  - Thêm tính năng **So sánh giá (Price Comparison)** thời gian thực giữa các website khác nhau, làm nổi bật giá rẻ nhất và đắt nhất.
+  - Tối ưu hóa bộ lọc từ khóa rác, loại bỏ các hậu tố màu sắc hoặc thông số kim loại để gom nhóm so sánh chính xác hơn.
+  - Ngăn so sánh giá các sản phẩm từ cùng một tên miền (domain).
+  - Thêm cơ chế nhận diện combo/bộ sản phẩm và dừng quét khi trang không sinh thêm sản phẩm mới.
+  - Bổ sung tùy chọn `autoScanCategories` ("Tự động tìm danh mục khi nhập trang chủ") và tích hợp logic tự động đẩy các danh mục con vào hàng đợi và chạy quét tuần tự ở phía client.
+  - Khắc phục lỗi tương phản màu chữ/màu nền trên các nhãn SKU và Series (chuyển sang các class CSS tùy chỉnh tự định nghĩa `.badge-sku`, `.badge-series` và `.badge-auto` để đảm bảo độ tương phản màu chữ sáng rõ trên nền tối/bán trong suốt).
 - [test-fetch.mjs](file:///d:/Work/cong-cu-cao-web-ver-2/test-fetch.mjs):
-  - Updated SKU/Series extraction testing logic to align with the frontend improvements.
+  - Cập nhật logic trích xuất SKU/Series độc lập đồng bộ với frontend để phục vụ kiểm thử.
 
-## Deleted Files
-- None.
+## File Xóa bỏ (Deleted Files)
+- Không có.
 
-## Commands Executed
-- `npx netlify dev --port 8889 --staticServerPort 8890 --functions-port 4001`: Started local netlify dev server on custom ports for testing.
-- `curl.exe "http://localhost:8889/api/scrape?url=https://bepxanh.com/bep-tu.html"`: Verified fast path scraping (Cheerio).
-- `curl.exe "http://localhost:8889/api/scrape?url=https://example.com"`: Verified fallback browser path (Puppeteer) and robustness fixes.
-- `git remote set-url origin https://github.com/tomyrese/crawldata.git`: Changed remote origin to user's repository.
-- `git push -u origin main`: Pushed codebase to user's repository.
-- `git commit -am "Fix require of ES Module puppeteer-core on Netlify" && git push origin main`: Pushed the dynamic import fix.
-- `git remote add phucsang https://github.com/phucsangg/cong-cu-cao-web-ver-2.git`: Added phucsang repository as remote.
-- `git push phucsang main`: Pushed final codebase with fixes to phucsang's repository.
-- `git status`: Checked working directory status.
-- `git remote -v`: Verified configure git remotes.
-- `git fetch phucsang`: Fetched updates from phucsang remote.
-- `git log HEAD..phucsang/main --oneline`: Evaluated incoming commits from the phucsang remote.
-- `git merge phucsang/main`: Fast-forwarded local branch to the latest remote state.
-- `git config --local user.email "phuquynguyen458@gmail.com"`: Configured local Git email.
-- `git config --local user.name "Wuys"`: Configured local Git name.
-- `git push origin main`: Pushed the merged commits to the origin remote.
-- `node -c netlify/functions/scrape.js`: Syntax-checked scrape.js.
-- `git commit -am "fix: implement DOM distance-based proximity matching to resolve multi-section product scraping collisions"`: Committed code changes.
-- `git push origin main`: Pushed updates to origin remote.
-- `git commit -am "fix: raise Cheerio fast-path threshold and stop page crawing on zero new items"`: Committed threshold and page-exit fixes.
-- `git push origin main`: Pushed updates to origin remote.
-- `git push origin main`: Pushed updates to origin remote.
-- `git fetch phucsang`: Fetched remote branch from phucsang remote.
-- `git merge phucsang/main`: Merged remote commits from phucsang/main into local main.
-- `git push phucsang main`: Pushed final codebase with fixes to phucsang's repository.
-- `node test-fetch.mjs`: Verified updated SKU/Series extraction logic with real catalog data.
-- `npx netlify dev --port 8889 --staticServerPort 8890 --functions-port 4001`: Ran local server to verify TXT import loop crawling and new dashboard UI changes.
-- `git add public/index.html history.md`: Staged recent changes.
-- `git commit -m "feat: add support for importing list of URLs from TXT file and make advanced configuration panel always visible"`: Committed TXT import and advanced config panel.
-- `git push origin main` / `git push phucsang main`: Synchronized remotes with TXT import features.
+## Các lệnh chính đã thực thi (Commands Executed)
+- Chạy thử nghiệm dev server local (`npx netlify dev --port 8889 --staticServerPort 8890 --functions-port 4001`).
+- Đồng bộ mã nguồn lên hai kho lưu trữ GitHub:
+  - Repository cá nhân: `https://github.com/tomyrese/crawldata.git` (Remote: `origin`)
+  - Repository gốc: `https://github.com/phucsangg/cong-cu-cao-web-ver-2.git` (Remote: `phucsang`)
+- Chạy kiểm thử trích xuất dữ liệu (`node test-fetch.mjs`).
 
-## Bugs Found
-1. **Fallback Path Bypass on Local Dev (Windows)**: `@sparticuz/chromium` was imported and initialized on local Windows machines because the module is installed. `chromium.executablePath()` returned a folder/path that exists, so `fs.promises.access` succeeded, but running `puppeteer.launch` failed because it's not a valid Windows executable. This bypassed the local Chrome/Edge fallback search.
-2. **Hanging Network Requests**: No error handling inside Puppeteer's `page.on('request')` hook, which caused requests to hang on redirect or when already handled, leading to page goto timeouts.
-3. **Execution Context Destroyed Error**: If page navigation is delayed or times out, calling `page.evaluate` threw `Execution context was destroyed`, causing the function to crash instead of parsing the loaded HTML.
-4. **Node Version Engine Mismatch on Serverless**: `@sparticuz/chromium` v149.0.0 requires Node.js `>= 22.17.0` or `>= 24.0.0`. If Netlify environment uses default Node (e.g. 18 or 20), it would fail to compile or execute.
-5. **Missing Functions Directory Config (404 Error)**: The `functions` property was missing in the `[build]` block of `netlify.toml`. This caused Netlify CLI / builder to skip deploying the serverless functions directory, resulting in HTTP 404 when querying `/api/*`.
-6. **ERR_REQUIRE_ESM on AWS Lambda for puppeteer-core**: `puppeteer-core` version 25.1.0 is a pure ES Module. Calling `require('puppeteer-core')` at the top level of a CommonJS file (`scrape.js`) throws `ERR_REQUIRE_ESM` when executed in the production AWS Lambda environment, crashing the serverless endpoint and returning a 502 Bad Gateway.
-7. **Cross-talk & Duplicate Filtering in Multi-Section Pages**: In pages containing multiple product sections or grids, crawing got stuck repeatedly crawing only 1 section (getting duplicate entries of the first section's items). This happened because the scraper traversed up to 5 levels to find product titles and links, but when it reached a higher-level container (such as a row, swiper wrapper, or grid) containing multiple products, it called `querySelectorAll` or `.find()` globally on it, returning the first product's title for *all* products in that container. The de-duplication stage then discarded all other products as duplicates.
-8. **Premature Cheerio Fast-Path Success on Dynamic Category Pages**: When crawing dynamic category pages (e.g. `bep-tu.html`), the raw HTML contains no actual products but has a few featured/recommended products statically rendered. The Cheerio fast-path scraped these 4-6 featured products. Since this is >= 3 (the original threshold), the scraper returned them immediately and skipped Puppeteer. On page 2, 3, etc., the scraper fetched the same static HTML, returning the same featured products which were discarded as duplicates, resulting in 0 new products.
-9. **Infinite Page Fetch Loop on Duplicate Pages**: If a category page ignores page parameters (e.g. returning page 1's products on page 2) or has only 1 page, the scraper got stuck in an infinite page-crawing loop because the break condition only checked if `products.length === 0`, which is false since it keeps returning the same products.
-10. **Runaway Page-Wide DOM Distance Calculation & Function Timeout (HTTP 502)**: When crawing pages where certain price nodes did not have valid titles close by, parent traversal went up to the root element (`<body>` or `<html>`). At this level, it performed `parent.querySelectorAll` which returned thousands of elements, and calculated tree-distance for each of them. This O(N^2) complexity froze the browser thread during `page.evaluate`, causing the Netlify Function to hang and time out, resulting in HTTP 502 Bad Gateway after 40 seconds.
-11. **Inaccurate and False-Positive SKU and Series Extraction**: The model extraction regex used case-insensitive matching (`/i`) which caused normal lowercase words like "gas 3" in "Bếp gas 3 vùng nấu" to be incorrectly matched as a product SKU. It also struggled with complex hyphenated model numbers (like `HS20-SSN2R90M` which was split into two separate codes) and failed to extract purely numeric Hafele article codes (`536.01.695`) due to requiring at least one letter.
+## Lỗi đã phát hiện (Bugs Found)
+1. **Trình duyệt ảo local bị lỗi spawn**: `@sparticuz/chromium` bị crash trên hệ điều hành Windows local.
+2. **Hành vi treo mạng**: Xảy ra ở Puppeteer khi điều hướng trang khiến quá trình cào bị dừng hoặc quá hạn.
+3. **Sập ngữ cảnh trình duyệt (`Execution context was destroyed`)**: Khiến hàm scrape bị sập nếu trang tải chậm hoặc tự điều hướng.
+4. **Sai phiên bản Node trên Netlify**: Dẫn đến lỗi không biên dịch được `@sparticuz/chromium` v149.
+5. **Lỗi 404 API khi lên Netlify**: Do Netlify bỏ qua không deploy thư mục functions khi thiếu chỉ thị.
+6. **Lỗi `ERR_REQUIRE_ESM` của `puppeteer-core`**: Không cho phép `require()` thư viện ES Module trong CommonJS.
+7. **Sai lệch thông tin trong trang nhiều sản phẩm**: Do cơ chế cào cũ lấy trùng tiêu đề của sản phẩm đầu tiên cho toàn bộ khối.
+8. **Cào thiếu sản phẩm trên trang động**: Cheerio nhanh trả về kết quả ảo quá sớm (các sản phẩm nổi bật tĩnh) khiến bỏ qua Puppeteer.
+9. **Lặp trang vô hạn**: Cào mãi một danh mục duy nhất khi hết trang nhưng hệ thống vẫn tiếp tục gửi yêu cầu.
+10. **Lỗi 502 Timeout khi tính khoảng cách DOM**: Duyệt lên quá cao khiến trình duyệt ảo bị đơ do quá tải tính toán.
+11. **Trích xuất SKU/Series sai lệch**: Nhận diện nhầm các từ khóa tiếng Việt (như "gas 3") hoặc bị tách nhỏ mã sản phẩm dài do RegEx thô sơ.
+12. **So sánh giá chéo lẫn lộn**: Nhóm các sản phẩm trên cùng một website để so sánh với nhau hoặc gom nhóm sai do lệch mã màu variants.
+13. **Không cào được sản phẩm từ link trang chủ thô**: Khi nhập link trang chủ (e.g. `kitchenstore.com.vn`), hệ thống chỉ lấy được sản phẩm nổi bật trên trang chủ, không tự động đi sâu vào danh mục sản phẩm con.
 
-## Fixes Applied
-1. Prevented `@sparticuz/chromium` from loading when not on AWS Lambda or when `NETLIFY_DEV` is true.
-2. Added try-catch and `isInterceptResolutionHandled()` checks to Puppeteer request interception.
-3. Wrapped `page.evaluate` in a try-catch that falls back to grabbing static `page.content()` and parsing it via Cheerio.
-4. Added `.node-version` file to lock Node.js version on Netlify to `22.17.0`.
-5. Explicitly defined `functions = "netlify/functions"` under `[build]` in `netlify.toml`.
-6. Loaded `puppeteer-core` dynamically inside the handler via `await import('puppeteer-core')` to support ES module loading in a CommonJS function.
-7. **DOM Distance Proximity Matching**: Replaced the first-match logic in parent traversal with tree-distance calculation (`getCheerioDistance` in Cheerio, `getDOMDistance` in Puppeteer). Now, the scraper evaluates all candidate titles/links under the parent and pairs each price node with its mathematically closest title/link in the DOM tree.
-8. **Increased Fast-Path Threshold**: Increased the fast-path Cheerio threshold from 3 to 8. Category pages with fewer than 8 static products will fallback to Puppeteer to execute JS, scroll, and capture all products.
-9. **New Product Exit Condition**: Changed the break condition in sequential crawing to stop if a page yields 0 new/unique products (`newCount === 0`) instead of `products.length === 0`.
-10. **Layout Container Early Break**: Added `isLayoutContainer` check during parent traversal. It immediately breaks the loop when hitting multi-product layout elements (like rows, grids, lists, sections, main, or page body), keeping searches local to single-product cards and avoiding runaway calculations.
-11. **Refined SKU and Series Extraction**: Updated `extractSku` in `public/index.html` to use a strict case-sensitive regex for uppercase brand prefixes and model numbers. Introduced a comprehensive validator (`isValidSku` logic) to filter out common Vietnamese kitchen catalog words and general measurement units. Added an immediate bypass check for Hafele-style dotted codes, and improved hyphenated/slashed model group support.
+## Các bản vá đã áp dụng (Fixes Applied)
+1. Giới hạn `@sparticuz/chromium` chỉ chạy trên AWS Lambda, local dùng trình duyệt Chrome/Edge cài sẵn.
+2. Thêm try-catch và kiểm tra trạng thái yêu cầu mạng trong sự kiện `page.on('request')`.
+3. Bổ sung cơ chế tự động chuyển sang phân tích tĩnh Cheerio qua `page.content()` nếu evaluate lỗi.
+4. Cài đặt file `.node-version` khóa phiên bản Node.js `22.17.0`.
+5. Bổ sung đường dẫn `functions` vào `netlify.toml`.
+6. Sử dụng import động `await import('puppeteer-core')` trong hàm handler.
+7. Tích hợp giải thuật so khớp khoảng cách DOM ngắn nhất (DOM Distance Proximity Matching).
+8. Nâng ngưỡng kết quả cào nhanh Cheerio lên tối thiểu 8 sản phẩm.
+9. Dừng vòng lặp cào trang khi không phát hiện thêm sản phẩm mới (`newCount === 0`).
+10. Sử dụng bộ chặn `isLayoutContainer` giới hạn phạm vi tính khoảng cách DOM trong từng thẻ sản phẩm đơn lẻ.
+11. Nâng cấp RegEx trích xuất phân biệt chữ hoa-thường, bộ lọc từ cấm tiếng Việt và nhận diện mã Hafele.
+12. Lọc bỏ mã màu ở đuôi SKU, bỏ qua so sánh nội bộ cùng domain và tách biệt combo thông qua chữ "tặng", "+", "combo".
+13. Tích hợp bộ giải quyết điều phối tuần tự (sequential client-side queue) khi phát hiện trang chủ, kết hợp hàm bóc tách link danh mục (`extractCategoryLinksCheerio`) ở phía backend.
 
-## Remaining Issues
-- None.
+## Vấn đề còn lại (Remaining Issues)
+- Không có.

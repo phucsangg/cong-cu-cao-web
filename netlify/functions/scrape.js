@@ -3,6 +3,117 @@ const fs = require('fs');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper to check if a URL is a homepage
+function isHomepage(urlStr) {
+    try {
+        const parsed = new URL(urlStr);
+        const path = parsed.pathname.toLowerCase();
+        return path === '/' || path === '' || path === '/index.html' || path === '/index.php' || path === '/index.htm';
+    } catch (e) {
+        return false;
+    }
+}
+
+// Helper to check if a category link matches the user's target product categories
+function matchesCategory(text, path) {
+    const cleanText = (text || '').toLowerCase().trim();
+    const cleanPath = (path || '').toLowerCase().trim();
+    
+    const keywords = [
+        'bếp', 'bep', 'gas', 'ga', 'hút mùi', 'hut mui', 'rửa chén', 'rua chen', 'rửa bát', 'rua bat',
+        'lò nướng', 'lo nuong', 'vi sóng', 'vi song', 'chậu', 'chau', 'vòi', 'voi', 'tủ lạnh', 'tu lanh',
+        'máy giặt', 'may giat', 'máy sấy', 'may say', 'nồi', 'noi', 'chảo', 'chao', 'siêu tốc', 'sieu toc',
+        'máy xay', 'may xay', 'máy ép', 'may ep', 'bàn ủi', 'ban ui', 'bàn là', 'ban la', 'hút bụi', 'hut bui',
+        'quạt', 'quat', 'gia dụng', 'gia dung', 'tủ đông', 'tu dong', 'lò vi sóng', 'lo vi song', 'chén bát',
+        'chen bat', 'chậu rửa', 'chau rua', 'vòi rửa', 'voi rua', 'âm tủ', 'am tu'
+    ];
+
+    return keywords.some(kw => cleanText.includes(kw) || cleanPath.includes(kw.replace(/\s+/g, '-')));
+}
+
+// Helper to extract category links using Cheerio
+function extractCategoryLinksCheerio(html, baseUrl) {
+    const $ = cheerio.load(html);
+    const links = new Set();
+    let hostname = '';
+    try {
+        hostname = new URL(baseUrl).hostname;
+    } catch (e) {
+        return [];
+    }
+
+    const selector = 'nav a, #nav a, [id*="nav"] a, [class*="nav"] a, [id*="menu"] a, [class*="menu"] a, [id*="category"] a, [class*="category"] a, [id*="categories"] a, [class*="categories"] a, .megamenu a';
+
+    $(selector).each((i, el) => {
+        let href = $(el).attr('href');
+        if (!href) return;
+        href = href.trim();
+        if (href.startsWith('javascript:') || href.startsWith('#')) return;
+
+        let absoluteUrl = '';
+        try {
+            absoluteUrl = new URL(href, baseUrl).href;
+        } catch (e) {
+            return;
+        }
+
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(absoluteUrl);
+        } catch (e) {
+            return;
+        }
+
+        if (parsedUrl.hostname !== hostname) return;
+
+        const path = parsedUrl.pathname.toLowerCase();
+        
+        // Match user requested product categories only
+        const txt = $(el).text() || '';
+        if (!matchesCategory(txt, path)) return;
+
+        // Exclude standard non-category pages
+        const exclusions = [
+            '/tin-tuc', '/lien-he', '/gioi-thieu', '/cart', '/checkout', '/login', 
+            '/register', '/account', '/search', '/tin-cong-nghe', '/chinh-sach',
+            '/huong-dan', '/tuyen-dung', '/show-room', '/bao-hanh', '/tra-gop',
+            '/he-thong-dai-ly', '/hinh-thuc-mua-hang', '/hinh-thuc-thanh-toan',
+            '/dieu-khoan-su-dung', '/chinh-sach-bao-mat', '/chinh-sach-doi-tra',
+            '/chinh-sach-giao-nhan', '/chinh-sach-bao-mat-thong-tin', '/taikhoan'
+        ];
+        
+        if (path === '/' || path === '' || path === '/index.html' || path === '/index.php' || path === '/index.htm') return;
+        
+        if (exclusions.some(exc => path.includes(exc))) return;
+
+        // Add URL without query string
+        links.add(parsedUrl.origin + parsedUrl.pathname);
+    });
+
+    const uniqueLinks = Array.from(links);
+    
+    // Heuristic: filter out subcategory links if the parent category link exists.
+    // e.g. if we have '/bep-tu.html', filter out '/bep-tu-bosch.html'
+    const filteredLinks = uniqueLinks.filter(url => {
+        try {
+            const p = new URL(url).pathname.replace('.html', '').toLowerCase();
+            const hasParent = uniqueLinks.some(otherUrl => {
+                if (otherUrl === url) return false;
+                const otherP = new URL(otherUrl).pathname.replace('.html', '').toLowerCase();
+                if (otherP.length >= p.length) return false;
+                return p.startsWith(otherP + '-') || p.includes('/' + otherP + '-');
+            });
+            return !hasParent;
+        } catch (e) {
+            return true;
+        }
+    });
+
+    // Limit to max 150 categories to protect client execution
+    return filteredLinks.slice(0, 150);
+}
+
+
 // Helper to check if text is a valid price format
 function checkIfPrice(text) {
     text = text.trim().toLowerCase();
@@ -116,7 +227,10 @@ function runCheerioScrape(html, url, pageNum, log) {
         'giỏ hàng', 'tài khoản', 'showroom', 'tuyển dụng', 'địa chỉ',
         'hotline', 'góp ý', 'bảo hành', 'trả góp', 'thương hiệu',
         'nổi bật', 'cổ điển', 'xem thêm', 'danh mục', 'giới thiệu',
-        'đăng ký', 'đăng nhập', 'tin công nghệ', 'hệ thống', 'sơ đồ'
+        'đăng ký', 'đăng nhập', 'tin công nghệ', 'hệ thống', 'sơ đồ',
+        'khuyến mãi', 'khuyen mai', 'ưu đãi', 'uu dai', 'nhập mã', 'nhap ma',
+        'mã giảm giá', 'ma giam gia', 'quà tặng', 'qua tang', 'thông số', 'thong so',
+        'kỹ thuật', 'ky thuat', 'mô tả', 'mo ta', 'chi tiết', 'chi tiet', 'đặc điểm', 'dac diem'
     ];
 
     // 1. Process script-based prices (e.g. bepxanh.com productSaleSetup)
@@ -437,10 +551,14 @@ exports.handler = async (event, context) => {
             
             if (products.length >= 8) {
                 log(`Thành công! Tìm thấy ${products.length} sản phẩm (qua kênh cào nhanh Cheerio).`, 'success');
+                const responseBody = { products, logs };
+                if (isHomepage(targetUrl)) {
+                    responseBody.categoryLinks = extractCategoryLinksCheerio(html, targetUrl);
+                }
                 return {
                     statusCode: 200,
                     headers,
-                    body: JSON.stringify({ products, logs })
+                    body: JSON.stringify(responseBody)
                 };
             } else {
                 log(`Kênh cào nhanh tìm thấy ít sản phẩm (${products.length}). Chuyển sang trình duyệt ảo Puppeteer...`, 'warning');
@@ -608,7 +726,10 @@ exports.handler = async (event, context) => {
                     'giỏ hàng', 'tài khoản', 'showroom', 'tuyển dụng', 'địa chỉ',
                     'hotline', 'góp ý', 'bảo hành', 'trả góp', 'thương hiệu',
                     'nổi bật', 'cổ điển', 'xem thêm', 'danh mục', 'giới thiệu',
-                    'đăng ký', 'đăng nhập', 'tin công nghệ', 'hệ thống', 'sơ đồ'
+                    'đăng ký', 'đăng nhập', 'tin công nghệ', 'hệ thống', 'sơ đồ',
+                    'khuyến mãi', 'khuyen mai', 'ưu đãi', 'uu dai', 'nhập mã', 'nhap ma',
+                    'mã giảm giá', 'ma giam gia', 'quà tặng', 'qua tang', 'thông số', 'thong so',
+                    'kỹ thuật', 'ky thuat', 'mô tả', 'mo ta', 'chi tiết', 'chi tiet', 'đặc điểm', 'dac diem'
                 ];
 
                 function checkIfPrice(text) {
@@ -851,10 +972,20 @@ exports.handler = async (event, context) => {
         const uniqueProducts = Array.from(uniqueMap.values());
         log(`Trình duyệt ảo hoàn thành. Tìm thấy ${uniqueProducts.length} sản phẩm.`, 'success');
 
+        const responseBody = { products: uniqueProducts, logs };
+        if (isHomepage(targetUrl)) {
+            try {
+                const html = await page.content();
+                responseBody.categoryLinks = extractCategoryLinksCheerio(html, targetUrl);
+            } catch (contentErr) {
+                log(`Không thể lấy HTML từ trình duyệt để trích xuất danh mục: ${contentErr.message}`, 'warning');
+            }
+        }
+
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({ products: uniqueProducts, logs })
+            body: JSON.stringify(responseBody)
         };
 
     } catch (error) {

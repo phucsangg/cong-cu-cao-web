@@ -517,6 +517,21 @@
         .text-purple-custom {
             color: #c084fc !important;
         }
+        .badge-sku {
+            background-color: rgba(6, 182, 212, 0.15) !important;
+            color: #22d3ee !important;
+            border: 1px solid rgba(6, 182, 212, 0.25) !important;
+        }
+        .badge-series {
+            background-color: rgba(245, 158, 11, 0.15) !important;
+            color: #fbbf24 !important;
+            border: 1px solid rgba(245, 158, 11, 0.25) !important;
+        }
+        .badge-auto {
+            background-color: rgba(139, 92, 246, 0.15) !important;
+            color: #c084fc !important;
+            border: 1px solid rgba(139, 92, 246, 0.25) !important;
+        }
         .hover-primary:hover {
             color: var(--primary-color) !important;
         }
@@ -626,8 +641,15 @@
                                 <input type="text" id="pageParam" class="form-control form-control-sm" value="page" disabled placeholder="e.g. page">
                             </div>
                             <div class="col-6 mb-2">
-                                <label for="maxPages" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Max Trang:</label>
-                                <input type="number" id="maxPages" class="form-control form-control-sm" value="10" min="1" max="50">
+                                <label for="maxPagesLimit" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Giới hạn trang:</label>
+                                <select id="maxPagesLimit" class="form-select form-select-sm" onchange="toggleMaxPagesField()">
+                                    <option value="fixed" selected>🔢 Nhất định</option>
+                                    <option value="all">♾️ Toàn bộ trang</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-2" id="maxPagesNumberGroup">
+                                <label for="maxPages" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Số trang:</label>
+                                <input type="number" id="maxPages" class="form-control form-control-sm" value="10" min="1" max="100">
                             </div>
                             <div class="col-6 mb-2">
                                 <label for="delayInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Độ trễ nghỉ (ms):</label>
@@ -651,6 +673,12 @@
                                 <div class="form-check form-switch">
                                     <input class="form-check-input bg-success border-secondary" type="checkbox" id="blockResources" checked>
                                     <label class="form-check-label small text-light" for="blockResources" style="font-size: 0.72rem;">Chặn tải Ảnh & Tài nguyên rác</label>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-1">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input bg-success border-secondary" type="checkbox" id="autoScanCategories" checked>
+                                    <label class="form-check-label small text-light" for="autoScanCategories" style="font-size: 0.72rem;">Tự động tìm danh mục khi nhập trang chủ</label>
                                 </div>
                             </div>
                         </div>
@@ -685,6 +713,18 @@
                             <div class="stat-card text-center">
                                 <div class="stat-label">Thời gian chạy</div>
                                 <div id="statTime" class="stat-value text-info">00:00</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center" style="min-height: 80px; display: flex; flex-direction: column; justify-content: center;">
+                                <div class="stat-label">Giá thấp nhất</div>
+                                <div id="statMinPrice" class="stat-value text-success" style="font-size: 0.82rem; line-height: 1.4; font-weight: 700;">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center" style="min-height: 80px; display: flex; flex-direction: column; justify-content: center;">
+                                <div class="stat-label">Giá cao nhất</div>
+                                <div id="statMaxPrice" class="stat-value text-danger" style="font-size: 0.82rem; line-height: 1.4; font-weight: 700;">-</div>
                             </div>
                         </div>
                     </div>
@@ -816,6 +856,11 @@
         let globalIndex = 0;
         const seenKeys = new Set();
         let netlifyScrapingActive = false;
+        
+        let globalMinPrice = Infinity;
+        let globalMinProduct = null;
+        let globalMaxPrice = -Infinity;
+        let globalMaxProduct = null;
 
         function switchUrlMode(mode) {
             activeUrlMode = mode;
@@ -870,8 +915,17 @@
         const fallbackImgSrc = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzk0YTNCOCI+PHBhdGggZD0iTTIxIDE5VjVjMC0xLjEtLjktMi0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnpNOC41IDEzLjVsMi41IDMuMDFMMTQuNSAxMmw0LjUgNkg1bDMuNS00LjV6Ii8+PC9zdmc+';
 
         function extractSku(fullName) {
+            // Space normalization for model numbers (e.g. 52 I -> 52I, 52 IH -> 52IH, 659 MCB -> 659MCB)
+            let cleanText = fullName.replace(/\b(\d+)\s+([A-Z]{1,4})/gi, (match, g1, g2, offset, str) => {
+                const nextChar = str[offset + match.length];
+                const letterRegex = /[a-zA-Zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
+                if (nextChar && letterRegex.test(nextChar)) {
+                    return match;
+                }
+                return g1 + g2;
+            });
             // Clean price patterns like 9,480,000đ, 18.100.000 đ, etc.
-            let cleanText = fullName.replace(/\b\d+(?:[.,]\d{3})*\s*(?:đ|₫|VND|vnđ|vnd)/gi, '');
+            cleanText = cleanText.replace(/\b\d+(?:[.,]\d{3})*\s*(?:đ|₫|VND|vnđ|vnd)/gi, '');
             // Clean discount percentage like -48% or 48%
             cleanText = cleanText.replace(/[-+]\s*\d+\s*%/g, '');
             // Clean multiple spaces
@@ -887,9 +941,19 @@
             }
             
             // Pattern 2: Comprehensive alphanumeric model code matching (case-insensitive)
-            const modelReg = /\b(?:[A-Z]{2,4}[- _]?)?[A-Z_]*\d+[A-Z0-9_]*(?:[-/_][A-Z0-9_]+)*(?:[- ]?(?:PLUS|PRO|NOTE|KPLUS|EG|VN|EVN|IN|II|IG|Z|S|G))?\b/gi;
+            // Allowing 1-4 letter prefixes like K- in K-10540
+            const modelReg = /\b(?:[A-Z]{1,4}[- _]?)?[A-Z_]*\d+[A-Z0-9_]*(?:[-/_][A-Z0-9_]+)*(?:[- ]?(?:PLUS|PRO|NOTE|KPLUS|EG|VN|EVN|IN|II|IG|Z|S|G|[A-Z]{2,4}))?\b/gi;
             while ((match = modelReg.exec(cleanText)) !== null) {
-                codes.push(match[0]);
+                const matched = match[0];
+                const prevChar = match.index > 0 ? cleanText[match.index - 1] : '';
+                const nextChar = cleanText[match.index + matched.length];
+                const letterRegex = /[a-zA-Zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
+                const isPrevLetter = prevChar && letterRegex.test(prevChar);
+                const isNextLetter = nextChar && letterRegex.test(nextChar);
+                
+                if (!isPrevLetter && !isNextLetter) {
+                    codes.push(matched);
+                }
             }
 
             let uniqueCodes = [...new Set(codes)];
@@ -904,6 +968,19 @@
                 
                 // Must contain at least one digit and one letter
                 if (!/[A-Z]/.test(clean) || !/\d/.test(clean)) return false;
+                
+                // Exclude materials (e.g. INOX, INOX304, SUS304, SS304, etc.)
+                if (/(?:INOX|SUS|SS304|SS201|SS316|SS430|S304|S201|S316|S430)/i.test(clean)) {
+                    return false;
+                }
+                if (/^(?:INOX|SUS)$/i.test(clean)) {
+                    return false;
+                }
+                
+                // Exclude package quantity multipliers like 'x 4', 'x4'
+                if (/^X\s*\d+$/i.test(clean)) {
+                    return false;
+                }
                 
                 // Exclude common words
                 const excludedWords = [
@@ -962,7 +1039,7 @@
             let baseSkus = [];
             let seriesSuffixes = [];
             
-            const suffixRegex = /\s*(EG\/KPLUS|EG|KPLUS|PLUS|Iplus|EVN|VN|IN|PRO|NOTE|II|IG|Z|S|G|Plus|Pro|Note|Kplus)$/i;
+            const suffixRegex = /\s*(EG\/KPLUS|EG|KPLUS|PLUS|Iplus|EVN|VN|IN|PRO|NOTE|II|IG|Z|S|G|Plus|Pro|Note|Kplus|[A-Z]{2,4})$/i;
             uniqueCodes.forEach(code => {
                 const matchSuffix = code.match(suffixRegex);
                 if (matchSuffix) {
@@ -998,6 +1075,16 @@
                 field.disabled = true;
                 if (parallelGroup) parallelGroup.style.display = 'none';
                 if (concurrencyGroup) concurrencyGroup.style.display = 'none';
+            }
+        }
+
+        function toggleMaxPagesField() {
+            const limitMode = document.getElementById('maxPagesLimit').value;
+            const numGroup = document.getElementById('maxPagesNumberGroup');
+            if (limitMode === 'fixed') {
+                numGroup.classList.remove('d-none');
+            } else {
+                numGroup.classList.add('d-none');
             }
         }
 
@@ -1054,7 +1141,16 @@
                 .replace(/[^a-z0-9\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/g, '') // Keep Vietnamese characters
                 .trim();
             const words = clean.split(/\s+/);
-            const stopWords = ['bếp', 'từ', 'điện', 'hồng', 'ngoại', 'máy', 'hút', 'mùi', 'lò', 'vi', 'sóng', 'nướng', 'rửa', 'chén', 'bát', 'âm', 'dương', 'nhập', 'khẩu', 'chính', 'hãng', 'giá', 'rẻ', 'đôi', 'ba', 'bốn', 'vùng', 'nấu', 'kính'];
+            const stopWords = [
+                'bếp', 'từ', 'điện', 'hồng', 'ngoại', 'máy', 'hút', 'mùi', 'lò', 'vi', 'sóng', 'nướng', 'rửa', 'chén', 'bát', 'âm', 'dương', 'nhập', 'khẩu', 'chính', 'hãng', 'giá', 'rẻ', 'đôi', 'ba', 'bốn', 'vùng', 'nấu', 'kính',
+                'inox', '304', '201', '316', '430', 'sus', 'thép', 'không', 'gỉ', 'cái', 'chiếc', 'set', 'hộp', 'khay', 'giá', 'kệ', 'bộ', 'chậu', 'vòi',
+                'nero', 'grey', 'gray', 'xám', 'xam', 'black', 'đen', 'den', 'white', 'trắng', 'trang',
+                'silver', 'bạc', 'bac', 'red', 'đỏ', 'do', 'gold', 'vàng', 'vang', 'bronze', 'đồng', 'dong',
+                'cream', 'kem', 'brown', 'nâu', 'nau', 'stone', 'chrome', 'copper', 'metal', 'yellow',
+                'blue', 'green', 'pink', 'orange', 'titan', 'titanium', 'graphite', 'carbon', 'anthracite',
+                'clay', 'jade', 'pearl', 'sand', 'beige', 'ivory', 'màu', 'mau', 'ghi', 'blk', 'bk', 'wh', 'wt',
+                'gr', 'gy', 'gd', 'cr', 'ch', 'ss'
+            ];
             return words.filter(w => w.length > 1 && !stopWords.includes(w));
         }
 
@@ -1075,13 +1171,110 @@
         function groupAndCompareProducts() {
             const skuGroups = {};
             const fuzzyGroups = [];
+
+            function stripColors(str) {
+                if (!str) return '';
+                let upper = str.toUpperCase().trim();
+                const colorKeywords = [
+                    'NERO', 'GREY', 'GRAY', 'XAM', 'XÁM', 'BLACK', 'DEN', 'ĐEN', 'WHITE', 'TRANG', 'TRẮNG',
+                    'SILVER', 'BAC', 'BẠC', 'RED', 'DO', 'ĐỎ', 'GOLD', 'VANG', 'VÀNG', 'BRONZE', 'DONG', 'ĐỒNG',
+                    'CREAM', 'KEM', 'BROWN', 'NAU', 'NÂU', 'STONE', 'CHROME', 'COPPER', 'METAL', 'YELLOW',
+                    'BLUE', 'GREEN', 'PINK', 'ORANGE', 'TITAN', 'TITANIUM', 'GRAPHITE', 'CARBON', 'ANTHRACITE',
+                    'CLAY', 'JADE', 'PEARL', 'SAND', 'BEIGE', 'IVORY', 'GHI',
+                    'BLK', 'BK', 'WH', 'WT', 'GR', 'GY', 'GD', 'CR', 'CH', 'SS',
+                    'B', 'W', 'G', 'S', 'R', 'C'
+                ];
+                if (colorKeywords.includes(upper)) {
+                    return '';
+                }
+                const colorPatterns = colorKeywords.join('|');
+                upper = upper.replace(new RegExp(`[-_\\/ ](?:${colorPatterns})$`, 'i'), '');
+                upper = upper.replace(new RegExp(`(\\d)(?:${colorPatterns})$`, 'i'), '$1');
+                colorKeywords.forEach(color => {
+                    const regex = new RegExp('\\b' + color + '\\b', 'gi');
+                    upper = upper.replace(regex, '');
+                });
+                return upper.replace(/[- _/]+/g, '').trim();
+            }
+            
+            function getPackSignature(name) {
+                const clean = name.toLowerCase();
+                const signatures = [];
+                
+                if (clean.includes('combo')) {
+                    signatures.push('combo');
+                }
+                if (clean.includes('set ')) {
+                    signatures.push('set');
+                }
+                if (clean.includes('bộ quà tặng') || clean.includes('bo qua tang')) {
+                    signatures.push('bo_qua_tang');
+                }
+                if (clean.includes('tặng') || clean.includes('tang') || clean.includes('quà') || clean.includes('qua') || clean.includes('gift')) {
+                    signatures.push('gift');
+                }
+                if (clean.includes('kèm') || clean.includes('kem')) {
+                    signatures.push('with_attachment');
+                }
+                if (clean.includes('+')) {
+                    signatures.push('plus_bundle');
+                }
+
+                const comboReg = /\b(?:combo|set|tặng|tang|pack|bộ|bo)\s*(\d+)\b/gi;
+                let match;
+                while ((match = comboReg.exec(clean)) !== null) {
+                    signatures.push(`qty_${match[1]}`);
+                }
+
+                const monReg = /\b(\d+)\s*(?:món|mon|sp|sản phẩm|san pham|cái|cai|bếp|bep|nồi|noi|món quà|mon qua|quà|qua|gift)\b/gi;
+                while ((match = monReg.exec(clean)) !== null) {
+                    signatures.push(`size_${match[1]}`);
+                }
+
+                const xReg = /\bx\s*(\d+)\b/gi;
+                while ((match = xReg.exec(clean)) !== null) {
+                    signatures.push(`pack_${match[1]}`);
+                }
+
+                if (signatures.length === 0) return 'single';
+                return [...new Set(signatures)].sort().join('_');
+            }
+            
+            function hasConflict(name1, name2) {
+                const n1 = name1.toLowerCase();
+                const n2 = name2.toLowerCase();
+                
+                const conflictGroups = [
+                    ['nhỏ', 'nho', 'trung', 'lớn', 'lon', 'bé', 'be', 'to', 'vừa', 'vua', 'small', 'medium', 'large'],
+                    ['muỗng', 'muong', 'nĩa', 'nia', 'đũa', 'dua', 'thìa', 'thia', 'dao', 'spoon', 'fork', 'knife'],
+                    ['đôi', 'doi', 'ba', 'bốn', 'bon', 'hai']
+                ];
+                
+                for (const group of conflictGroups) {
+                    const words1 = group.filter(w => new RegExp('\\b' + w + '\\b', 'i').test(n1));
+                    const words2 = group.filter(w => new RegExp('\\b' + w + '\\b', 'i').test(n2));
+                    
+                    if (words1.length > 0 && words2.length > 0) {
+                        const hasDifferent = words1.some(w => !words2.includes(w)) || words2.some(w => !words1.includes(w));
+                        if (hasDifferent) {
+                            return true; 
+                        }
+                    }
+                }
+                return false;
+            }
             
             mangDuLieuToanCuc.forEach(item => {
                 const numericPrice = parseInt(item.gia.replace(/\D/g, '')) || 0;
                 const itemWithPriceVal = { ...item, numericPrice };
+                const packSig = getPackSignature(item.ten);
                 
                 if (item.ma && item.ma.trim().length > 0) {
-                    const skuKey = item.ma.trim().toUpperCase();
+                    // Group by SKU, Series AND Combo pack signature
+                    // Normalize the SKU and Series (remove spaces, hyphens, underscores and colors) to match them robustly
+                    const normSku = stripColors(item.ma);
+                    const normSeries = stripColors(item.series);
+                    const skuKey = normSku + (normSeries ? `_${normSeries}` : '') + `_${packSig}`;
                     if (!skuGroups[skuKey]) {
                         skuGroups[skuKey] = [];
                     }
@@ -1091,7 +1284,7 @@
                     let matchedGroup = null;
                     for (const group of fuzzyGroups) {
                         const similarity = calculateJaccardSimilarity(tokens, group.tokens);
-                        if (similarity >= 0.6) {
+                        if (similarity >= 0.8 && packSig === group.packSig && !hasConflict(item.tenSạch, group.name)) {
                             matchedGroup = group;
                             break;
                         }
@@ -1102,44 +1295,80 @@
                     } else {
                         fuzzyGroups.push({
                             tokens: tokens,
+                            name: item.tenSạch,
+                            packSig: packSig,
                             items: [itemWithPriceVal]
                         });
                     }
                 }
             });
             
+            function getDomain(url) {
+                if (!url) return '';
+                try {
+                    return new URL(url).hostname.replace('www.', '').toLowerCase();
+                } catch (e) {
+                    return url.toLowerCase().trim();
+                }
+            }
+
+            function filterCheapestPerDomain(itemsList) {
+                const domainMap = {};
+                itemsList.forEach(item => {
+                    const domain = getDomain(item.link);
+                    if (!domainMap[domain]) {
+                        domainMap[domain] = item;
+                    } else {
+                        const existingPrice = domainMap[domain].numericPrice;
+                        const currentPrice = item.numericPrice;
+                        if (currentPrice > 0 && (existingPrice === 0 || currentPrice < existingPrice)) {
+                            domainMap[domain] = item;
+                        }
+                    }
+                });
+                const filtered = Object.values(domainMap);
+                filtered.sort((a, b) => a.numericPrice - b.numericPrice);
+                return filtered;
+            }
+
             const comparisonResults = [];
             
-            Object.keys(skuGroups).forEach(sku => {
-                const items = skuGroups[sku];
-                items.sort((a, b) => a.numericPrice - b.numericPrice);
-                const validPriceItems = items.filter(x => x.numericPrice > 0);
+            Object.keys(skuGroups).forEach(skuKey => {
+                const rawItems = skuGroups[skuKey];
+                const items = filterCheapestPerDomain(rawItems);
                 
-                comparisonResults.push({
-                    type: 'sku',
-                    key: sku,
-                    name: items[0].tenSạch,
-                    series: items[0].series,
-                    items: items,
-                    minPriceItem: validPriceItems.length > 0 ? validPriceItems[0] : items[0],
-                    maxPriceItem: validPriceItems.length > 0 ? validPriceItems[validPriceItems.length - 1] : items[0]
-                });
+                // Only compare if there are at least 2 different websites
+                if (items.length >= 2) {
+                    const validPriceItems = items.filter(x => x.numericPrice > 0);
+                    comparisonResults.push({
+                        type: 'sku',
+                        key: items[0].ma,
+                        name: items[0].tenSạch,
+                        series: items[0].series,
+                        items: items,
+                        minPriceItem: validPriceItems.length > 0 ? validPriceItems[0] : items[0],
+                        maxPriceItem: validPriceItems.length > 0 ? validPriceItems[validPriceItems.length - 1] : items[0]
+                    });
+                }
             });
             
             fuzzyGroups.forEach((group, index) => {
-                const items = group.items;
-                items.sort((a, b) => a.numericPrice - b.numericPrice);
-                const validPriceItems = items.filter(x => x.numericPrice > 0);
+                const rawItems = group.items;
+                const items = filterCheapestPerDomain(rawItems);
                 
-                comparisonResults.push({
-                    type: 'fuzzy',
-                    key: `Tương đồng tên #${index + 1}`,
-                    name: items[0].tenSạch,
-                    series: '',
-                    items: items,
-                    minPriceItem: validPriceItems.length > 0 ? validPriceItems[0] : items[0],
-                    maxPriceItem: validPriceItems.length > 0 ? validPriceItems[validPriceItems.length - 1] : items[0]
-                });
+                // Only compare if there are at least 2 different websites
+                if (items.length >= 2) {
+                    const validPriceItems = items.filter(x => x.numericPrice > 0);
+                    comparisonResults.push({
+                        type: 'fuzzy',
+                        key: `Tương đồng tên #${index + 1}`,
+                        name: items[0].tenSạch,
+                        series: '',
+                        items: items,
+                        minPriceItem: validPriceItems.length > 0 ? validPriceItems[0] : items[0],
+                        maxPriceItem: validPriceItems.length > 0 ? validPriceItems[validPriceItems.length - 1] : items[0]
+                    });
+                }
             });
             
             return comparisonResults;
@@ -1169,10 +1398,10 @@
                 
                 let typeBadge = '';
                 if (group.type === 'sku') {
-                    const seriesStr = group.series ? ` <span class="badge bg-warning bg-opacity-20 text-warning ms-1 fw-bold">Series: ${group.series}</span>` : '';
-                    typeBadge = `<span class="badge bg-primary bg-opacity-20 text-info fw-bold">Mã SKU: ${group.key}</span>${seriesStr}`;
+                    const seriesStr = group.series ? ` <span class="badge badge-series ms-1 fw-bold">Series: ${group.series}</span>` : '';
+                    typeBadge = `<span class="badge badge-sku fw-bold">Mã SKU: ${group.key}</span>${seriesStr}`;
                 } else {
-                    typeBadge = `<span class="badge bg-purple-custom text-purple-custom fw-bold">🔍 So khớp tự động (Tên tương đồng)</span>`;
+                    typeBadge = `<span class="badge badge-auto fw-bold">🔍 So khớp tự động (Tên tương đồng)</span>`;
                 }
                 
                 let sourcesHtml = '';
@@ -1335,20 +1564,33 @@
 
             const paginationMode = document.getElementById('paginationMode').value;
             const pageParam = document.getElementById('pageParam').value.trim() || 'page';
-            const maxPages = parseInt(document.getElementById('maxPages').value) || 10;
+            
+            const maxPagesLimit = document.getElementById('maxPagesLimit').value;
+            let maxPages = 999;
+            if (maxPagesLimit === 'fixed') {
+                maxPages = parseInt(document.getElementById('maxPages').value) || 10;
+            }
+
             const delay = parseInt(document.getElementById('delayInput').value) || 2000;
             const timeout = parseInt(document.getElementById('timeoutInput').value) || 30000;
             const blockResources = document.getElementById('blockResources').checked;
+            const autoScanCategories = document.getElementById('autoScanCategories').checked;
 
             // Khởi tạo lại trạng thái
             mangDuLieuToanCuc = [];
             globalIndex = 0;
             seenKeys.clear();
+            globalMinPrice = Infinity;
+            globalMinProduct = null;
+            globalMaxPrice = -Infinity;
+            globalMaxProduct = null;
+            document.getElementById('statMinPrice').innerText = '-';
+            document.getElementById('statMaxPrice').innerText = '-';
 
             document.getElementById('vungDuLieu').innerHTML = '';
             document.getElementById('vungLuoi').innerHTML = '';
             document.getElementById('statProducts').innerText = '0';
-            document.getElementById('statPages').innerText = `0 / ${maxPages * urlsToScrape.length}`;
+            document.getElementById('statPages').innerText = `0 / ${maxPagesLimit === 'all' ? '♾️' : maxPages * urlsToScrape.length}`;
             document.getElementById('statSpeed').innerText = '0';
             document.getElementById('searchFilter').value = '';
             
@@ -1372,28 +1614,66 @@
             writeToConsole(`Bắt đầu chạy chiến dịch cào dữ liệu cho ${urlsToScrape.length} danh mục...`);
             netlifyScrapingActive = true;
             
+            const failedUrls = [];
+            
             for (let i = 0; i < urlsToScrape.length; i++) {
                 if (!netlifyScrapingActive) break;
                 const currentUrl = urlsToScrape[i];
                 writeToConsole(`👉 Đang quét danh mục (${i + 1}/${urlsToScrape.length}): ${currentUrl}`, 'info');
-                await runNetlifyScraping({ 
-                    urlInput: currentUrl, 
-                    paginationMode, 
-                    pageParam, 
-                    maxPages, 
-                    delay, 
-                    timeout, 
-                    blockResources,
-                    categoryIndex: i,
-                    totalCategories: urlsToScrape.length
-                });
+                try {
+                    const result = await runNetlifyScraping({ 
+                        urlInput: currentUrl, 
+                        paginationMode, 
+                        pageParam, 
+                        maxPages, 
+                        maxPagesLimit,
+                        delay, 
+                        timeout, 
+                        blockResources,
+                        categoryIndex: i,
+                        totalCategories: urlsToScrape.length
+                    });
+                    
+                    if (result.categoryLinks && result.categoryLinks.length > 0 && autoScanCategories) {
+                        result.categoryLinks.forEach(link => {
+                            if (!urlsToScrape.includes(link)) {
+                                urlsToScrape.push(link);
+                            }
+                        });
+                        writeToConsole(`Đã thêm ${result.categoryLinks.length} danh mục tự động quét từ trang chủ vào hàng đợi.`, 'success');
+                    }
+
+                    if (result.hasError || (result.productCount === 0 && (!result.categoryLinks || result.categoryLinks.length === 0))) {
+                        const reason = result.hasError ? result.errorReason : 'Không lấy được sản phẩm nào (có thể do sai cấu trúc hoặc trang trống)';
+                        failedUrls.push({ url: currentUrl, reason });
+                    }
+                } catch (err) {
+                    failedUrls.push({ url: currentUrl, reason: err.message || 'Lỗi không xác định' });
+                }
             }
 
             netlifyScrapingActive = false;
             scrapingCompleted = true;
             stopTimer();
+            
+            if (failedUrls.length > 0) {
+                writeToConsole(`==================================================`, 'error');
+                writeToConsole(`⚠️ CẢNH BÁO: Phát hiện ${failedUrls.length} link bị lỗi không lấy được sản phẩm:`, 'error');
+                failedUrls.forEach((f, idx) => {
+                    writeToConsole(`[${idx + 1}] ${f.url} (Lý do: ${f.reason})`, 'error');
+                });
+                writeToConsole(`==================================================`, 'error');
+            }
+            
             writeToConsole(`=== HOÀN THÀNH TOÀN BỘ CHIẾN DỊCH! Tổng cộng ${globalIndex} sản phẩm. ===`, 'success');
-            if (globalIndex > 0) alert(`Hoàn thành toàn bộ! Đã thu thập tổng cộng ${globalIndex} sản phẩm.`);
+            
+            if (failedUrls.length > 0) {
+                alert(`Hoàn thành chiến dịch cào dữ liệu!\nTổng cộng thu được: ${globalIndex} sản phẩm.\n\n⚠️ Có ${failedUrls.length} link bị lỗi không lấy được sản phẩm. Xem chi tiết lỗi ở phần Nhật ký cào dữ liệu phía dưới.`);
+            } else if (globalIndex > 0) {
+                alert(`Hoàn thành toàn bộ! Đã thu thập tổng cộng ${globalIndex} sản phẩm.`);
+            } else {
+                alert(`Hoàn thành! Không tìm thấy sản phẩm nào.`);
+            }
             resetControlsState();
         }
 
@@ -1407,6 +1687,27 @@
 
             mangDuLieuToanCuc.push(prod);
             document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
+
+            // Cập nhật giá thấp nhất và giá cao nhất toàn cục
+            const numericPrice = parseInt(prod.gia.replace(/\D/g, '')) || 0;
+            if (numericPrice > 0) {
+                if (numericPrice < globalMinPrice) {
+                    globalMinPrice = numericPrice;
+                    globalMinProduct = prod;
+                    document.getElementById('statMinPrice').innerHTML = `
+                        <div class="text-success" style="font-weight: 700;">${prod.gia}</div>
+                        <div class="text-truncate" style="font-size: 0.65rem; color: var(--text-light); max-width: 100%; margin-top: 2px;" title="${prod.tenSạch}">${prod.tenSạch}</div>
+                    `;
+                }
+                if (numericPrice > globalMaxPrice) {
+                    globalMaxPrice = numericPrice;
+                    globalMaxProduct = prod;
+                    document.getElementById('statMaxPrice').innerHTML = `
+                        <div class="text-danger" style="font-weight: 700;">${prod.gia}</div>
+                        <div class="text-truncate" style="font-size: 0.65rem; color: var(--text-light); max-width: 100%; margin-top: 2px;" title="${prod.tenSạch}">${prod.tenSạch}</div>
+                    `;
+                }
+            }
 
             document.getElementById('emptyState').classList.add('d-none');
             if (activeViewMode === 'grid') {
@@ -1428,10 +1729,10 @@
                 ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.tenSạch}</a></div>`
                 : `<div class="product-title-cell text-light fw-semibold">${prod.tenSạch}</div>`;
             const maHtml = prod.ma 
-                ? `<span class="badge bg-primary bg-opacity-25 text-info fw-semibold">${prod.ma}</span>` 
+                ? `<span class="badge badge-sku fw-semibold">${prod.ma}</span>` 
                 : `<span class="text-muted small">-</span>`;
             const seriesHtml = prod.series 
-                ? `<span class="badge bg-warning bg-opacity-25 text-warning fw-semibold">${prod.series}</span>` 
+                ? `<span class="badge badge-series fw-semibold">${prod.series}</span>` 
                 : `<span class="text-muted small">-</span>`;
             row.innerHTML = `
                 <td class="text-center text-muted fw-bold">${prod.stt}</td>
@@ -1454,10 +1755,10 @@
                 ? `<a href="${prod.link}" target="_blank" class="product-card-title">${prod.tenSạch}</a>`
                 : `<div class="product-card-title">${prod.tenSạch}</div>`;
             const cardMaHtml = prod.ma 
-                ? `<span class="badge bg-primary bg-opacity-20 text-info fw-normal" style="font-size: 0.7rem;">${prod.ma}</span>`
+                ? `<span class="badge badge-sku fw-normal" style="font-size: 0.7rem;">${prod.ma}</span>`
                 : '';
             const cardSeriesHtml = prod.series 
-                ? `<span class="badge bg-warning bg-opacity-20 text-warning fw-normal ms-1" style="font-size: 0.7rem;">${prod.series}</span>`
+                ? `<span class="badge badge-series fw-normal ms-1" style="font-size: 0.7rem;">${prod.series}</span>`
                 : '';
             const badgesHtml = (cardMaHtml || cardSeriesHtml) 
                 ? `<div class="mb-2">${cardMaHtml}${cardSeriesHtml}</div>`
@@ -1482,15 +1783,21 @@
         }
 
         // ── Netlify REST polling: gọi /api/scrape cho từng trang tuần tự ──
-        async function runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, delay, timeout, blockResources, categoryIndex, totalCategories }) {
+        async function runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, maxPagesLimit, delay, timeout, blockResources, categoryIndex, totalCategories }) {
+            let categoryError = false;
+            let errorReason = '';
+            let totalProductsFromUrl = 0;
+            let categoryLinks = null;
+
             for (let p = 1; p <= maxPages; p++) {
                 if (!netlifyScrapingActive) {
                     writeToConsole(`Đã dừng theo lệnh người dùng.`, 'warning');
                     break;
                 }
 
-                document.getElementById('statPages').innerText = `DM ${categoryIndex + 1}/${totalCategories} - T${p}/${maxPages}`;
-                writeToConsole(`======================= DM ${categoryIndex + 1}/${totalCategories} - TRANG ${p} / ${maxPages} =======================`);
+                const pagesDisplay = maxPagesLimit === 'all' ? '♾️' : maxPages;
+                document.getElementById('statPages').innerText = `DM ${categoryIndex + 1}/${totalCategories} - T${p}/${pagesDisplay}`;
+                writeToConsole(`======================= DM ${categoryIndex + 1}/${totalCategories} - TRANG ${p} / ${pagesDisplay} =======================`);
 
                 const params = new URLSearchParams({
                     url: urlInput, paginationMode, pageParam, pageNum: p,
@@ -1503,7 +1810,10 @@
                     
                     if (!resp.ok) {
                         const errBody = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
-                        writeToConsole(`Lỗi trang ${p}: ${errBody.error || resp.statusText}`, 'error');
+                        const errMsg = errBody.error || resp.statusText || `HTTP ${resp.status}`;
+                        writeToConsole(`Lỗi trang ${p}: ${errMsg}`, 'error');
+                        categoryError = true;
+                        errorReason = errMsg;
                         break;
                     }
 
@@ -1516,6 +1826,8 @@
 
                     if (data.error) {
                         writeToConsole(`Lỗi nghiêm trọng: ${data.error}`, 'error');
+                        categoryError = true;
+                        errorReason = data.error;
                         break;
                     }
 
@@ -1530,7 +1842,14 @@
                         addProduct({ ...sp, stt: globalIndex });
                     });
 
+                    totalProductsFromUrl += newCount;
                     writeToConsole(`Trang ${p}: trích xuất ${products.length} sản phẩm, ${newCount} mới (trùng: ${products.length - newCount}).`, 'success');
+
+                    if (data.categoryLinks && data.categoryLinks.length > 0) {
+                        categoryLinks = data.categoryLinks;
+                        writeToConsole(`Đã tìm thấy ${data.categoryLinks.length} liên kết danh mục từ trang chủ.`, 'success');
+                        break;
+                    }
 
                     // Nếu không cào thêm được sản phẩm mới nào ở trang này -> dừng cào sớm
                     if (newCount === 0) {
@@ -1540,6 +1859,8 @@
 
                 } catch (fetchErr) {
                     writeToConsole(`Lỗi kết nối trang ${p}: ${fetchErr.message}`, 'error');
+                    categoryError = true;
+                    errorReason = fetchErr.message;
                     break;
                 }
 
@@ -1549,6 +1870,7 @@
                     await new Promise(r => setTimeout(r, delay));
                 }
             }
+            return { hasError: categoryError, productCount: totalProductsFromUrl, errorReason, categoryLinks };
         }
 
 
