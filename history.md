@@ -22,6 +22,8 @@
 - `git remote set-url origin https://github.com/tomyrese/crawldata.git`: Changed remote origin to user's repository.
 - `git push -u origin main`: Pushed codebase to user's repository.
 - `git commit -am "Fix require of ES Module puppeteer-core on Netlify" && git push origin main`: Pushed the dynamic import fix.
+- `git remote add phucsang https://github.com/phucsangg/cong-cu-cao-web-ver-2.git`: Added phucsang repository as remote.
+- `git push phucsang main`: Pushed final codebase with fixes to phucsang's repository.
 
 ## Bugs Found
 1. **Fallback Path Bypass on Local Dev (Windows)**: `@sparticuz/chromium` was imported and initialized on local Windows machines because the module is installed. `chromium.executablePath()` returned a folder/path that exists, so `fs.promises.access` succeeded, but running `puppeteer.launch` failed because it's not a valid Windows executable. This bypassed the local Chrome/Edge fallback search.
