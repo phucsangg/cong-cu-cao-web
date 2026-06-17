@@ -521,8 +521,6 @@ exports.handler = async (event, context) => {
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-gpu',
-                '--single-process',
-                '--no-zygote',
                 '--disable-extensions',
                 '--disable-background-networking',
                 '--disable-sync',
@@ -585,17 +583,20 @@ exports.handler = async (event, context) => {
         }
 
         // Minimal scroll to activate lazy load: 5 steps * 100ms = 500ms
-        log(`Cuộn trang ảo để tải các phần lười (lazy load)...`);
-        await page.evaluate(async () => {
-            const steps = 5;
-            const dist = Math.ceil(document.body.scrollHeight / steps);
-            for (let i = 0; i < steps; i++) {
-                window.scrollBy(0, dist);
-                await new Promise(r => setTimeout(r, 100));
-            }
-        });
-
-        await sleep(200);
+        try {
+            log(`Cuộn trang ảo để tải các phần lười (lazy load)...`);
+            await page.evaluate(async () => {
+                const steps = 5;
+                const dist = Math.ceil(document.body.scrollHeight / steps);
+                for (let i = 0; i < steps; i++) {
+                    window.scrollBy(0, dist);
+                    await new Promise(r => setTimeout(r, 100));
+                }
+            });
+            await sleep(200);
+        } catch (scrollErr) {
+            log(`Cảnh báo: Không thể cuộn trang ảo: ${scrollErr.message}`, 'warning');
+        }
 
         log(`Đang chạy bóc tách dữ liệu heuristic trên trình duyệt ảo...`);
         let products = [];
