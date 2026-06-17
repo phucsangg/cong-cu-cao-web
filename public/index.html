@@ -1112,7 +1112,13 @@
             const words = clean.split(/\s+/);
             const stopWords = [
                 'bếp', 'từ', 'điện', 'hồng', 'ngoại', 'máy', 'hút', 'mùi', 'lò', 'vi', 'sóng', 'nướng', 'rửa', 'chén', 'bát', 'âm', 'dương', 'nhập', 'khẩu', 'chính', 'hãng', 'giá', 'rẻ', 'đôi', 'ba', 'bốn', 'vùng', 'nấu', 'kính',
-                'inox', '304', '201', '316', '430', 'sus', 'thép', 'không', 'gỉ', 'cái', 'chiếc', 'set', 'hộp', 'khay', 'giá', 'kệ', 'bộ', 'chậu', 'vòi'
+                'inox', '304', '201', '316', '430', 'sus', 'thép', 'không', 'gỉ', 'cái', 'chiếc', 'set', 'hộp', 'khay', 'giá', 'kệ', 'bộ', 'chậu', 'vòi',
+                'nero', 'grey', 'gray', 'xám', 'xam', 'black', 'đen', 'den', 'white', 'trắng', 'trang',
+                'silver', 'bạc', 'bac', 'red', 'đỏ', 'do', 'gold', 'vàng', 'vang', 'bronze', 'đồng', 'dong',
+                'cream', 'kem', 'brown', 'nâu', 'nau', 'stone', 'chrome', 'copper', 'metal', 'yellow',
+                'blue', 'green', 'pink', 'orange', 'titan', 'titanium', 'graphite', 'carbon', 'anthracite',
+                'clay', 'jade', 'pearl', 'sand', 'beige', 'ivory', 'màu', 'mau', 'ghi', 'blk', 'bk', 'wh', 'wt',
+                'gr', 'gy', 'gd', 'cr', 'ch', 'ss'
             ];
             return words.filter(w => w.length > 1 && !stopWords.includes(w));
         }
@@ -1134,6 +1140,31 @@
         function groupAndCompareProducts() {
             const skuGroups = {};
             const fuzzyGroups = [];
+
+            function stripColors(str) {
+                if (!str) return '';
+                let upper = str.toUpperCase().trim();
+                const colorKeywords = [
+                    'NERO', 'GREY', 'GRAY', 'XAM', 'XÁM', 'BLACK', 'DEN', 'ĐEN', 'WHITE', 'TRANG', 'TRẮNG',
+                    'SILVER', 'BAC', 'BẠC', 'RED', 'DO', 'ĐỎ', 'GOLD', 'VANG', 'VÀNG', 'BRONZE', 'DONG', 'ĐỒNG',
+                    'CREAM', 'KEM', 'BROWN', 'NAU', 'NÂU', 'STONE', 'CHROME', 'COPPER', 'METAL', 'YELLOW',
+                    'BLUE', 'GREEN', 'PINK', 'ORANGE', 'TITAN', 'TITANIUM', 'GRAPHITE', 'CARBON', 'ANTHRACITE',
+                    'CLAY', 'JADE', 'PEARL', 'SAND', 'BEIGE', 'IVORY', 'GHI',
+                    'BLK', 'BK', 'WH', 'WT', 'GR', 'GY', 'GD', 'CR', 'CH', 'SS',
+                    'B', 'W', 'G', 'S', 'R', 'C'
+                ];
+                if (colorKeywords.includes(upper)) {
+                    return '';
+                }
+                const colorPatterns = colorKeywords.join('|');
+                upper = upper.replace(new RegExp(`[-_\\/ ](?:${colorPatterns})$`, 'i'), '');
+                upper = upper.replace(new RegExp(`(\\d)(?:${colorPatterns})$`, 'i'), '$1');
+                colorKeywords.forEach(color => {
+                    const regex = new RegExp('\\b' + color + '\\b', 'gi');
+                    upper = upper.replace(regex, '');
+                });
+                return upper.replace(/[- _/]+/g, '').trim();
+            }
             
             function getPackSignature(name) {
                 const clean = name.toLowerCase();
@@ -1209,9 +1240,9 @@
                 
                 if (item.ma && item.ma.trim().length > 0) {
                     // Group by SKU, Series AND Combo pack signature
-                    // Normalize the SKU and Series (remove spaces, hyphens, underscores) to match them robustly
-                    const normSku = item.ma.replace(/[- _]+/g, '').toUpperCase();
-                    const normSeries = item.series ? item.series.replace(/[- _]+/g, '').toUpperCase() : '';
+                    // Normalize the SKU and Series (remove spaces, hyphens, underscores and colors) to match them robustly
+                    const normSku = stripColors(item.ma);
+                    const normSeries = stripColors(item.series);
                     const skuKey = normSku + (normSeries ? `_${normSeries}` : '') + `_${packSig}`;
                     if (!skuGroups[skuKey]) {
                         skuGroups[skuKey] = [];

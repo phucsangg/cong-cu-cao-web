@@ -108,6 +108,9 @@
   - Updated `getPackSignature` to detect additional Vietnamese and English gift/bundle keywords (`tặng`, `tang`, `quà`, `qua`, `gift`, `kèm`, `kem`, `+`) to correctly separate bundled combos from bare items.
   - Added robust string normalization (removing spaces, hyphens, and underscores) in `groupAndCompareProducts` when constructing `skuKey` comparison clusters.
   - Updated `groupAndCompareProducts` to parse domains from links, select only the cheapest product option per domain, and restrict comparisons exclusively to clusters that exist on at least 2 different websites.
+  - Expanded `stripColors` to handle short abbreviations (e.g. `BK`, `WH`, `GR`) and single-letter color codes (e.g. `B`, `W`, `G`, `S`, `R`, `C`).
+  - Added regex replacements inside `stripColors` to remove trailing color suffixes attached directly to digits (e.g. `K10540B`) or separated by a character (e.g. `K-10540-BK`, `K-10540/WHITE`).
+  - Updated the Jaccard similarity token stopWords inside `getComparisonTokens` to ignore color abbreviations (e.g. `bk`, `wh`, `gr`, `ghi`), preventing color differences from penalizing title-only comparisons.
 - [test-fetch.mjs](file:///d:/Work/cong-cu-cao-web-ver-2/test-fetch.mjs):
   - Synced standalone `extractSku` implementation with the latest frontend version.
 - [netlify/functions/scrape.js](file:///d:/Work/cong-cu-cao-web-ver-2/netlify/functions/scrape.js):
@@ -120,6 +123,8 @@
 - `node test-fetch.mjs`: Verified SKU/Series extraction results on standard and edge case kitchen appliance titles.
 - `node -c netlify/functions/scrape.js`: Syntax checked the modified serverless scrape script.
 - `node -e "..."`: Simulated cross-site domain grouping and price de-duplication logic.
+- `node test-colors.mjs`: Ran local tests for RegExp-based trailing color suffix removal.
+- `Remove-Item test-colors.mjs`: Deleted temporary test script.
 
 ## Bugs Found
 1. **Model Number Space Inconsistencies**: Spacing variations like `CZ 52 IH` vs `CZ 52IH` or `CZ 52 I` vs `CZ 52I` prevented SKU comparison matches due to exact string key comparison.
@@ -127,6 +132,8 @@
 3. **Unicode Word Boundary Interruptions**: Suffixes starting with uppercase letters followed by Unicode characters (e.g., `16 Món`) were sometimes incorrectly matched due to JavaScript's ASCII-only `\b` boundaries matching before Unicode characters (e.g. `M` in `Món`).
 4. **Promotional Block Proximity Hijacking**: Elements containing generic promotion titles (like `KHUYẾN MÃI - ƯU ĐÃI`) located inside product info sections were closer to the main price element in the DOM tree than the main title, causing them to be extracted as product names on detail pages.
 5. **Intra-Site Comparisons**: The Comparison View grouped and compared different listings or price variants from the exact same website against each other, instead of strictly comparing different websites.
+6. **Color Variant Key Mismatches**: Single-letter color suffixes (like `B`, `W`, `G`, `S`, `R`, `C`) or short abbreviations (like `BK`, `WH`, `GR`, `GY`, `GD`, `SS`, `CH`, `CR`) attached directly to digits (e.g. `K10540B`) or separated by standard characters (e.g. `K-10540-BK`, `K-10540/WHITE`) were not identified or stripped by `stripColors`, causing same-model listings in different colors to form separate, disconnected comparison groups.
+7. **Fuzzy Color Token Penalties**: The fuzzy title Jaccard similarity matcher penalized matches if color keywords (like `bk`, `wh`, `gr`, `ghi`) were not in stopWords, preventing successful grouping of title-only comparison pairs.
 
 ## Fixes Applied
 1. **Space Normalization in SKU Matching**: Added a safe replacement regex in `extractSku` to join alphanumeric gaps (e.g. `52 IH` -> `52IH`), bypassing Vietnamese words using trailing letter checks.
@@ -134,6 +141,8 @@
 3. **Robust Comparison Group Keys**: Normalized comparison SKU and Series keys in `groupAndCompareProducts` by stripping all spaces, hyphens, and underscores before grouping.
 4. **Garbage Keyword Filtering for Section Headers**: Added promotional keywords (e.g. `khuyến mãi`, `ưu đãi`) to `tuKhoaRac` lists to skip generic block titles.
 5. **Cross-Site Comparison Limit & De-duplication**: Updated `groupAndCompareProducts` to keep only the cheapest option per website domain and limit comparisons to groups present on 2 or more different websites.
+6. **Enhanced Color-Stripping RegExps**: Expanded the color keywords list to cover short forms and single-letter codes. Added dual regex replacements in `stripColors` to strip trailing color suffixes when separated by `[-_\\/ ]` or when attached directly to a digit, allowing robust clustering under the base SKU.
+7. **Expanded StopWords in Fuzzy Matching**: Integrated the short/single-letter color codes into the Jaccard similarity stopWords array within `getComparisonTokens`.
 
 ## Remaining Issues
 - None.
