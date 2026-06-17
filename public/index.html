@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Công cụ cào và trích xuất dữ liệu sản phẩm đa trang thời gian thực, chống timeout 100% bằng Server-Sent Events và Puppeteer.">
+    <meta name="description" content="Công cụ cào và trích xuất dữ liệu sản phẩm đa trang thời gian thực, chạy hoàn toàn trên Netlify Serverless.">
     <title>Web Scraper - Real-Time Dashboard</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -483,7 +483,7 @@
                 </div>
                 <div>
                     <h1 class="mb-0 fw-extrabold text-white" style="letter-spacing: -0.5px; font-size: 1.5rem;">Trình Cào Dữ Liệu Web</h1>
-                    <p class="mb-0 text-muted small" style="font-size: 0.8rem;">Hệ thống trích xuất sản phẩm thời gian thực bằng Puppeteer & SSE</p>
+                    <p class="mb-0 text-muted small" style="font-size: 0.8rem;">Hệ thống trích xuất sản phẩm chạy hoàn toàn trên Netlify Serverless</p>
                 </div>
             </div>
             
@@ -724,11 +724,10 @@
     <!-- Script điều khiển -->
     <script>
         let mangDuLieuToanCuc = [];
-        let eventSource = null;
         let elapsedInterval = null;
         let startTime = null;
         let activeViewMode = 'grid'; // Default layout is Grid view
-        let scrapingCompleted = false; // Ngăn onerror giả sau khi server đóng kết nối bình thường
+        let scrapingCompleted = false; 
 
         const fallbackImgSrc = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzk0YTNCOCI+PHBhdGggZD0iTTIxIDE5VjVjMC0xLjEtLjktMi0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnpNOC41IDEzLjVsMi41IDMuMDFMMTQuNSAxMmw0LjUgNkg1bDMuNS00LjV6Ii8+PC9zdmc+';
 
@@ -872,8 +871,6 @@
             const delay = parseInt(document.getElementById('delayInput').value) || 2000;
             const timeout = parseInt(document.getElementById('timeoutInput').value) || 30000;
             const blockResources = document.getElementById('blockResources').checked;
-            const parallelScrape = document.getElementById('parallelScrape').checked;
-            const concurrency = document.getElementById('concurrencyInput').value || 3;
 
             // Khởi tạo lại trạng thái
             mangDuLieuToanCuc = [];
@@ -894,77 +891,16 @@
             document.getElementById('btnStart').innerHTML = '⏳ Đang chạy...';
             document.getElementById('btnStop').disabled = false;
 
-            // Đóng kết nối cũ
-            if (eventSource) eventSource.close();
             scrapingCompleted = false;
             clearConsole();
 
             startTimer();
 
-            // ==== AUTO-DETECT MÔI TRƯỜNG ====
-            // Local server (localhost) → SSE stream
-            // Netlify (*.netlify.app hoặc custom domain) → REST polling từng trang
-            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-
-            if (isLocal) {
-                // ──────────────── CHẾ ĐỘ LOCAL: SSE STREAM ────────────────
-                writeToConsole(`[LOCAL] Kết nối SSE stream tới server cục bộ...`);
-                const queryParams = new URLSearchParams({
-                    url: urlInput, paginationMode, pageParam, maxPages, delay,
-                    timeout, blockResources: blockResources ? 'true' : 'false',
-                    parallel: parallelScrape ? 'true' : 'false', concurrency
-                });
-                eventSource = new EventSource(`/api/stream-scrape?${queryParams.toString()}`);
-                eventSource.onmessage = function(event) {
-                    let packet;
-                    try { packet = JSON.parse(event.data); } catch(e) { return; }
-                    handleSSEPacket(packet, maxPages);
-                };
-                eventSource.onerror = function(e) {
-                    if (scrapingCompleted) return;
-                    if (eventSource && eventSource.readyState === EventSource.CLOSED) {
-                        writeToConsole(`Kết nối tới server bị ngắt. Hãy chắc chắn server đang chạy (node server.js).`, 'error');
-                        stopTimer(); resetControlsState(); eventSource.close();
-                    } else if (eventSource && eventSource.readyState === EventSource.CONNECTING) {
-                        writeToConsole(`Kết nối gián đoạn, đang thử lại...`, 'warning');
-                    }
-                };
-            } else {
-                // ──────────────── CHẾ ĐỘ NETLIFY: REST POLLING ────────────────
-                writeToConsole(`[NETLIFY] Chế độ cào REST từng trang (Tối đa ${maxPages} trang)...`);
-                netlifyScrapingActive = true;
-                await runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, delay, timeout, blockResources });
-            }
+            writeToConsole(`Bắt đầu chạy chiến dịch cào dữ liệu (Tối đa ${maxPages} trang)...`);
+            netlifyScrapingActive = true;
+            await runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, delay, timeout, blockResources });
         }
 
-        // ── Xử lý chung packet từ SSE (dùng cho local stream) ──
-        function handleSSEPacket(packet, maxPages) {
-            if (packet.type === 'log') {
-                writeToConsole(packet.message, packet.level);
-            } 
-            else if (packet.type === 'product') {
-                addProduct(packet);
-            }
-            else if (packet.type === 'stats') {
-                document.getElementById('statPages').innerText = `${packet.stats.currentPage} / ${maxPages}`;
-            }
-            else if (packet.type === 'done') {
-                scrapingCompleted = true;
-                stopTimer();
-                writeToConsole(`Quá trình hoàn thành! Tổng cộng trích xuất được ${packet.totalItems} sản phẩm từ ${packet.totalPages} trang.`, 'success');
-                alert(`Hoàn thành xuất sắc! Đã quét sạch ${packet.totalItems} sản phẩm.`);
-                resetControlsState();
-                eventSource.close();
-            }
-            else if (packet.type === 'error') {
-                scrapingCompleted = true;
-                stopTimer();
-                writeToConsole(`Lỗi trong tiến trình: ${packet.message}`, 'error');
-                alert(`Đã xảy ra lỗi: ${packet.message}`);
-                resetControlsState();
-                eventSource.close();
-            }
-        }
 
         // ── Thêm sản phẩm vào cả Table và Grid view ──
         function addProduct(prod) {
@@ -1107,13 +1043,9 @@
 
 
         function dungHeThongQuet() {
-            // Dừng SSE local stream
-            if (eventSource) {
-                eventSource.close();
-                eventSource = null;
-            }
             // Dừng Netlify REST polling loop
             netlifyScrapingActive = false;
+
             scrapingCompleted = true;
             stopTimer();
             writeToConsole(`Đã dừng hoạt động bot theo lệnh của người dùng.`, 'warning');
