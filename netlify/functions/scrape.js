@@ -417,7 +417,7 @@ exports.handler = async (event, context) => {
             log(`Tải trang thành công. Đang phân tích cú pháp HTML (Cheerio Heuristic)...`);
             const products = runCheerioScrape(html, targetUrl, pageNum, log);
             
-            if (products.length >= 3) {
+            if (products.length >= 8) {
                 log(`Thành công! Tìm thấy ${products.length} sản phẩm (qua kênh cào nhanh Cheerio).`, 'success');
                 return {
                     statusCode: 200,

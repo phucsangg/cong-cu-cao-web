@@ -1118,9 +1118,9 @@
 
                     writeToConsole(`Trang ${p}: trích xuất ${products.length} sản phẩm, ${newCount} mới (trùng: ${products.length - newCount}).`, 'success');
 
-                    // Nếu không tìm thấy sp mới hoặc ít hơn threshold → dừng
-                    if (products.length === 0) {
-                        writeToConsole(`Không còn sản phẩm ở trang ${p}. Dừng cào sớm.`, 'warning');
+                    // Nếu không cào thêm được sản phẩm mới nào ở trang này -> dừng cào sớm
+                    if (newCount === 0) {
+                        writeToConsole(`Không tìm thấy sản phẩm mới nào ở trang ${p} (tất cả bị trùng lặp). Dừng cào sớm.`, 'warning');
                         break;
                     }
 
