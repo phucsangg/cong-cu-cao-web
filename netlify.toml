@@ -1,9 +1,10 @@
 [build]
   publish = "public"
+  functions = "netlify/functions"
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@sparticuz/chromium"]
+  external_node_modules = ["@sparticuz/chromium", "puppeteer-core", "cheerio"]
 
 [functions.scrape]
   memory = 3008
