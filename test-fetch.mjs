@@ -45,7 +45,13 @@ function extractSku(fullName) {
             'MALAYSIA', 'HÀNG', 'CHÍNH', 'HÃNG', 'GIA', 'GIÁ', 'RẺ', 'RE', 'TẶNG', 'TANG', 'QUÀ', 'QUA',
             'KHUYẾN', 'KHUYEN', 'MÃI', 'MAI', 'HOT', 'NEW', 'MODEL', 'BẾP', 'BEP', 'ĐIỆN', 'DIEN',
             'VÙNG NẤU', 'VUNG NAU', 'KÍNH ÂM', 'KINH AM', 'NHẬP KHẨU', 'NHAP KHAU', 'CHÍNH HÃNG', 'CHINH HANG',
-            'TRANG', 'MS', 'VV', 'GB', 'TB', 'MB', 'VÒNG', 'VONG', 'LÍT/PHÚT', 'LIT/PHUT', 'MÉT', 'MET'
+            'TRANG', 'MS', 'VV', 'GB', 'TB', 'MB', 'VÒNG', 'VONG', 'LÍT/PHÚT', 'LIT/PHUT', 'MÉT', 'MET',
+            'INOX', 'PHI', 'PHÍ', 'ĐỘ', 'DO', 'NĂM', 'NAM', 'KÍCH', 'KICH', 'THÁNG', 'THANG', 'BẢO', 'HÀNH', 
+            'BAO', 'HANH', 'BH', 'ĐỨNG', 'DUNG', 'NẰM', 'ĐẦU', 'DAU', 'LỖ', 'LO', 'BỘ', 'BO', 'CÁNH', 'CANH', 
+            'KHE', 'KHAY', 'MÂM', 'MAM', 'CHẬU', 'CHAU', 'VÒI', 'VOI', 'RỔ', 'RO', 'KỆ', 'KE', 'ĐÁ', 'DA', 
+            'CẮT', 'CAT', 'MẶT', 'MAT', 'DÀY', 'DAY', 'RỘNG', 'RONG', 'CAO', 'SÂU', 'SAU', 'THÀNH', 'THANH', 
+            'PHÂN', 'PHAN', 'LI', 'LY', 'CHÂN', 'CHAN', 'ỐNG', 'ONG', 'KHOÁ', 'KHOA', 'CỬA', 'CUA', 'HỐ', 
+            'HO', 'CHỔI', 'CHOI', 'DÂY', 'DAY'
         ];
         
         if (excludedWords.includes(clean)) return false;
@@ -61,6 +67,10 @@ function extractSku(fullName) {
         // Exclude units
         const isUnit = /^\d+(?:W|V|HZ|L|KG|PHUT|THANG|TRANG|MS|S|H|N|VN|TB|GB|MB|VÙNG|VUNG|VÒNG|VONG)$/i.test(clean);
         if (isUnit) return false;
+        
+        // Exclude dimensions like 600x400, 700x400x150
+        const isDimension = /^\d+\s*[xX]\s*\d+(?:\s*[xX]\s*\d+)*$/i.test(clean);
+        if (isDimension) return false;
         
         return true;
     });
@@ -148,7 +158,16 @@ run().then(() => {
         'Bếp từ Kocher DI-339Pro 9,480,000đ 18,100,000đ -48%',
         'Bếp từ Kocher 9,120,000đ 16,400,000đ -45%',
         'Bếp từ Kocher DI-339SE 9,120,000đ 16,400,000đ -45%',
-        'Bếp từ Kocher DI-616Plus 6,900,000đ 13,290,000đ -49%'
+        'Bếp từ Kocher DI-616Plus 6,900,000đ 13,290,000đ -49%',
+        'Kệ Góc Kính Inox 304',
+        'Kệ Gia Vị Tròn Inox 304',
+        'Bộ Thau Rá Inox 304',
+        'GIÁ ĐỂ ĐŨA THÌA MUÔI TREO NGOÀI INOX 304 EUROGOLD',
+        'GIÁ ĐỂ DAO THỚT TREO NGOÀI INOX 304 EUROGOLD',
+        'Bếp từ đôi 2017',
+        'Kích thước 600x400',
+        'Độ dày 2 li',
+        'Phi 21mm'
     ];
     cases.forEach(c => {
         const ext = extractSku(c);
