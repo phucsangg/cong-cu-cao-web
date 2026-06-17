@@ -668,6 +668,7 @@
                                         <th style="width: 70px;" class="text-center">Hình Ảnh</th>
                                         <th>Tên Sản Phẩm</th>
                                         <th style="width: 150px;">Mã Sản Phẩm</th>
+                                        <th style="width: 130px;">Dòng / Series</th>
                                         <th style="width: 140px;" class="text-center">Giá Bán</th>
                                         <th style="width: 100px;" class="text-center">Nguồn</th>
                                     </tr>
@@ -749,29 +750,25 @@
             }
 
             // Pattern 3: Lorca models
-            const lorcaReg = /\bLCI[- ]?\d+(?:\s?(?:Plus|PLUS))?\b/gi;
+            const lorcaReg = /\b(?:LCI|TA)\s*(?:-\s*)?\d+(?:\s?(?:Plus|PLUS))?\b/gi;
             while ((match = lorcaReg.exec(fullName)) !== null) {
                 codes.push(match[0]);
             }
 
             // Pattern 4: Spelier models
-            const spelierReg = /\b(?:SPE[- ]?IC\d+|SPM[- ]?\d+(?:Iplus|I-plus)?)(?:\s?(?:PLUS|Plus))?\b/gi;
+            const spelierReg = /\b(?:SPE[- ]*(?:IC)?|SPM)\s*\d+(?:\s?(?:EG\/KPLUS|EG|KPLUS|PLUS|Plus|VN|EVN|Iplus))?\b/gi;
             while ((match = spelierReg.exec(fullName)) !== null) {
                 codes.push(match[0]);
             }
             
-            // Pattern 5: Alphanumeric codes with hyphens (e.g. HC-I752B, HC-I7365B, MH-04I)
-            const hyphenReg = /\b[A-Z]{2,}-[A-Z\d]+\b/gi;
-            while ((match = hyphenReg.exec(fullName)) !== null) {
-                codes.push(match[0]);
-            }
-            
-            // Pattern 6: General alphanumeric model codes (e.g. MH732IN, MH802, PPI82566VN)
-            const generalReg = /\b[A-Z]+\d+[A-Z\d]*\b/gi;
+            // Pattern 5: General alphanumeric model codes (e.g. HC-I752B, MH-04I, MH732IN, SV-MR90, PPI82566VN)
+            const generalReg = /\b(?:[A-Z]+(?:-[A-Z]+)?-?\d+\w*|\d+-?[A-Z]+\w*)\b/gi;
             while ((match = generalReg.exec(fullName)) !== null) {
                 const val = match[0];
+                const hasLetter = /[A-Z]/i.test(val);
+                const hasDigit = /\d/.test(val);
                 const isUnit = /^\d+(?:W|vùng|trang|ms|s|h|kg)$/i.test(val);
-                if (!isUnit) {
+                if (hasLetter && hasDigit && !isUnit) {
                     codes.push(val);
                 }
             }
@@ -790,8 +787,26 @@
             
             cleanName = cleanName.replace(/\s+/g, ' ').trim();
             
+            // Now split baseSku and series for each code
+            let baseSkus = [];
+            let seriesSuffixes = [];
+            
+            const suffixRegex = /(?:[- ]+|(?<=\d))(EG\/KPLUS|EG|KPLUS|PLUS|Iplus|EVN|VN|IN)$/i;
+            uniqueCodes.forEach(code => {
+                const matchSuffix = code.match(suffixRegex);
+                if (matchSuffix) {
+                    const series = matchSuffix[1];
+                    const baseSku = code.substring(0, matchSuffix.index).trim();
+                    baseSkus.push(baseSku);
+                    seriesSuffixes.push(series);
+                } else {
+                    baseSkus.push(code);
+                }
+            });
+
             return {
-                sku: uniqueCodes.join(' / '),
+                sku: baseSkus.join(' / '),
+                series: [...new Set(seriesSuffixes)].join(' / '),
                 cleanName: cleanName
             };
         }
@@ -971,6 +986,7 @@
         function addProduct(prod) {
             const extracted = extractSku(prod.ten);
             prod.ma = extracted.sku;
+            prod.series = extracted.series;
             prod.tenSạch = extracted.cleanName;
 
             mangDuLieuToanCuc.push(prod);
@@ -995,11 +1011,15 @@
             const maHtml = prod.ma 
                 ? `<span class="badge bg-primary bg-opacity-25 text-info fw-semibold">${prod.ma}</span>` 
                 : `<span class="text-muted small">-</span>`;
+            const seriesHtml = prod.series 
+                ? `<span class="badge bg-warning bg-opacity-25 text-warning fw-semibold">${prod.series}</span>` 
+                : `<span class="text-muted small">-</span>`;
             row.innerHTML = `
                 <td class="text-center text-muted fw-bold">${prod.stt}</td>
                 <td class="text-center">${imageHtml}</td>
                 <td>${nameHtml}</td>
                 <td>${maHtml}</td>
+                <td>${seriesHtml}</td>
                 <td class="text-center price-badge">${prod.gia}</td>
                 <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
             `;
@@ -1015,13 +1035,19 @@
                 ? `<a href="${prod.link}" target="_blank" class="product-card-title">${prod.tenSạch}</a>`
                 : `<div class="product-card-title">${prod.tenSạch}</div>`;
             const cardMaHtml = prod.ma 
-                ? `<div class="mb-2"><span class="badge bg-primary bg-opacity-20 text-info fw-normal" style="font-size: 0.7rem;">${prod.ma}</span></div>`
+                ? `<span class="badge bg-primary bg-opacity-20 text-info fw-normal" style="font-size: 0.7rem;">${prod.ma}</span>`
+                : '';
+            const cardSeriesHtml = prod.series 
+                ? `<span class="badge bg-warning bg-opacity-20 text-warning fw-normal ms-1" style="font-size: 0.7rem;">${prod.series}</span>`
+                : '';
+            const badgesHtml = (cardMaHtml || cardSeriesHtml) 
+                ? `<div class="mb-2">${cardMaHtml}${cardSeriesHtml}</div>`
                 : '';
             cardCol.innerHTML = `
                 <div class="product-card">
                     ${cardImageHtml}
                     ${cardTitleHtml}
-                    ${cardMaHtml}
+                    ${badgesHtml}
                     <div class="product-card-price-row">
                         <span class="product-card-price">${prod.gia}</span>
                         <span class="product-card-source">Trang ${prod.trang}</span>
@@ -1144,10 +1170,12 @@
             rows.forEach(row => {
                 const titleCell = row.querySelector('.product-title-cell');
                 const skuCell = row.querySelector('td:nth-child(4)');
+                const seriesCell = row.querySelector('td:nth-child(5)');
                 if (titleCell) {
                     const text = titleCell.innerText.toLowerCase();
                     const skuText = skuCell ? skuCell.innerText.toLowerCase() : '';
-                    if (text.includes(query) || skuText.includes(query)) {
+                    const seriesText = seriesCell ? seriesCell.innerText.toLowerCase() : '';
+                    if (text.includes(query) || skuText.includes(query) || seriesText.includes(query)) {
                         row.classList.remove('d-none');
                     } else {
                         row.classList.add('d-none');
@@ -1159,11 +1187,16 @@
             const cards = document.querySelectorAll('#vungLuoi .product-grid-card-col');
             cards.forEach(card => {
                 const titleEl = card.querySelector('.product-card-title');
-                const skuEl = card.querySelector('.badge');
+                const badges = card.querySelectorAll('.badge');
+                let matchesBadge = false;
+                badges.forEach(b => {
+                    if (b.innerText.toLowerCase().includes(query)) {
+                        matchesBadge = true;
+                    }
+                });
                 if (titleEl) {
                     const text = titleEl.innerText.toLowerCase();
-                    const skuText = skuEl ? skuEl.innerText.toLowerCase() : '';
-                    if (text.includes(query) || skuText.includes(query)) {
+                    if (text.includes(query) || matchesBadge) {
                         card.classList.remove('d-none');
                     } else {
                         card.classList.add('d-none');
@@ -1175,11 +1208,12 @@
         function taiFileCSV() {
             if(mangDuLieuToanCuc.length === 0) return alert("Chưa có dữ liệu sản phẩm để xuất file!");
             
-            const headers = ['STT', 'Ten San Pham', 'Ma San Pham', 'Gia Ban', 'Nguon Trang', 'Lien Ket San Pham', 'Link Anh'];
+            const headers = ['STT', 'Ten San Pham', 'Ma San Pham', 'Dong / Series', 'Gia Ban', 'Nguon Trang', 'Lien Ket San Pham', 'Link Anh'];
             const rows = mangDuLieuToanCuc.map((item, index) => [
                 index + 1, 
                 `"${item.tenSạch.replace(/"/g, '""')}"`, 
                 `"${item.ma}"`, 
+                `"${item.series || ''}"`, 
                 `"${item.gia}"`, 
                 `"Trang ${item.trang}"`,
                 `"${item.link || ''}"`,
@@ -1243,6 +1277,9 @@
                 rowData[1] = `"${item.tenSạch.replace(/"/g, '""')}"`;     // Title
                 rowData[2] = `""`;                                        // Body (HTML)
                 rowData[3] = `"Store Auto Import"`;                       // Vendor
+                if (item.series) {
+                    rowData[5] = `"${item.series.replace(/"/g, '""')}"`;  // Tags
+                }
                 rowData[6] = `"TRUE"`;                                    // Published
                 rowData[7] = `"Title"`;                                   // Option1 Name
                 rowData[8] = `"Default Title"`;                           // Option1 Value
