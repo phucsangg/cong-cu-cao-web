@@ -27,6 +27,11 @@
   - Implemented real-time tracking and display of global minimum and maximum prices with matching product details in the dashboard metrics.
   - Added fault-tolerance to the bulk URL list execution: failed pages or category links are skipped after logging the reason, allowing subsequent category URLs to run.
   - Implemented a post-campaign warning report listing all failed URLs and failure reasons in the terminal panel and final alert box.
+  - Added option to select between a fixed page count ("Nhất định") or crawling all available pages of a category ("Toàn bộ trang").
+  - Removed "MS", "GB", "TB", and "MB" from SKU excluded words to allow correct extraction of kitchen appliance model codes.
+  - Added material filter rules to prevent steel specifications (such as INOX, SUS, SS304, etc.) from being incorrectly extracted as product SKUs.
+  - Rewrote product comparison grouping rules to group strictly by SKU and Series.
+  - Implemented name conflict detection (`hasConflict` heuristic) and added material/utensil stopWords in fuzzy matching to prevent incorrect grouping of different items (e.g. different sizes/types).
 - [test-fetch.mjs](file:///d:/Work/cong-cu-cao-web-ver-2/test-fetch.mjs):
   - Updated SKU/Series extraction testing logic to align with the frontend improvements.
 
@@ -65,6 +70,9 @@
 - `git commit -m "feat: add support for importing list of URLs from TXT file and make advanced configuration panel always visible"`: Committed TXT import and advanced config panel.
 - `git push origin main` / `git push phucsang main`: Synchronized remotes with TXT import features.
 - `Remove-Item test_urls.txt`: Deleted temporary file used during testing.
+- `git commit -am "feat: implement real-time global price boundaries and fault-tolerant bulk crawing loop"`: Committed min/max prices and crawing loop fault-tolerance.
+- `git pull phucsang main --rebase`: Resolved remote push conflict on phucsang branch.
+- `git push origin main --force` / `git push phucsang main`: Pushed rebased commits to both remotes.
 
 ## Bugs Found
 1. **Fallback Path Bypass on Local Dev (Windows)**: `@sparticuz/chromium` was imported and initialized on local Windows machines because the module is installed. `chromium.executablePath()` returned a folder/path that exists, so `fs.promises.access` succeeded, but running `puppeteer.launch` failed because it's not a valid Windows executable. This bypassed the local Chrome/Edge fallback search.

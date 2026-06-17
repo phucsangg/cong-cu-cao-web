@@ -626,8 +626,15 @@
                                 <input type="text" id="pageParam" class="form-control form-control-sm" value="page" disabled placeholder="e.g. page">
                             </div>
                             <div class="col-6 mb-2">
-                                <label for="maxPages" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Max Trang:</label>
-                                <input type="number" id="maxPages" class="form-control form-control-sm" value="10" min="1" max="50">
+                                <label for="maxPagesLimit" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Giới hạn trang:</label>
+                                <select id="maxPagesLimit" class="form-select form-select-sm" onchange="toggleMaxPagesField()">
+                                    <option value="fixed" selected>🔢 Nhất định</option>
+                                    <option value="all">♾️ Toàn bộ trang</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-2" id="maxPagesNumberGroup">
+                                <label for="maxPages" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Số trang:</label>
+                                <input type="number" id="maxPages" class="form-control form-control-sm" value="10" min="1" max="100">
                             </div>
                             <div class="col-6 mb-2">
                                 <label for="delayInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Độ trễ nghỉ (ms):</label>
@@ -922,6 +929,14 @@
                 // Must contain at least one digit and one letter
                 if (!/[A-Z]/.test(clean) || !/\d/.test(clean)) return false;
                 
+                // Exclude materials (e.g. INOX, INOX304, SUS304, SS304, etc.)
+                if (/(?:INOX|SUS|SS304|SS201|SS316|SS430|S304|S201|S316|S430)/i.test(clean)) {
+                    return false;
+                }
+                if (/^(?:INOX|SUS)$/i.test(clean)) {
+                    return false;
+                }
+                
                 // Exclude common words
                 const excludedWords = [
                     'GAS', 'VÙNG', 'VUNG', 'NẤU', 'NAU', 'LÍT', 'LIT', 'TỪ', 'TU', 'ĐÔI', 'DOI',
@@ -930,7 +945,7 @@
                     'MALAYSIA', 'HÀNG', 'CHÍNH', 'HÃNG', 'GIA', 'GIÁ', 'RẺ', 'RE', 'TẶNG', 'TANG', 'QUÀ', 'QUA',
                     'KHUYẾN', 'KHUYEN', 'MÃI', 'MAI', 'HOT', 'NEW', 'MODEL', 'BẾP', 'BEP', 'ĐIỆN', 'DIEN',
                     'VÙNG NẤU', 'VUNG NAU', 'KÍNH ÂM', 'KINH AM', 'NHẬP KHẨU', 'NHAP KHAU', 'CHÍNH HÃNG', 'CHINH HANG',
-                    'TRANG', 'MS', 'VV', 'GB', 'TB', 'MB', 'VÒNG', 'VONG', 'LÍT/PHÚT', 'LIT/PHUT', 'MÉT', 'MET'
+                    'TRANG', 'VV', 'VÒNG', 'VONG', 'LÍT/PHÚT', 'LIT/PHUT', 'MÉT', 'MET'
                 ];
                 
                 if (excludedWords.includes(clean)) return false;
@@ -1008,6 +1023,16 @@
             }
         }
 
+        function toggleMaxPagesField() {
+            const limitMode = document.getElementById('maxPagesLimit').value;
+            const numGroup = document.getElementById('maxPagesNumberGroup');
+            if (limitMode === 'fixed') {
+                numGroup.classList.remove('d-none');
+            } else {
+                numGroup.classList.add('d-none');
+            }
+        }
+
         function toggleParallelScrape() {
             const isParallel = document.getElementById('parallelScrape').checked;
             const concurrencyGroup = document.getElementById('concurrencyGroup');
@@ -1061,7 +1086,10 @@
                 .replace(/[^a-z0-9\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/g, '') // Keep Vietnamese characters
                 .trim();
             const words = clean.split(/\s+/);
-            const stopWords = ['bếp', 'từ', 'điện', 'hồng', 'ngoại', 'máy', 'hút', 'mùi', 'lò', 'vi', 'sóng', 'nướng', 'rửa', 'chén', 'bát', 'âm', 'dương', 'nhập', 'khẩu', 'chính', 'hãng', 'giá', 'rẻ', 'đôi', 'ba', 'bốn', 'vùng', 'nấu', 'kính'];
+            const stopWords = [
+                'bếp', 'từ', 'điện', 'hồng', 'ngoại', 'máy', 'hút', 'mùi', 'lò', 'vi', 'sóng', 'nướng', 'rửa', 'chén', 'bát', 'âm', 'dương', 'nhập', 'khẩu', 'chính', 'hãng', 'giá', 'rẻ', 'đôi', 'ba', 'bốn', 'vùng', 'nấu', 'kính',
+                'inox', '304', '201', '316', '430', 'sus', 'thép', 'không', 'gỉ', 'cái', 'chiếc', 'set', 'hộp', 'khay', 'giá', 'kệ', 'bộ', 'chậu', 'vòi'
+            ];
             return words.filter(w => w.length > 1 && !stopWords.includes(w));
         }
 
@@ -1083,12 +1111,36 @@
             const skuGroups = {};
             const fuzzyGroups = [];
             
+            function hasConflict(name1, name2) {
+                const n1 = name1.toLowerCase();
+                const n2 = name2.toLowerCase();
+                
+                const conflictGroups = [
+                    ['nhỏ', 'nho', 'trung', 'lớn', 'lon', 'bé', 'be', 'to', 'vừa', 'vua', 'small', 'medium', 'large'],
+                    ['muỗng', 'muong', 'nĩa', 'nia', 'đũa', 'dua', 'thìa', 'thia', 'dao', 'spoon', 'fork', 'knife'],
+                    ['đôi', 'doi', 'ba', 'bốn', 'bon', 'hai']
+                ];
+                
+                for (const group of conflictGroups) {
+                    const words1 = group.filter(w => new RegExp('\\b' + w + '\\b', 'i').test(n1));
+                    const words2 = group.filter(w => new RegExp('\\b' + w + '\\b', 'i').test(n2));
+                    
+                    if (words1.length > 0 && words2.length > 0) {
+                        const hasDifferent = words1.some(w => !words2.includes(w)) || words2.some(w => !words1.includes(w));
+                        if (hasDifferent) {
+                            return true; 
+                        }
+                    }
+                }
+                return false;
+            }
+            
             mangDuLieuToanCuc.forEach(item => {
                 const numericPrice = parseInt(item.gia.replace(/\D/g, '')) || 0;
                 const itemWithPriceVal = { ...item, numericPrice };
                 
                 if (item.ma && item.ma.trim().length > 0) {
-                    const skuKey = item.ma.trim().toUpperCase();
+                    const skuKey = item.ma.trim().toUpperCase() + (item.series ? `_${item.series.trim().toUpperCase()}` : '');
                     if (!skuGroups[skuKey]) {
                         skuGroups[skuKey] = [];
                     }
@@ -1098,7 +1150,7 @@
                     let matchedGroup = null;
                     for (const group of fuzzyGroups) {
                         const similarity = calculateJaccardSimilarity(tokens, group.tokens);
-                        if (similarity >= 0.6) {
+                        if (similarity >= 0.8 && !hasConflict(item.tenSạch, group.name)) {
                             matchedGroup = group;
                             break;
                         }
@@ -1109,6 +1161,7 @@
                     } else {
                         fuzzyGroups.push({
                             tokens: tokens,
+                            name: item.tenSạch,
                             items: [itemWithPriceVal]
                         });
                     }
@@ -1117,14 +1170,14 @@
             
             const comparisonResults = [];
             
-            Object.keys(skuGroups).forEach(sku => {
-                const items = skuGroups[sku];
+            Object.keys(skuGroups).forEach(skuKey => {
+                const items = skuGroups[skuKey];
                 items.sort((a, b) => a.numericPrice - b.numericPrice);
                 const validPriceItems = items.filter(x => x.numericPrice > 0);
                 
                 comparisonResults.push({
                     type: 'sku',
-                    key: sku,
+                    key: items[0].ma,
                     name: items[0].tenSạch,
                     series: items[0].series,
                     items: items,
@@ -1342,7 +1395,13 @@
 
             const paginationMode = document.getElementById('paginationMode').value;
             const pageParam = document.getElementById('pageParam').value.trim() || 'page';
-            const maxPages = parseInt(document.getElementById('maxPages').value) || 10;
+            
+            const maxPagesLimit = document.getElementById('maxPagesLimit').value;
+            let maxPages = 999;
+            if (maxPagesLimit === 'fixed') {
+                maxPages = parseInt(document.getElementById('maxPages').value) || 10;
+            }
+
             const delay = parseInt(document.getElementById('delayInput').value) || 2000;
             const timeout = parseInt(document.getElementById('timeoutInput').value) || 30000;
             const blockResources = document.getElementById('blockResources').checked;
@@ -1361,7 +1420,7 @@
             document.getElementById('vungDuLieu').innerHTML = '';
             document.getElementById('vungLuoi').innerHTML = '';
             document.getElementById('statProducts').innerText = '0';
-            document.getElementById('statPages').innerText = `0 / ${maxPages * urlsToScrape.length}`;
+            document.getElementById('statPages').innerText = `0 / ${maxPagesLimit === 'all' ? '♾️' : maxPages * urlsToScrape.length}`;
             document.getElementById('statSpeed').innerText = '0';
             document.getElementById('searchFilter').value = '';
             
@@ -1397,6 +1456,7 @@
                         paginationMode, 
                         pageParam, 
                         maxPages, 
+                        maxPagesLimit,
                         delay, 
                         timeout, 
                         blockResources,
@@ -1543,7 +1603,7 @@
         }
 
         // ── Netlify REST polling: gọi /api/scrape cho từng trang tuần tự ──
-        async function runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, delay, timeout, blockResources, categoryIndex, totalCategories }) {
+        async function runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, maxPagesLimit, delay, timeout, blockResources, categoryIndex, totalCategories }) {
             let categoryError = false;
             let errorReason = '';
             let totalProductsFromUrl = 0;
@@ -1554,8 +1614,9 @@
                     break;
                 }
 
-                document.getElementById('statPages').innerText = `DM ${categoryIndex + 1}/${totalCategories} - T${p}/${maxPages}`;
-                writeToConsole(`======================= DM ${categoryIndex + 1}/${totalCategories} - TRANG ${p} / ${maxPages} =======================`);
+                const pagesDisplay = maxPagesLimit === 'all' ? '♾️' : maxPages;
+                document.getElementById('statPages').innerText = `DM ${categoryIndex + 1}/${totalCategories} - T${p}/${pagesDisplay}`;
+                writeToConsole(`======================= DM ${categoryIndex + 1}/${totalCategories} - TRANG ${p} / ${pagesDisplay} =======================`);
 
                 const params = new URLSearchParams({
                     url: urlInput, paginationMode, pageParam, pageNum: p,
