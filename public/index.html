@@ -1124,6 +1124,11 @@
                         break;
                     }
 
+                    if (p > 1 && newCount === 0) {
+                        writeToConsole(`Không có thêm sản phẩm mới ở trang ${p} (trùng lặp hoàn toàn). Dừng cào sớm.`, 'warning');
+                        break;
+                    }
+
                 } catch (fetchErr) {
                     writeToConsole(`Lỗi kết nối trang ${p}: ${fetchErr.message}`, 'error');
                     break;

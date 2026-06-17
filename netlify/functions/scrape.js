@@ -70,11 +70,10 @@ function runCheerioScrape(html, url, pageNum, log) {
 
     // 1. Process script-based prices (e.g. bepxanh.com productSaleSetup)
     let scriptProductsCount = 0;
-    $('[class*="loadpro"]').each((i, el) => {
-        const scriptText = $(el).find('script').text();
-        let priceText = '';
-        
+    $('script').each((i, el) => {
+        const scriptText = $(el).text();
         if (scriptText && scriptText.includes('productSaleSetup')) {
+            let priceText = '';
             const match = scriptText.match(/productSaleSetup\s*\(\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'([^']*)'/);
             if (match && match[1]) {
                 const numericPrice = parseInt(match[1]) || 0;
@@ -82,11 +81,10 @@ function runCheerioScrape(html, url, pageNum, log) {
                     priceText = numericPrice.toLocaleString('vi-VN') + ' ₫';
                 }
             }
-        }
-        
-        if (!priceText) return;
-        
-        let parent = $(el).parent();
+            
+            if (!priceText) return;
+            
+            let parent = $(el).parent();
         for (let step = 0; step < 5; step++) {
             if (!parent || parent.length === 0) break;
             const idP = parent.attr('id') || '';
@@ -158,6 +156,7 @@ function runCheerioScrape(html, url, pageNum, log) {
                 break;
             }
             parent = parent.parent();
+        }
         }
     });
 
