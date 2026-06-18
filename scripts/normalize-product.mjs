@@ -202,6 +202,8 @@ export function getCleanName(fullName, maSanPham, series, kichThuoc) {
         }
     }
     
+    clean = clean.replace(/\b\d+(?:[\s.,]\d{3})*(?:\s*(?:đ|₫|vnd|vnđ|vnd))(?![a-zA-ZÀ-ỹ])/gi, '');
+    clean = clean.replace(/\b[-+]?\s*\d+\s*%(?![a-zA-ZÀ-ỹ])/g, '');
     clean = clean.replace(/\b(?:series|serie|seri)\s*\d+\b/gi, '');
     clean = clean.replace(/\b\d+(?:[.,]\d+)?\s*(?:cm|mm|l|lit|lít|w|kw|kg|g)(?![a-zA-ZÀ-ỹ])/gi, '');
     clean = clean.replace(/\b(?:AISI\s*304|SUS\s*304|PVD\s*\d+|lớp)(?![a-zA-ZÀ-ỹ])/gi, '');

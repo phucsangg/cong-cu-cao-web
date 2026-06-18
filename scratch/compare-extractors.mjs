@@ -2,11 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { extractSku as backendExtractSku } from '../scripts/normalize-product.mjs';
 
-// Load public/index.html and extract lines 926 to 1091
+// Load public/index.html and extract lines 926 to 1093
 const indexHtmlContent = fs.readFileSync(path.resolve('public/index.html'), 'utf-8');
 const lines = indexHtmlContent.split(/\r?\n/);
-// Line numbers are 1-based, index is 0-based. Line 926 to 1091 is index 925 to 1091
-const funcLines = lines.slice(925, 1091);
+// Line numbers are 1-based, index is 0-based. Line 926 to 1093 is index 925 to 1093
+const funcLines = lines.slice(925, 1093);
 const funcBody = funcLines.join('\n');
 
 // Create function dynamically
