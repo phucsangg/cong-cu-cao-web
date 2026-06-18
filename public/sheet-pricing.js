@@ -71,7 +71,7 @@
             const suggestedPriceVal = row.suggestedPrice;
             const marketCount = row.marketPrices ? row.marketPrices.length : 0;
             return `
-                <tr onclick="showProductDetails(${row.rowNumber})" style="cursor: pointer;" class="align-middle">
+                <tr onclick="showProductDetails(${row.rowNumber})" data-bs-toggle="modal" data-bs-target="#productDetailModal" style="cursor: pointer;" class="align-middle">
                     <td class="text-center text-light opacity-50 fw-bold">${escapeHtml(row.rowNumber)}</td>
                     <td><span class="badge bg-secondary bg-opacity-10 text-white border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
                     <td>${escapeHtml(row.brand || '-')}</td>
@@ -593,7 +593,7 @@
     }
 
     function showProductDetails(rowNumber) {
-        const row = state.rows.find(r => r.rowNumber === rowNumber);
+        const row = state.rows.find(r => Number(r.rowNumber) === Number(rowNumber));
         if (!row) return;
 
         const titleEl = document.getElementById('modalProductTitle');
