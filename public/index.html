@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Công cụ cào và trích xuất dữ liệu sản phẩm đa trang thời gian thực, chạy hoàn toàn trên Netlify Serverless.">
-    <title>Web Scraper - Real-Time Dashboard</title>
+    <meta name="description" content="Hệ thống tự động quét và cập nhật giá thị trường trực tiếp vào Google Sheet.">
+    <title>Auto Pricing Dashboard</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,30 +13,31 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #080b19;
-            --card-bg: rgba(13, 20, 35, 0.55);
-            --border-color: rgba(255, 255, 255, 0.05);
-            --glow-green: rgba(16, 185, 129, 0.15);
+            --bg-color: #060813;
+            --card-bg: rgba(15, 22, 42, 0.65);
+            --border-color: rgba(255, 255, 255, 0.06);
             --primary-color: #10b981; /* Emerald Green */
             --accent-color: #06b6d4;  /* Cyan */
             --warning-color: #f59e0b; /* Amber */
             --danger-color: #ef4444;  /* Red */
-            --text-main: #f1f5f9;     /* Slate 100 */
+            --text-main: #f8fafc;     /* Slate 50 */
             --text-muted: #64748b;    /* Slate 500 */
-            --text-light: #94a3b8;    /* Slate 400 */
+            --text-light: #cbd5e1;    /* Slate 300 */
+            --glow-green: rgba(16, 185, 129, 0.2);
+            --glow-cyan: rgba(6, 182, 212, 0.2);
         }
 
         body {
             background-color: var(--bg-color);
             background-image: 
-                radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.05) 0%, transparent 45%),
-                radial-gradient(circle at 5% 40%, rgba(6, 182, 212, 0.03) 0%, transparent 40%),
-                radial-gradient(circle at 95% 80%, rgba(16, 185, 129, 0.02) 0%, transparent 40%);
+                radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 10% 30%, rgba(6, 182, 212, 0.04) 0%, transparent 35%),
+                radial-gradient(circle at 90% 70%, rgba(16, 185, 129, 0.03) 0%, transparent 35%);
             background-attachment: fixed;
             color: var(--text-main);
             font-family: 'Plus Jakarta Sans', sans-serif;
             min-height: 100vh;
-            padding-bottom: 2rem;
+            padding: 2rem 0;
             position: relative;
         }
 
@@ -44,953 +45,514 @@
             content: '';
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background-image: radial-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 0);
-            background-size: 24px 24px;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 0);
+            background-size: 20px 20px;
             pointer-events: none;
             z-index: -1;
         }
 
-        /* Glassmorphism Panel */
+        /* Glassmorphism Cards */
         .glass-card {
             background: var(--card-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            box-shadow: 0 10px 35px 0 rgba(0, 0, 0, 0.35);
+            box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.4);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Title Styling */
+        h1.title {
+            font-size: 2.25rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 30%, #34d399 70%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em;
+        }
+
+        /* Custom Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
         }
 
         /* Form elements */
+        .form-label {
+            font-size: 0.825rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.4rem;
+        }
+
         .form-control, .form-select {
-            background-color: rgba(11, 17, 30, 0.7);
+            background-color: rgba(9, 13, 26, 0.8);
             border: 1px solid rgba(255, 255, 255, 0.08);
             color: #fff;
+            font-size: 0.9rem;
             font-weight: 500;
+            border-radius: 8px;
+            padding: 0.6rem 0.9rem;
             transition: all 0.2s ease;
         }
 
         .form-control:focus, .form-select:focus {
-            background-color: rgba(11, 17, 30, 0.9);
+            background-color: rgba(9, 13, 26, 0.95);
             color: #fff;
             border-color: var(--primary-color);
             box-shadow: 0 0 10px var(--glow-green);
         }
 
-        .input-group-text {
-            background-color: rgba(11, 17, 30, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: var(--text-light);
-        }
-
-        /* Minimalist Accordion */
-        .accordion-button {
-            transition: all 0.2s ease;
-        }
-        .accordion-button::after {
-            filter: invert(1) grayscale(1);
-            opacity: 0.6;
-        }
-        .accordion-button:not(.collapsed) {
-            color: var(--primary-color) !important;
-            background-color: transparent !important;
-            box-shadow: none !important;
-        }
-        .accordion-button:not(.collapsed)::after {
-            filter: invert(53%) sepia(93%) saturate(418%) hue-rotate(113deg) brightness(96%) contrast(89%); /* Matches Emerald */
-        }
-
-        /* Buttons */
+        /* Premium Buttons */
         .btn-premium {
             background: linear-gradient(135deg, var(--primary-color), #34d399);
             border: none;
-            color: #090d16;
+            color: #040814;
             font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 0.02em;
+            padding: 0.75rem 2rem;
             border-radius: 8px;
             transition: all 0.25s ease;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
         }
 
         .btn-premium:hover:not(:disabled) {
-            background: linear-gradient(135deg, #34d399, #10b981);
-            color: #090d16;
             transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+            color: #040814;
         }
 
         .btn-premium:disabled {
             background: rgba(255, 255, 255, 0.08);
             color: var(--text-muted);
-            transform: none;
             box-shadow: none;
+            transform: none;
         }
 
         .btn-stop {
             background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.25);
+            border: 1px solid rgba(239, 68, 68, 0.3);
             color: #f87171;
             font-weight: 600;
+            font-size: 1rem;
+            padding: 0.75rem 1.5rem;
             border-radius: 8px;
             transition: all 0.2s ease;
         }
 
         .btn-stop:hover:not(:disabled) {
-            background: rgba(239, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.25);
             color: #fff;
-            border-color: rgba(239, 68, 68, 0.45);
+            border-color: rgba(239, 68, 68, 0.6);
         }
 
         .btn-stop:disabled {
             background: transparent;
             border-color: rgba(255, 255, 255, 0.04);
-            color: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.1);
         }
 
-        /* Terminal Window */
-        .terminal-window {
-            background: #04060a;
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            border-radius: 10px;
+        /* Progress Bar */
+        .progress {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 50px;
+            height: 12px;
             overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .progress-bar-animated {
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+            border-radius: 50px;
+        }
+
+        /* Stats Grid */
+        .stat-card {
+            background: rgba(10, 15, 30, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 1.1rem;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(10, 15, 30, 0.6);
+            border-color: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 0.2rem;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .stat-label {
+            font-size: 0.725rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* Colors for counters */
+        .text-total { color: #f8fafc; }
+        .text-processed { color: var(--accent-color); text-shadow: 0 0 10px var(--glow-cyan); }
+        .text-success-val { color: var(--primary-color); text-shadow: 0 0 10px var(--glow-green); }
+        .text-error-val { color: var(--danger-color); }
+        .text-write-val { color: var(--warning-color); }
+
+        /* Accordion Custom Styling */
+        .accordion-item {
+            background: transparent;
+            border: none;
+        }
+
+        .accordion-button {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-light);
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px !important;
+            padding: 0.6rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--primary-color);
+            box-shadow: none;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .accordion-button::after {
+            filter: invert(1);
+            transform: scale(0.85);
+        }
+
+        /* Terminal Logs Container */
+        .terminal-window {
+            background: #03050a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
             font-family: 'JetBrains Mono', monospace;
+            padding: 1.2rem;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+
+        .terminal-window::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            border-radius: 12px 12px 0 0;
         }
 
         .terminal-header {
-            background: #080c14;
-            padding: 10px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.6rem;
+            margin-bottom: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.725rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .terminal-body {
+            height: 250px;
             overflow-y: auto;
-            padding: 14px 16px;
-            font-size: 0.78rem;
-            line-height: 1.6;
-            color: #cbd5e1;
             scroll-behavior: smooth;
         }
 
-        .log-line {
-            margin-bottom: 6px;
-            display: block;
+        /* Terminal custom scrollbar */
+        .terminal-body::-webkit-scrollbar {
+            width: 6px;
         }
-        .log-time { color: #475569; margin-right: 10px; font-size: 0.72rem; }
-        .log-info { color: #94a3b8; }
-        .log-success { color: #34d399; }
+        .terminal-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .terminal-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        .terminal-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .log-line {
+            display: block;
+            margin-bottom: 0.35rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-time {
+            color: var(--text-muted);
+            margin-right: 0.6rem;
+            user-select: none;
+        }
+
+        .log-info { color: #e2e8f0; }
+        .log-success { color: #4ade80; }
         .log-warning { color: #fbbf24; }
         .log-error { color: #f87171; }
 
-        /* Scraped Data Table */
-        .table-responsive-container {
-            max-height: 480px;
+        /* Compact Table for Product Details */
+        .table-responsive {
+            max-height: 350px;
             overflow-y: auto;
-            overflow-x: auto;
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            border-radius: 10px;
-            background: rgba(8, 12, 20, 0.4);
         }
 
-        .table-premium {
-            margin-bottom: 0;
-            vertical-align: middle;
-            color: var(--text-main);
-            font-size: 0.88rem;
+        .table-custom {
+            font-size: 0.825rem;
+            color: var(--text-light);
+            border-collapse: collapse;
+            width: 100%;
         }
 
-        .table-premium thead {
+        .table-custom th {
+            background-color: rgba(9, 13, 26, 0.85);
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: 10;
         }
 
-        .table-premium th {
-            background-color: #0b0f19;
-            color: var(--text-light);
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            letter-spacing: 1px;
-            padding: 14px 16px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.05);
-            white-space: nowrap;
+        .table-custom td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            vertical-align: middle;
         }
 
-        .table-premium td {
-            padding: 12px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
-            white-space: nowrap;
-        }
-
-        .product-title-cell {
-            max-width: 100%;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            white-space: normal;
-            line-height: 1.4;
-            font-size: 0.85rem;
-        }
-
-        .product-link-btn {
-            color: var(--text-main);
-            text-decoration: none;
-            transition: color 0.15s ease;
-        }
-        .product-link-btn:hover {
-            color: var(--primary-color);
+        .table-custom tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
         }
 
         .price-badge {
-            color: #34d399;
-            font-weight: 600;
-            font-size: 0.92rem;
             font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
         }
 
-        .product-thumb {
-            width: 40px;
-            height: 40px;
-            object-fit: contain;
-            border-radius: 6px;
-            background-color: #fff;
-            padding: 2px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .product-thumb:hover {
-            transform: scale(1.35);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            z-index: 10;
-            position: relative;
-        }
-
-        /* Stats Cards */
-        .stat-card {
-            background: rgba(255, 255, 255, 0.015);
-            border: 1px solid rgba(255, 255, 255, 0.03);
-            border-radius: 10px;
-            padding: 12px 8px;
-            transition: all 0.25s ease;
-        }
-        .stat-card:hover {
-            background: rgba(255, 255, 255, 0.03);
-            border-color: rgba(255, 255, 255, 0.06);
-            transform: translateY(-1px);
-        }
-        
-        .stat-label {
-            font-size: 0.65rem;
-            color: var(--text-light);
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            margin-bottom: 4px;
+        .badge {
+            font-size: 0.75rem;
             font-weight: 600;
-        }
-        
-        .stat-value {
-            font-size: 1.25rem;
-            font-weight: 700;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* Premium outline actions */
-        .btn-outline-warning {
-            border-color: rgba(245, 158, 11, 0.25) !important;
-            color: #fbbf24 !important;
-            background: rgba(245, 158, 11, 0.03) !important;
-        }
-        .btn-outline-warning:hover {
-            background: rgba(245, 158, 11, 0.15) !important;
-            border-color: rgba(245, 158, 11, 0.45) !important;
-            color: #fff !important;
-        }
-        .btn-outline-success {
-            border-color: rgba(16, 185, 129, 0.25) !important;
-            color: #34d399 !important;
-            background: rgba(16, 185, 129, 0.03) !important;
-        }
-        .btn-outline-success:hover {
-            background: rgba(16, 185, 129, 0.15) !important;
-            border-color: rgba(16, 185, 129, 0.45) !important;
-            color: #fff !important;
-        }
-        .btn-outline-info {
-            border-color: rgba(6, 182, 212, 0.25) !important;
-            color: #22d3ee !important;
-            background: rgba(6, 182, 212, 0.03) !important;
-        }
-        .btn-outline-info:hover {
-            background: rgba(6, 182, 212, 0.15) !important;
-            border-color: rgba(6, 182, 212, 0.45) !important;
-            color: #fff !important;
-        }
-
-        /* Product Grid styles */
-        .product-grid-card-col {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .product-card {
-            background: rgba(255, 255, 255, 0.015);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            border-radius: 12px;
-            padding: 12px;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            transition: all 0.25s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .product-card:hover {
-            transform: translateY(-4px);
-            background: rgba(255, 255, 255, 0.03);
-            border-color: rgba(16, 185, 129, 0.2);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
-        }
-        
-        .product-card-img-wrapper {
-            background: #ffffff;
-            border-radius: 8px;
-            height: 140px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            padding: 8px;
-            margin-bottom: 12px;
-            position: relative;
-        }
-        
-        .product-card-img {
-            max-height: 100%;
-            max-width: 100%;
-            object-fit: contain;
-            transition: transform 0.25s ease;
-        }
-        
-        .product-card:hover .product-card-img {
-            transform: scale(1.06);
-        }
-        
-        .product-card-title {
-            font-size: 0.82rem;
-            font-weight: 600;
-            line-height: 1.4;
-            color: var(--text-main);
-            margin-bottom: 8px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            height: 2.8em;
-            text-decoration: none;
-            transition: color 0.15s ease;
-        }
-        
-        .product-card-title:hover {
-            color: var(--primary-color);
-        }
-        
-        .product-card-price-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: auto;
-            padding-top: 6px;
-        }
-        
-        .product-card-price {
-            color: #34d399;
-            font-weight: 700;
-            font-size: 0.95rem;
-            font-family: 'JetBrains Mono', monospace;
-        }
-        
-        .product-card-source {
-            font-size: 0.7rem;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            color: var(--text-light);
-            padding: 2px 6px;
+            padding: 0.3rem 0.6rem;
             border-radius: 4px;
-        }
-
-        .btn-view-mode {
-            color: var(--text-light) !important;
-            border: none !important;
-            font-size: 0.75rem !important;
-            font-weight: 600 !important;
-            transition: all 0.2s ease !important;
-        }
-        
-        .btn-view-mode.active {
-            background: var(--primary-color) !important;
-            color: #090d16 !important;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2) !important;
-        }
-        
-        .btn-view-mode:hover:not(.active) {
-            color: #fff !important;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            display: inline-block;
-            transition: all 0.3s ease;
-        }
-        
-        .status-dot.bg-success { box-shadow: 0 0 8px #10b981; }
-        .status-dot.bg-primary { box-shadow: 0 0 8px #06b6d4; }
-        .status-dot.bg-warning { box-shadow: 0 0 8px #f59e0b; }
-        .status-dot.bg-danger { box-shadow: 0 0 8px #ef4444; }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .row-animate {
-            animation: fadeInUp 0.3s ease forwards;
-        }
-
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        /* Advanced settings and URL mode switches */
-        .advanced-settings-panel {
-            background: rgba(4, 6, 10, 0.45);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            border-radius: 12px;
-            padding: 16px;
-            margin-top: 18px;
-            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-check:checked + .btn-outline-success {
-            background: linear-gradient(135deg, var(--primary-color), #34d399) !important;
-            color: #090d16 !important;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25) !important;
-            border: none !important;
-        }
-
-        .btn-check + .btn-outline-success {
-            border: 1px solid rgba(255, 255, 255, 0.06) !important;
-            color: var(--text-light) !important;
-            transition: all 0.2s ease !important;
-        }
-
-        .btn-check + .btn-outline-success:hover {
-            background: rgba(255, 255, 255, 0.03) !important;
-            color: #fff !important;
-            border-color: rgba(255, 255, 255, 0.1) !important;
-        }
-        
-        #urlPreviewContainer ul {
-            padding-left: 14px;
-        }
-        
-        #urlPreviewContainer li {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            color: var(--text-light);
-            margin-bottom: 3px;
-        }
-
-        .bg-purple-custom {
-            background-color: rgba(139, 92, 246, 0.25) !important;
-        }
-        .text-purple-custom {
-            color: #c084fc !important;
-        }
-        .badge-sku {
-            background-color: rgba(6, 182, 212, 0.15) !important;
-            color: #22d3ee !important;
-            border: 1px solid rgba(6, 182, 212, 0.25) !important;
-        }
-        .badge-series {
-            background-color: rgba(245, 158, 11, 0.15) !important;
-            color: #fbbf24 !important;
-            border: 1px solid rgba(245, 158, 11, 0.25) !important;
-        }
-        .badge-size {
-            background-color: rgba(16, 185, 129, 0.15) !important;
-            color: #34d399 !important;
-            border: 1px solid rgba(16, 185, 129, 0.25) !important;
-        }
-        .badge-auto {
-            background-color: rgba(139, 92, 246, 0.15) !important;
-            color: #c084fc !important;
-            border: 1px solid rgba(139, 92, 246, 0.25) !important;
-        }
-        .hover-primary:hover {
-            color: var(--primary-color) !important;
         }
     </style>
 </head>
 <body>
-    <!-- Main Wrapper -->
-    <div class="container-fluid py-4" style="max-width: 1560px; width: 95%;">
-        <!-- Header -->
-        <header class="d-flex justify-content-between align-items-center mb-4 px-2">
-            <div class="d-flex align-items-center gap-3">
-                <div class="bg-success bg-opacity-10 text-success p-2 rounded-3 border border-success border-opacity-20 shadow-sm" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-cpu"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="15" x2="23" y2="15"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="15" x2="4" y2="15"></line></svg>
+    <div class="container my-3">
+        <!-- Header Section -->
+        <div class="glass-card d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+                <h1 class="title mb-1">Auto Pricing Dashboard</h1>
+                <p class="text-muted small mb-0">Hệ thống quét giá thị trường tự động qua Google Sheet</p>
+            </div>
+            <div>
+                <span id="pricingStatusBadge" class="status-badge">Chờ chạy</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Panel: Controls and Settings -->
+            <div class="col-lg-5">
+                <!-- Scan Button & Progress Bar Card -->
+                <div class="glass-card">
+                    <h5 class="mb-3 fw-bold text-white">Quét & Cập nhật</h5>
+                    <div class="d-grid gap-2 mb-3">
+                        <button id="btnPricingStart" onclick="startSheetPricingJob()" class="btn btn-premium">
+                            🚀 Bắt Đầu Quét
+                        </button>
+                        <button id="btnPricingStop" onclick="stopSheetPricingJob()" class="btn btn-stop" disabled>
+                            🛑 Dừng Quét
+                        </button>
+                    </div>
+                    <div class="mb-1 d-flex justify-content-between small text-muted">
+                        <span>Tiến trình</span>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div class="progress">
+                        <div id="pricingProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
                 </div>
-                <div>
-                    <h1 class="mb-0 fw-extrabold text-white" style="letter-spacing: -0.5px; font-size: 1.5rem;">Trình Cào Dữ Liệu Web</h1>
-                    <p class="mb-0 text-muted small" style="font-size: 0.8rem;">Hệ thống trích xuất sản phẩm chạy hoàn toàn trên Netlify Serverless</p>
+
+                <!-- Connection Configuration Panel (Collapsible) -->
+                <div class="glass-card">
+                    <div class="accordion" id="configAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConfig" aria-expanded="false" aria-controls="collapseConfig">
+                                    ⚙️ Cấu Hình Kết Nối
+                                </button>
+                            </h2>
+                            <div id="collapseConfig" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
+                                <div class="accordion-body pt-3 px-0 pb-0">
+                                    <div class="mb-3">
+                                        <label for="pricingAppsScriptUrl" class="form-label">Apps Script URL</label>
+                                        <input type="text" id="pricingAppsScriptUrl" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="pricingSheetUrl" class="form-label">Google Sheet URL</label>
+                                        <input type="text" id="pricingSheetUrl" class="form-control" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+                                    </div>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-7">
+                                            <label for="pricingSheetName" class="form-label">Tên Sheet (Tab)</label>
+                                            <input type="text" id="pricingSheetName" class="form-control" placeholder="01.Bep tu">
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label for="pricingStartRow" class="form-label">Dòng bắt đầu</label>
+                                            <input type="number" id="pricingStartRow" class="form-control" value="2" min="2">
+                                        </div>
+                                    </div>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-6">
+                                            <label for="pricingEndRow" class="form-label">Dòng kết thúc</label>
+                                            <input type="number" id="pricingEndRow" class="form-control" placeholder="Tất cả">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="pricingBatchSize" class="form-label">Size ghi sheet (Batch)</label>
+                                            <input type="number" id="pricingBatchSize" class="form-control" value="5" min="1">
+                                        </div>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-md-6">
+                                            <label for="pricingRowsConcurrency" class="form-label">Luồng dòng (Rows)</label>
+                                            <input type="number" id="pricingRowsConcurrency" class="form-control" value="2" min="1">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="pricingLinksConcurrency" class="form-label">Luồng link (Links)</label>
+                                            <input type="number" id="pricingLinksConcurrency" class="form-control" value="4" min="1">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <!-- Live Indicator -->
-            <div class="d-flex align-items-center gap-2 px-3 py-1.5 glass-card rounded-pill" style="border: 1px solid rgba(255, 255, 255, 0.05);">
-                <span id="statusDot" class="status-dot rounded-circle bg-secondary"></span>
-                <span id="statusText" class="text-light small fw-medium" style="font-size: 0.78rem;">Hệ thống đang chờ lệnh...</span>
-            </div>
-        </header>
 
-        <!-- Main Split Pane -->
-        <div class="row g-4">
-            <!-- Left Panel (Control and Stats) -->
-            <div class="col-lg-4 left-panel">
-                <!-- Config Card -->
-                <div class="card glass-card border-0 mb-4 p-3 shadow-lg">
-                    <h5 class="fw-bold mb-3 d-flex align-items-center text-white" style="font-size: 0.95rem;">
-                        <span class="me-2">⚙️</span> Cấu Hình Scraper
-                    </h5>
-                    
-                    <!-- URL Input Mode Switcher -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold text-light mb-1.5" style="font-size: 0.78rem;">Phương thức nhập URL:</label>
-                        <div class="btn-group w-100 btn-group-sm p-1 bg-dark bg-opacity-40 border border-white border-opacity-5 rounded-3 mb-2" role="group">
-                            <input type="radio" class="btn-check" name="urlMode" id="urlModeSingle" checked onclick="switchUrlMode('single')">
-                            <label class="btn btn-outline-success text-light border-0 py-1.5 small fw-semibold" for="urlModeSingle">🔗 Một URL</label>
-
-                            <input type="radio" class="btn-check" name="urlMode" id="urlModeFile" onclick="switchUrlMode('file')">
-                            <label class="btn btn-outline-success text-light border-0 py-1.5 small fw-semibold" for="urlModeFile">📁 File .txt</label>
-                        </div>
-                    </div>
-
-                    <!-- Manual URL Input Container -->
-                    <div class="mb-3" id="singleUrlContainer">
-                        <label for="urlInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.78rem;">Đường dẫn danh mục:</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-dark border-secondary border-opacity-10 text-success">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                            </span>
-                            <input type="url" id="urlInput" class="form-control" value="https://bepngocbao.vn/collections/all" placeholder="https://example.com/category">
-                        </div>
-                    </div>
-
-                    <!-- File URL Input Container -->
-                    <div class="mb-3 d-none" id="fileUrlContainer">
-                        <label for="fileInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.78rem;">Danh sách link từ file .txt (mỗi dòng 1 link):</label>
-                        <input type="file" id="fileInput" accept=".txt" onchange="docFileTxtUrl()" class="form-control form-control-sm">
-                        <div id="fileStatusBadge" class="mt-2 small text-success d-none">
-                            ✅ Đã nạp <strong id="importedUrlCount">0</strong> URLs từ file.
-                        </div>
-                        <div id="urlPreviewContainer" class="mt-2 p-2 bg-dark bg-opacity-40 rounded border border-white border-opacity-5 small text-light d-none" style="max-height: 120px; overflow-y: auto;">
-                            <ul class="mb-0 ps-3" id="urlPreviewList"></ul>
-                        </div>
-                    </div>
-
-                    <!-- Actions Trigger -->
-                    <div class="row g-2 mb-1">
-                        <div class="col-6">
-                            <button id="btnStart" onclick="kichHoatHeThongStream()" class="btn btn-premium w-100 py-2 d-flex align-items-center justify-content-center gap-2">
-                                🚀 Chạy
-                            </button>
-                        </div>
-                        <div class="col-6">
-                            <button id="btnStop" onclick="dungHeThongQuet()" class="btn btn-stop w-100 py-2 d-flex align-items-center justify-content-center gap-2" disabled>
-                                ⏹ Dừng
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Advanced Settings Panel (Always Visible) -->
-                    <div class="advanced-settings-panel">
-                        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-white border-opacity-5">
-                            <h6 class="fw-bold mb-0 text-white d-flex align-items-center" style="font-size: 0.78rem; letter-spacing: 0.5px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                                CẤU HÌNH NÂNG CAO
-                            </h6>
-                            <span class="badge bg-success bg-opacity-10 text-success fw-semibold" style="font-size: 0.65rem; padding: 2px 5px;">LIVE SETTINGS</span>
-                        </div>
-                        
-                        <div class="row g-2">
-                            <div class="col-12 mb-2">
-                                <label for="paginationMode" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Chuyển trang:</label>
-                                <select id="paginationMode" class="form-select form-select-sm" onchange="togglePaginationField()">
-                                    <option value="button" selected>👉 Click nút chuyển tiếp (Next)</option>
-                                    <option value="url">🔗 Điều hướng qua Tham số URL</option>
-                                </select>
-                            </div>
-                            <div class="col-6 mb-2">
-                                <label for="pageParam" class="form-label small fw-semibold text-light mb-1" id="lblPageParam" style="font-size: 0.72rem;">Tham số URL:</label>
-                                <input type="text" id="pageParam" class="form-control form-control-sm" value="page" disabled placeholder="e.g. page">
-                            </div>
-                            <div class="col-6 mb-2">
-                                <label for="maxPagesLimit" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Giới hạn trang:</label>
-                                <select id="maxPagesLimit" class="form-select form-select-sm" onchange="toggleMaxPagesField()">
-                                    <option value="fixed" selected>🔢 Nhất định</option>
-                                    <option value="all">♾️ Toàn bộ trang</option>
-                                </select>
-                            </div>
-                            <div class="col-6 mb-2" id="maxPagesNumberGroup">
-                                <label for="maxPages" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Số trang:</label>
-                                <input type="number" id="maxPages" class="form-control form-control-sm" value="10" min="1" max="100">
-                            </div>
-                            <div class="col-6 mb-2">
-                                <label for="delayInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Độ trễ nghỉ (ms):</label>
-                                <input type="number" id="delayInput" class="form-control form-control-sm" value="500" min="0" max="10000" step="100">
-                            </div>
-                            <div class="col-6 mb-2">
-                                <label for="timeoutInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Chờ tải trang (ms):</label>
-                                <input type="number" id="timeoutInput" class="form-control form-control-sm" value="30000" min="5000" max="120000" step="5000">
-                            </div>
-                            <div class="col-6" id="parallelGroup" style="display: none;">
-                                <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input bg-success border-secondary" type="checkbox" id="parallelScrape" onchange="toggleParallelScrape()">
-                                    <label class="form-check-label small fw-semibold text-light" for="parallelScrape" style="font-size: 0.72rem;">⚡ Cào song song</label>
-                                </div>
-                            </div>
-                            <div class="col-6" id="concurrencyGroup" style="display: none;">
-                                <label for="concurrencyInput" class="form-label small fw-semibold text-light mb-1" style="font-size: 0.72rem;">Số luồng cào:</label>
-                                <input type="number" id="concurrencyInput" class="form-control form-control-sm" value="5" min="2" max="10">
-                            </div>
-                            <div class="col-12 mt-2">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input bg-success border-secondary" type="checkbox" id="blockResources" checked>
-                                    <label class="form-check-label small text-light" for="blockResources" style="font-size: 0.72rem;">Chặn tải Ảnh & Tài nguyên rác</label>
-                                </div>
-                            </div>
-                            <div class="col-12 mt-1">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input bg-success border-secondary" type="checkbox" id="autoScanCategories" checked>
-                                    <label class="form-check-label small text-light" for="autoScanCategories" style="font-size: 0.72rem;">Tự động tìm danh mục khi nhập trang chủ</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card glass-card border-0 p-3 shadow-lg mb-4">
-                    <h5 class="fw-bold mb-3 d-flex align-items-center text-white" style="font-size: 0.95rem;">
-                        <span class="me-2">📄</span> Google Sheet Pricing
-                    </h5>
+            <!-- Right Panel: Statistics & Terminal Logs -->
+            <div class="col-lg-7">
+                <!-- Statistics Card Grid -->
+                <div class="glass-card mb-3">
+                    <h5 class="mb-3 fw-bold text-white">Thống Kê Quét</h5>
                     <div class="row g-2">
-                        <div class="col-12">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Apps Script Web App URL</label>
-                            <input type="text" id="pricingAppsScriptUrl" class="form-control form-control-sm" placeholder="https://script.google.com/macros/s/.../exec">
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div id="pricingTotalRows" class="stat-value text-total">0</div>
+                                <div class="stat-label">Tổng Dòng</div>
+                            </div>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Google Sheet URL</label>
-                            <input type="text" id="pricingSheetUrl" class="form-control form-control-sm" value="https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit?gid=0#gid=0">
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div id="pricingProcessedCount" class="stat-value text-processed">0</div>
+                                <div class="stat-label">Đã Quét</div>
+                            </div>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Tên sheet</label>
-                            <input type="text" id="pricingSheetName" class="form-control form-control-sm" value="01.Bếp từ">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Start row</label>
-                            <input type="number" id="pricingStartRow" class="form-control form-control-sm" min="3" value="3">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">End row</label>
-                            <input type="number" id="pricingEndRow" class="form-control form-control-sm" min="3" placeholder="Để trống = hết sheet">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Row song song</label>
-                            <input type="number" id="pricingRowsConcurrency" class="form-control form-control-sm" min="1" max="5" value="2">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Link song song / row</label>
-                            <input type="number" id="pricingLinksConcurrency" class="form-control form-control-sm" min="1" max="8" value="4">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Batch ghi sheet</label>
-                            <input type="number" id="pricingBatchSize" class="form-control form-control-sm" min="1" max="20" value="5">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Trạng thái</label>
-                            <div id="pricingStatusBadge" class="small rounded-3 px-3 py-2 text-center" style="background: rgba(255,255,255,0.04); color: var(--text-light); font-size: 0.74rem;">Sẵn sàng</div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card text-center">
-                                <div class="stat-label">Dòng đã chạy</div>
-                                <div id="pricingProcessedCount" class="stat-value text-success">0</div>
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div id="pricingSuccessCount" class="stat-value text-success-val">0</div>
+                                <div class="stat-label">Thành Công</div>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="stat-card text-center">
-                                <div class="stat-label">Dòng thành công</div>
-                                <div id="pricingSuccessCount" class="stat-value text-info">0</div>
+                            <div class="stat-card">
+                                <div id="pricingErrorCount" class="stat-value text-error-val">0</div>
+                                <div class="stat-label">Lỗi / Bỏ Qua</div>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="stat-card text-center">
-                                <div class="stat-label">Dòng lỗi / thiếu giá</div>
-                                <div id="pricingErrorCount" class="stat-value text-danger">0</div>
+                            <div class="stat-card">
+                                <div id="pricingWriteCount" class="stat-value text-write-val">0</div>
+                                <div class="stat-label font-bold">Lần Ghi Sheet</div>
                             </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card text-center">
-                                <div class="stat-label">Lần ghi sheet</div>
-                                <div id="pricingWriteCount" class="stat-value text-warning">0</div>
-                            </div>
-                        </div>
-                        <div class="col-12 d-flex gap-2 mt-2">
-                            <button type="button" id="btnPricingStart" onclick="startSheetPricingJob()" class="btn btn-premium btn-sm flex-grow-1 py-2">🚀 Chạy Sheet Pricing</button>
-                            <button type="button" id="btnPricingStop" onclick="stopSheetPricingJob()" class="btn btn-stop btn-sm flex-grow-1 py-2" disabled>Dừng job</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Stats Dashboard Grid -->
-                <div class="card glass-card border-0 p-3 shadow-lg">
-                    <h5 class="fw-bold mb-3 d-flex align-items-center text-white" style="font-size: 0.95rem;">
-                        <span class="me-2">📊</span> Thống Kê Tiến Trình
-                    </h5>
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <div class="stat-card text-center">
-                                <div class="stat-label">Đã trích xuất</div>
-                                <div id="statProducts" class="stat-value text-success">0</div>
-                            </div>
+                <!-- Live Log Activity Card -->
+                <div class="glass-card">
+                    <div class="terminal-window">
+                        <div class="terminal-header">
+                            <span>Console logs</span>
+                            <span>Live feed</span>
                         </div>
-                        <div class="col-6">
-                            <div class="stat-card text-center">
-                                <div class="stat-label">Số trang quét</div>
-                                <div id="statPages" class="stat-value text-white">0 / 0</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card text-center">
-                                <div class="stat-label">Tốc độ (sp/phút)</div>
-                                <div id="statSpeed" class="stat-value text-warning">0</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card text-center">
-                                <div class="stat-label">Thời gian chạy</div>
-                                <div id="statTime" class="stat-value text-info">00:00</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card text-center" style="min-height: 80px; display: flex; flex-direction: column; justify-content: center;">
-                                <div class="stat-label">Giá thấp nhất</div>
-                                <div id="statMinPrice" class="stat-value text-success" style="font-size: 0.82rem; line-height: 1.4; font-weight: 700;">-</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card text-center" style="min-height: 80px; display: flex; flex-direction: column; justify-content: center;">
-                                <div class="stat-label">Giá cao nhất</div>
-                                <div id="statMaxPrice" class="stat-value text-danger" style="font-size: 0.82rem; line-height: 1.4; font-weight: 700;">-</div>
-                            </div>
+                        <div id="terminalBody" class="terminal-body">
+                            <span class="log-line text-muted">Hệ thống sẵn sàng. Nhấn nút "Bắt đầu quét" để kích hoạt...</span>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Right Panel (Results & Logs) -->
-            <div class="col-lg-8 right-panel">
-                <!-- Result Card -->
-                <div class="card glass-card border-0 p-3 shadow-lg mb-4 d-flex flex-column" style="min-height: 480px;">
-                    <!-- Filter and View Mode Toolbar -->
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3 border-bottom border-white border-opacity-5 pb-3">
-                        <div class="position-relative flex-grow-1" style="max-width: 320px;">
-                            <input type="text" id="searchFilter" onkeyup="locDuLieu()" class="form-control form-control-sm border-white border-opacity-10 bg-dark bg-opacity-30" placeholder="🔍 Lọc nhanh theo tên sản phẩm...">
-                        </div>
-                        
-                        <div class="d-flex gap-2 justify-content-between justify-content-md-end flex-wrap align-items-center">
-                            <!-- Grid / Table Selector -->
-                            <div class="btn-group btn-group-sm rounded-pill p-1 bg-dark bg-opacity-50 border border-white border-opacity-5" role="group" aria-label="Chế độ hiển thị">
-                                <button type="button" onclick="setCheDoXem('grid')" id="btnViewGrid" class="btn rounded-pill px-3 btn-view-mode active">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>Lưới
-                                </button>
-                                <button type="button" onclick="setCheDoXem('table')" id="btnViewTable" class="btn rounded-pill px-3 btn-view-mode">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>Bảng
-                                </button>
-                                <button type="button" onclick="setCheDoXem('compare')" id="btnViewCompare" class="btn rounded-pill px-3 btn-view-mode">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>So sánh
-                                </button>
-                                <button type="button" onclick="setCheDoXem('csvCompare')" id="btnViewCsvCompare" class="btn rounded-pill px-3 btn-view-mode">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>So sánh CSV
-                                </button>
-                                <button type="button" onclick="setCheDoXem('sheetPricing')" id="btnViewSheetPricing" class="btn rounded-pill px-3 btn-view-mode">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>Sheet Pricing
-                                </button>
+        <!-- Collapsible Product Details View at the Bottom -->
+        <div class="glass-card mt-3">
+            <div class="accordion" id="detailsAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDetails" aria-expanded="false" aria-controls="collapseDetails">
+                            📋 Danh Sách Sản Phẩm Đang Quét (Xem chi tiết)
+                        </button>
+                    </h2>
+                    <div id="collapseDetails" class="accordion-collapse collapse" data-bs-parent="#detailsAccordion">
+                        <div class="accordion-body pt-3 px-0 pb-0">
+                            <div class="table-responsive">
+                                <table class="table-custom">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center" style="width: 60px;">STT</th>
+                                            <th style="width: 100px;">Mã SP</th>
+                                            <th style="width: 120px;">Thương Hiệu</th>
+                                            <th>Model</th>
+                                            <th class="text-center" style="width: 110px;">Giá Bán</th>
+                                            <th class="text-center" style="width: 80px;">Số Giá</th>
+                                            <th class="text-center" style="width: 110px;">Giá Thị Trường</th>
+                                            <th class="text-center" style="width: 110px;">Đề Xuất</th>
+                                            <th class="text-center" style="width: 150px;">Trạng Thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sheetPricingBody">
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">Chưa có dữ liệu nào được tải về.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
-                            
-                            <!-- Export Dropdown -->
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-light dropdown-toggle border-white border-opacity-10 py-1" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem;">
-                                    📥 Xuất Dữ Liệu
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end border-white border-opacity-10 shadow-lg" aria-labelledby="exportDropdown">
-                                    <li><button onclick="taiFileCSV()" class="dropdown-item d-flex align-items-center gap-2 py-2" style="font-size: 0.78rem;">📊 Tải CSV Tiêu chuẩn</button></li>
-                                    <li><button onclick="taiFileShopify()" class="dropdown-item d-flex align-items-center gap-2 py-2" style="font-size: 0.78rem;">🛍️ Tải Shopify Import CSV</button></li>
-                                    <li><button onclick="taiFileSoSanhCSV()" class="dropdown-item d-flex align-items-center gap-2 py-2 text-warning" style="font-size: 0.78rem;">⚖️ Tải CSV So Sánh Giá</button></li>
-                                    <li><hr class="dropdown-divider border-white border-opacity-5"></li>
-                                    <li><button onclick="taiFileJSON()" class="dropdown-item d-flex align-items-center gap-2 py-2 text-info" style="font-size: 0.78rem;">📄 Tải file JSON</button></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Dynamic Render Viewports -->
-                    <div id="kqKhongGian" class="flex-grow-1 d-flex flex-column position-relative">
-                        <!-- Table Wrapper -->
-                        <div id="tableContainer" class="table-responsive-container flex-grow-1 d-none">
-                            <table class="table table-dark table-hover table-premium mb-0 align-middle">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 45px;" class="text-center">STT</th>
-                                        <th style="min-width: 250px;">Tên Sản Phẩm</th>
-                                        <th style="width: 120px;">Mã Sản Phẩm</th>
-                                        <th style="width: 100px;">Dòng / Series</th>
-                                        <th style="width: 100px;">Kích thước</th>
-                                        <th style="width: 110px;" class="text-center">Giá Bán</th>
-                                        <th style="width: 85px;" class="text-center">Nguồn</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="vungDuLieu">
-                                    <!-- Dynamic rows from SSE -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Grid/Card Wrapper -->
-                        <div id="gridContainer" class="grid-view-container flex-grow-1 overflow-y-auto d-none" style="max-height: 480px; padding: 4px;">
-                            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3" id="vungLuoi">
-                                <!-- Dynamic cards from SSE -->
-                            </div>
-                        </div>
-
-                        <!-- Comparison Wrapper -->
-                        <div id="compareContainer" class="compare-view-container flex-grow-1 overflow-y-auto d-none" style="max-height: 480px; padding: 4px;">
-                            <div class="row row-cols-1 g-3" id="vungSoSanh">
-                                <!-- Dynamic comparison cards -->
-                            </div>
-                        </div>
-
-                        <!-- CSV Comparison Wrapper -->
-                        <div id="csvCompareContainer" class="csv-compare-view-container flex-grow-1 overflow-y-auto d-none" style="max-height: 480px; padding: 4px;">
-                            <div class="card bg-dark bg-opacity-40 border border-white border-opacity-5 p-3 mb-3" style="background: rgba(15, 20, 35, 0.45) !important;">
-                                <h6 class="fw-bold text-white mb-3" style="font-size: 0.88rem; letter-spacing: 0.5px;">⚖️ SO SÁNH GIÁ TỪ 2 FILE CSV CỤC BỘ</h6>
-                                <div class="row g-3">
-                                    <div class="col-md-5">
-                                        <label class="form-label small text-light fw-semibold" style="font-size: 0.72rem;">File 1 (Danh sách sản phẩm của bạn):</label>
-                                        <input type="file" id="csvFile1" accept=".csv" class="form-control form-control-sm">
-                                    </div>
-                                    <div class="col-md-5">
-                                        <label class="form-label small text-light fw-semibold" style="font-size: 0.72rem;">File 2 (Danh sách của đối thủ / Bếp Ngọc Bảo):</label>
-                                        <input type="file" id="csvFile2" accept=".csv" class="form-control form-control-sm">
-                                    </div>
-                                    <div class="col-md-2 d-flex align-items-end">
-                                        <button onclick="runLocalCsvComparison()" class="btn btn-premium btn-sm w-100 py-1.5 fw-bold" style="font-size: 0.78rem;">So Sánh</button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div id="csvCompareResults" class="d-none">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <span class="small text-light" style="font-size: 0.78rem;">Tìm thấy <strong id="csvMatchCount" class="text-success">0</strong> cặp sản phẩm trùng khớp mã sản phẩm và series.</span>
-                                    <button onclick="taiFileCompareCSVResults()" class="btn btn-sm btn-outline-warning fw-semibold" style="font-size: 0.72rem;">📥 Tải CSV Kết Quả So Sánh</button>
-                                </div>
-                                <div class="table-responsive-container" style="max-height: 380px;">
-                                    <table class="table table-dark table-premium align-middle mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 45px;" class="text-center">STT</th>
-                                                <th style="width: 120px;" class="text-center">Mã SP</th>
-                                                <th style="width: 90px;" class="text-center">Series</th>
-                                                <th style="min-width: 200px;">Sản phẩm (File 1)</th>
-                                                <th style="width: 110px;" class="text-center">Giá File 1</th>
-                                                <th style="min-width: 200px;">Sản phẩm (File 2)</th>
-                                                <th style="width: 110px;" class="text-center">Giá File 2</th>
-                                                <th style="width: 130px;" class="text-center">Chênh lệch</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="vungSoSanhCsv">
-                                            <!-- Dynamic comparison rows -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            
-                            <div id="csvCompareEmpty" class="text-center py-5 text-muted small" style="font-size: 0.78rem;">
-                                📂 Vui lòng chọn hai tệp tin CSV ở trên và nhấn nút <strong>So Sánh</strong> để bắt đầu đối chiếu.
-                            </div>
-                        </div>
-
-                        <div id="sheetPricingContainer" class="table-responsive-container flex-grow-1 d-none">
-                            <table class="table table-dark table-hover table-premium mb-0 align-middle">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 70px;" class="text-center">Dòng</th>
-                                        <th style="width: 100px;">Mã SP</th>
-                                        <th style="width: 120px;">Thương hiệu</th>
-                                        <th style="min-width: 180px;">Model</th>
-                                        <th style="width: 120px;" class="text-center">Giá bán</th>
-                                        <th style="width: 90px;" class="text-center">Số giá</th>
-                                        <th style="width: 120px;" class="text-center">Min</th>
-                                        <th style="width: 110px;" class="text-center">GAP</th>
-                                        <th style="width: 100px;" class="text-center">%GAP</th>
-                                        <th style="width: 130px;" class="text-center">Giá đề xuất</th>
-                                        <th style="width: 130px;" class="text-center">Trạng thái</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="sheetPricingBody"></tbody>
-                            </table>
-                        </div>
-
-                        <!-- Empty Placeholder State -->
-                        <div id="emptyState" class="my-auto text-center py-5 text-muted d-flex flex-column align-items-center justify-content-center">
-                            <div class="mb-2 text-light text-opacity-20" style="font-size: 3rem;">📥</div>
-                            <h6 class="text-light text-opacity-80 fw-semibold mb-1" style="font-size: 0.9rem;">Chưa có dữ liệu sản phẩm</h6>
-                            <p class="small text-muted mb-0" style="font-size: 0.78rem;">Vui lòng điền link URL và nhấn nút <strong>Chạy</strong> ở bên trái để lấy dữ liệu.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- macOS style live logs -->
-                <div class="card glass-card border-0 p-0 shadow-lg overflow-hidden">
-                    <div class="terminal-header d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-1">
-                            <span class="rounded-circle bg-danger bg-opacity-80" style="width: 7px; height: 7px; display: inline-block;"></span>
-                            <span class="rounded-circle bg-warning bg-opacity-80" style="width: 7px; height: 7px; display: inline-block;"></span>
-                            <span class="rounded-circle bg-success bg-opacity-80" style="width: 7px; height: 7px; display: inline-block;"></span>
-                            <span class="text-light opacity-50 fw-bold ms-2" style="font-size: 0.7rem; letter-spacing: 0.5px;">LIVE CONSOLE OUTPUT</span>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-semibold" onclick="clearConsole()" style="font-size: 0.65rem; border-color: rgba(255,255,255,0.08); color: var(--text-light);">Xóa Nhật Ký</button>
-                            <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLogs" aria-expanded="true" aria-controls="collapseLogs" style="font-size: 0.65rem; border-color: rgba(255,255,255,0.08); color: var(--text-light);">Thu gọn</button>
-                        </div>
-                    </div>
-                    
-                    <div id="collapseLogs" class="collapse show">
-                        <div class="terminal-body" id="terminalBody" style="height: 145px;">
-                            <span class="log-line"><span class="log-time">00:00:00</span><span class="log-info">Hệ thống sẵn sàng. Vui lòng nhập danh mục và nhấn nút Chạy để bot quét dữ liệu.</span></span>
                         </div>
                     </div>
                 </div>
@@ -998,1599 +560,9 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS Bundle -->
+    <!-- Bootstrap 5 Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Script điều khiển -->
-    <script>
-        let mangDuLieuToanCuc = [];
-        let elapsedInterval = null;
-        let startTime = null;
-        let activeViewMode = 'grid'; // Default layout is Grid view
-        let scrapingCompleted = false; 
-        
-        let activeUrlMode = 'single'; // 'single' or 'file'
-        let danhSachUrlImport = [];
-        let globalIndex = 0;
-        const seenKeys = new Set();
-        let netlifyScrapingActive = false;
-        
-        let globalMinPrice = Infinity;
-        let globalMinProduct = null;
-        let globalMaxPrice = -Infinity;
-        let globalMaxProduct = null;
-
-        function switchUrlMode(mode) {
-            activeUrlMode = mode;
-            const singleContainer = document.getElementById('singleUrlContainer');
-            const fileContainer = document.getElementById('fileUrlContainer');
-            
-            if (mode === 'single') {
-                singleContainer.classList.remove('d-none');
-                fileContainer.classList.add('d-none');
-            } else {
-                singleContainer.classList.add('d-none');
-                fileContainer.classList.remove('d-none');
-            }
-        }
-        
-        function docFileTxtUrl() {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                danhSachUrlImport = text.split(/\r?\n/)
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0 && (line.startsWith('http://') || line.startsWith('https://')));
-                
-                const count = danhSachUrlImport.length;
-                document.getElementById('importedUrlCount').innerText = count;
-                document.getElementById('fileStatusBadge').classList.remove('d-none');
-                
-                const previewList = document.getElementById('urlPreviewList');
-                const previewContainer = document.getElementById('urlPreviewContainer');
-                previewList.innerHTML = '';
-                if (count > 0) {
-                    danhSachUrlImport.forEach(url => {
-                        const li = document.createElement('li');
-                        li.className = 'text-truncate';
-                        li.innerText = url;
-                        previewList.appendChild(li);
-                    });
-                    previewContainer.classList.remove('d-none');
-                    writeToConsole(`Đã nạp thành công ${count} URL từ tệp tin.`, 'success');
-                } else {
-                    previewContainer.classList.add('d-none');
-                    writeToConsole(`Tệp tin không chứa bất kỳ URL hợp lệ nào.`, 'warning');
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        const fallbackImgSrc = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzk0YTNCOCI+PHBhdGggZD0iTTIxIDE5VjVjMC0xLjEtLjktMi0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnpNOC41IDEzLjVsMi41IDMuMDFMMTQuNSAxMmw0LjUgNkg1bDMuNS00LjV6Ii8+PC9zdmc+';
-
-        function removeVietnameseTone(str = '') {
-            if (!str) return '';
-            return str
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .replace(/[đĐ]/g, 'D');
-        }
-
-        function getSlug(link = '') {
-            try {
-                const url = new URL(link);
-                return decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '');
-            } catch {
-                return '';
-            }
-        }
-
-        function cleanText(str = '') {
-            return removeVietnameseTone(str)
-                .replace(/[×–—]/g, ' ')
-                .replace(/[_/]+/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-        }
-
-        function extractSeries(text) {
-            const m = cleanText(text).match(/\b(?:series|serie|seri)\s*(\d+)\b/i);
-            return m ? m[1] : null;
-        }
-
-        function extractSize(text) {
-            const m = cleanText(text).match(/\b\d+(?:[.,]\d+)?\s*[-_]?\s*(?:cm|mm|l|lit|lít|kg|g)(?![a-zA-ZÀ-ỹ])/i);
-            return m ? m[0].replace(/[-_\s]+/g, '').toUpperCase() : null;
-        }
-
-        function stripNonCodeInfo(text) {
-            return cleanText(text)
-                .replace(/\b(?:series|serie|seri)\s*\d+\b/gi, ' ')
-                .replace(/\b\d+(?:[.,]\d+)?\s*[-_]?\s*(?:cm|mm|l|lit|lít|kg|g)(?![a-zA-ZÀ-ỹ])/gi, ' ')
-                .replace(/\b\d+\s*(?:bộ|bo|món|mon|lớp|lop|năm|nam)(?![a-zA-ZÀ-ỹ])/gi, ' ')
-                .replace(/\bAISI\s*304\b/gi, ' ')
-                .replace(/\bSUS\s*304\b/gi, ' ')
-                .replace(/\bPVD\s*\d+\b/gi, ' ')
-                .replace(/\b\d{2,4}\s*[x×]\s*\d{2,4}\b/gi, ' ')
-                .replace(/\b\d{2,4}[-_]\d{2,4}\b/gi, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-        }
-
-        function removeRepeatingSegments(str) {
-            const parts = str.split('-');
-            if (parts.length % 2 === 0) {
-                const half = parts.length / 2;
-                const firstHalf = parts.slice(0, half).join('-');
-                const secondHalf = parts.slice(half).join('-');
-                if (firstHalf === secondHalf) {
-                    return firstHalf;
-                }
-            }
-            return str;
-        }
-
-        function scoreCode(code, fullText) {
-            const c = code.toUpperCase();
-            
-            if (!(/[A-Z]/.test(c) && /\d/.test(c))) {
-                return 0;
-            }
-
-            let score = 5;
-
-            if (c.length >= 6) score += 3;
-            if (/[-_.]/.test(c)) score += 2;
-            
-            const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const occurrences = (fullText.match(new RegExp(escaped, 'gi')) || []).length;
-            if (occurrences > 1) {
-                score += 2;
-            }
-
-            if (/(VIGO|STELO|NERON|TARI|MEKONG|DIAMOND)/i.test(c)) {
-                score += 5;
-            }
-
-            if (/^\d+[-_]?(CM|MM|L|LIT|LITRES?|W|KG|G)$/i.test(c)) score -= 10;
-            
-            const penaltyPattern = /\b(PVD|AISI|SUS|BAT|BO|TRANG|SAN|GIA|KHUYEN|BAO|NHAP|MOI|NEW|SERIES|SERI|SERIE|LAP|DOC|AM|DUONG|LINEN|BEP|HUT|MUI|RUA|BAT|CHEN|TU|LANH|RUOU|LO|VI|SONG|NUONG|VOI|CHAU|CHONG|XUOC|CONG|NGHE|POSCO|SS304|STT|BOSCH|TEFAL|HAFELE|KOCHER|TOSHIBA|KONOX|SPELIER|KAFF|DEN|BAC|KEM|XAM|PRO|AI|LIT|CUONG|TANG|SAY|DUC|MALAYSIA|THAI|VIET|NAM|CHINH|HANG|CAO|CAP|202\d|201\d|199\d)\b/i;
-            if (penaltyPattern.test(c)) {
-                score -= 10;
-            }
-
-            return score;
-        }
-
-        function extractModelInfo(name = '', link = '') {
-            const slug = getSlug(link);
-            const rawText = `${name} ${slug} ${slug.replace(/-/g, ' ')}`;
-            const normalized = cleanText(rawText).toUpperCase();
-
-            const series = extractSeries(rawText);
-            const size = extractSize(rawText);
-
-            let candidates = [];
-
-            const kaff = slug.match(/kaffkf-?([a-z0-9]+)/i);
-            if (kaff) candidates.push(`KF-${kaff[1].toUpperCase()}`);
-
-            const konox = normalized.match(/\b(VIGO|STELO|NERON|TARI(?:[-_\s]+SMART)?|MEKONG|DIAMOND)[-_\s]+(\d{3,4}[A-Z]{0,2})\b/i);
-            if (konox) candidates.push(`${konox[1]} ${konox[2]}`.replace(/[-_]/g, ' ').toUpperCase());
-
-            const textForCode = stripNonCodeInfo(rawText).toUpperCase();
-
-            const codePatterns = [
-                /\b\d{3}[._-]\d{2}[._-]\d{3}\b/gi,
-                /\b[A-Z0-9]{2,5}[-_][A-Z0-9]{3,10}\b/gi,
-                /\b[A-Z][-_][A-Z0-9]{3,8}\b/gi,
-                /\b[A-Z0-9]{2,5}[-_]\d{3}[-_][A-Z]{3,4}\b/gi,
-                /\b[A-Z]{2}[-_]\d{2}[-_][A-Z0-9]{3,8}\b/gi,
-                /\b[A-Z][-_][A-Z]{3,5}[-_]\d(?:[-_][A-Z]{3,5})?\b/gi,
-                /\b[A-Z]{2,3}[-_]\d{2}\b/gi,
-                /\b[A-Z]{2,}\d[A-Z0-9]{1,}\b/gi,
-                /\b[A-Z]\d[A-Z0-9]{1,}\b/gi
-            ];
-
-            for (const re of codePatterns) {
-                const found = textForCode.match(re) || [];
-                candidates.push(...found);
-            }
-
-            candidates = [...new Set(
-                candidates
-                    .map(x => {
-                        let formatted = x.replace(/[._]/g, '.').replace(/\s+/g, ' ').trim().toUpperCase();
-                        formatted = removeRepeatingSegments(formatted);
-                        if (/(VIGO|STELO|NERON|TARI|MEKONG|DIAMOND)/i.test(formatted)) {
-                            formatted = formatted.replace(/-/g, ' ');
-                        }
-                        return formatted;
-                    })
-                    .filter(Boolean)
-            )];
-
-            const ranked = candidates
-                .map(code => ({ code, score: scoreCode(code, normalized) }))
-                .filter(x => x.score >= 5)
-                .sort((a, b) => b.score - a.score);
-
-            const nonSubstrings = ranked.filter((item, idx) => {
-                return !ranked.some((other, otherIdx) => otherIdx !== idx && other.code.includes(item.code));
-            });
-
-            return {
-                maSanPham: nonSubstrings[0]?.code || null,
-                series,
-                kichThuoc: size
-            };
-        }
-
-        function getCleanName(fullName, maSanPham, series, kichThuoc) {
-            let clean = fullName;
-            if (maSanPham) {
-                const escaped = maSanPham.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                clean = clean.replace(new RegExp(escaped, 'gi'), '');
-                
-                const parts = maSanPham.split(/\s+/);
-                if (parts.length > 1) {
-                    const pattern = parts.join('\\s*[-_]?\\s*');
-                    clean = clean.replace(new RegExp(pattern, 'gi'), '');
-                }
-            }
-            
-            clean = clean.replace(/\b\d+(?:[\s.,]\d{3})*(?:\s*(?:đ|₫|vnd|vnđ|vnd))(?![a-zA-ZÀ-ỹ])/gi, '');
-            clean = clean.replace(/\b[-+]?\s*\d+\s*%(?![a-zA-ZÀ-ỹ])/g, '');
-            clean = clean.replace(/\b(?:series|serie|seri)\s*\d+\b/gi, '');
-            clean = clean.replace(/\b\d+(?:[.,]\d+)?\s*[-_]?\s*(?:cm|mm|l|lit|lít|w|kw|kg|g)(?![a-zA-ZÀ-ỹ])/gi, '');
-            clean = clean.replace(/\b(?:AISI\s*304|SUS\s*304|PVD\s*\d+|lớp)(?![a-zA-ZÀ-ỹ])/gi, '');
-
-            clean = clean.replace(/[\[\]|,\-+()]/g, ' ');
-            clean = clean.replace(/\s+/g, ' ').trim();
-            clean = clean.replace(/\s*-\s*$/, '').replace(/^\s*-\s*/, '');
-            clean = clean.replace(/\/+\s*$/, '').replace(/^\s*\/+/, '');
-            return clean.trim();
-        }
-
-        function extractSku(fullName, link = '') {
-            const info = extractModelInfo(fullName, link);
-            const cleanName = getCleanName(fullName, info.maSanPham, info.series, info.kichThuoc);
-            return {
-                sku: info.maSanPham,
-                series: info.series,
-                kichThuoc: info.kichThuoc,
-                cleanName: cleanName
-            };
-        }
-
-        function togglePaginationField() {
-            const mode = document.getElementById('paginationMode').value;
-            const field = document.getElementById('pageParam');
-            const parallelGroup = document.getElementById('parallelGroup');
-            const concurrencyGroup = document.getElementById('concurrencyGroup');
-            
-            if (mode === 'url') {
-                field.disabled = false;
-                field.focus();
-                if (parallelGroup) parallelGroup.style.display = 'block';
-                toggleParallelScrape();
-            } else {
-                field.disabled = true;
-                if (parallelGroup) parallelGroup.style.display = 'none';
-                if (concurrencyGroup) concurrencyGroup.style.display = 'none';
-            }
-        }
-
-        function toggleMaxPagesField() {
-            const limitMode = document.getElementById('maxPagesLimit').value;
-            const numGroup = document.getElementById('maxPagesNumberGroup');
-            if (limitMode === 'fixed') {
-                numGroup.classList.remove('d-none');
-            } else {
-                numGroup.classList.add('d-none');
-            }
-        }
-
-        function toggleParallelScrape() {
-            const isParallel = document.getElementById('parallelScrape').checked;
-            const concurrencyGroup = document.getElementById('concurrencyGroup');
-            const mode = document.getElementById('paginationMode').value;
-            
-            if (isParallel && mode === 'url') {
-                if (concurrencyGroup) concurrencyGroup.style.display = 'block';
-            } else {
-                if (concurrencyGroup) concurrencyGroup.style.display = 'none';
-            }
-        }
-
-        function setCheDoXem(mode) {
-            activeViewMode = mode;
-            const btnGrid = document.getElementById('btnViewGrid');
-            const btnTable = document.getElementById('btnViewTable');
-            const btnCompare = document.getElementById('btnViewCompare');
-            const btnCsvCompare = document.getElementById('btnViewCsvCompare');
-            
-            const tableDiv = document.getElementById('tableContainer');
-            const gridDiv = document.getElementById('gridContainer');
-            const compareDiv = document.getElementById('compareContainer');
-            const csvCompareDiv = document.getElementById('csvCompareContainer');
-            const emptyState = document.getElementById('emptyState');
-            
-            btnGrid.classList.remove('active');
-            btnTable.classList.remove('active');
-            btnCompare.classList.remove('active');
-            if (btnCsvCompare) btnCsvCompare.classList.remove('active');
-            
-            tableDiv.classList.add('d-none');
-            gridDiv.classList.add('d-none');
-            compareDiv.classList.add('d-none');
-            if (csvCompareDiv) csvCompareDiv.classList.add('d-none');
-            if (emptyState) emptyState.classList.add('d-none');
-            
-            if (mode === 'grid') {
-                btnGrid.classList.add('active');
-                if (mangDuLieuToanCuc.length > 0) {
-                    gridDiv.classList.remove('d-none');
-                } else {
-                    if (emptyState) emptyState.classList.remove('d-none');
-                }
-            } else if (mode === 'table') {
-                btnTable.classList.add('active');
-                if (mangDuLieuToanCuc.length > 0) {
-                    tableDiv.classList.remove('d-none');
-                } else {
-                    if (emptyState) emptyState.classList.remove('d-none');
-                }
-            } else if (mode === 'compare') {
-                btnCompare.classList.add('active');
-                if (mangDuLieuToanCuc.length > 0) {
-                    compareDiv.classList.remove('d-none');
-                } else {
-                    if (emptyState) emptyState.classList.remove('d-none');
-                }
-                renderSoSanh();
-            } else if (mode === 'csvCompare') {
-                if (btnCsvCompare) btnCsvCompare.classList.add('active');
-                if (csvCompareDiv) csvCompareDiv.classList.remove('d-none');
-            }
-        }
-
-        function getComparisonTokens(name) {
-            const clean = name.toLowerCase()
-                .replace(/[^a-z0-9\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/g, '') // Keep Vietnamese characters
-                .trim();
-            const words = clean.split(/\s+/);
-            const stopWords = [
-                'bếp', 'từ', 'điện', 'hồng', 'ngoại', 'máy', 'hút', 'mùi', 'lò', 'vi', 'sóng', 'nướng', 'rửa', 'chén', 'bát', 'âm', 'dương', 'nhập', 'khẩu', 'chính', 'hãng', 'giá', 'rẻ', 'đôi', 'ba', 'bốn', 'vùng', 'nấu', 'kính',
-                'inox', '304', '201', '316', '430', 'sus', 'thép', 'không', 'gỉ', 'cái', 'chiếc', 'set', 'hộp', 'khay', 'giá', 'kệ', 'bộ', 'chậu', 'vòi',
-                'nero', 'grey', 'gray', 'xám', 'xam', 'black', 'đen', 'den', 'white', 'trắng', 'trang',
-                'silver', 'bạc', 'bac', 'red', 'đỏ', 'do', 'gold', 'vàng', 'vang', 'bronze', 'đồng', 'dong',
-                'cream', 'kem', 'brown', 'nâu', 'nau', 'stone', 'chrome', 'copper', 'metal', 'yellow',
-                'blue', 'green', 'pink', 'orange', 'titan', 'titanium', 'graphite', 'carbon', 'anthracite',
-                'clay', 'jade', 'pearl', 'sand', 'beige', 'ivory', 'màu', 'mau', 'ghi', 'blk', 'bk', 'wh', 'wt',
-                'gr', 'gy', 'gd', 'cr', 'ch', 'ss'
-            ];
-            return words.filter(w => w.length > 1 && !stopWords.includes(w));
-        }
-
-        function calculateJaccardSimilarity(arr1, arr2) {
-            if (arr1.length === 0 || arr2.length === 0) return 0;
-            const set1 = new Set(arr1);
-            const set2 = new Set(arr2);
-            
-            let intersectionSize = 0;
-            set1.forEach(item => {
-                if (set2.has(item)) intersectionSize++;
-            });
-            
-            const unionSize = set1.size + set2.size - intersectionSize;
-            return intersectionSize / unionSize;
-        }
-
-        function groupAndCompareProducts() {
-            const skuGroups = {};
-            const fuzzyGroups = [];
-
-            function stripColors(str) {
-                if (!str) return '';
-                let upper = str.toUpperCase().trim();
-                const colorKeywords = [
-                    'NERO', 'GREY', 'GRAY', 'XAM', 'XÁM', 'BLACK', 'DEN', 'ĐEN', 'WHITE', 'TRANG', 'TRẮNG',
-                    'SILVER', 'BAC', 'BẠC', 'RED', 'DO', 'ĐỎ', 'GOLD', 'VANG', 'VÀNG', 'BRONZE', 'DONG', 'ĐỒNG',
-                    'CREAM', 'KEM', 'BROWN', 'NAU', 'NÂU', 'STONE', 'CHROME', 'COPPER', 'METAL', 'YELLOW',
-                    'BLUE', 'GREEN', 'PINK', 'ORANGE', 'TITAN', 'TITANIUM', 'GRAPHITE', 'CARBON', 'ANTHRACITE',
-                    'CLAY', 'JADE', 'PEARL', 'SAND', 'BEIGE', 'IVORY', 'GHI',
-                    'BLK', 'BK', 'WH', 'WT', 'GR', 'GY', 'GD', 'CR', 'CH', 'SS',
-                    'B', 'W', 'G', 'S', 'R', 'C'
-                ];
-                if (colorKeywords.includes(upper)) {
-                    return '';
-                }
-                const colorPatterns = colorKeywords.join('|');
-                upper = upper.replace(new RegExp(`[-_\\/ ](?:${colorPatterns})$`, 'i'), '');
-                upper = upper.replace(new RegExp(`(\\d)(?:${colorPatterns})$`, 'i'), '$1');
-                colorKeywords.forEach(color => {
-                    const regex = new RegExp('\\b' + color + '\\b', 'gi');
-                    upper = upper.replace(regex, '');
-                });
-                return upper.replace(/[- _/]+/g, '').trim();
-            }
-            
-            function getPackSignature(name) {
-                const clean = name.toLowerCase();
-                const signatures = [];
-                
-                if (clean.includes('combo')) {
-                    signatures.push('combo');
-                }
-                if (clean.includes('set ')) {
-                    signatures.push('set');
-                }
-                if (clean.includes('bộ quà tặng') || clean.includes('bo qua tang')) {
-                    signatures.push('bo_qua_tang');
-                }
-                if (clean.includes('tặng') || clean.includes('tang') || clean.includes('quà') || clean.includes('qua') || clean.includes('gift')) {
-                    signatures.push('gift');
-                }
-                if (clean.includes('kèm') || clean.includes('kem')) {
-                    signatures.push('with_attachment');
-                }
-                if (clean.includes('+')) {
-                    signatures.push('plus_bundle');
-                }
-
-                const comboReg = /\b(?:combo|set|tặng|tang|pack|bộ|bo)\s*(\d+)\b/gi;
-                let match;
-                while ((match = comboReg.exec(clean)) !== null) {
-                    signatures.push(`qty_${match[1]}`);
-                }
-
-                const monReg = /\b(\d+)\s*(?:món|mon|sp|sản phẩm|san pham|cái|cai|bếp|bep|nồi|noi|món quà|mon qua|quà|qua|gift)\b/gi;
-                while ((match = monReg.exec(clean)) !== null) {
-                    signatures.push(`size_${match[1]}`);
-                }
-
-                const xReg = /\bx\s*(\d+)\b/gi;
-                while ((match = xReg.exec(clean)) !== null) {
-                    signatures.push(`pack_${match[1]}`);
-                }
-
-                if (signatures.length === 0) return 'single';
-                return [...new Set(signatures)].sort().join('_');
-            }
-            
-            function hasConflict(name1, name2) {
-                const n1 = name1.toLowerCase();
-                const n2 = name2.toLowerCase();
-                
-                const conflictGroups = [
-                    ['nhỏ', 'nho', 'trung', 'lớn', 'lon', 'bé', 'be', 'to', 'vừa', 'vua', 'small', 'medium', 'large'],
-                    ['muỗng', 'muong', 'nĩa', 'nia', 'đũa', 'dua', 'thìa', 'thia', 'dao', 'spoon', 'fork', 'knife'],
-                    ['đôi', 'doi', 'ba', 'bốn', 'bon', 'hai']
-                ];
-                
-                for (const group of conflictGroups) {
-                    const words1 = group.filter(w => new RegExp('\\b' + w + '\\b', 'i').test(n1));
-                    const words2 = group.filter(w => new RegExp('\\b' + w + '\\b', 'i').test(n2));
-                    
-                    if (words1.length > 0 && words2.length > 0) {
-                        const hasDifferent = words1.some(w => !words2.includes(w)) || words2.some(w => !words1.includes(w));
-                        if (hasDifferent) {
-                            return true; 
-                        }
-                    }
-                }
-                return false;
-            }
-            
-            mangDuLieuToanCuc.forEach(item => {
-                const numericPrice = parseInt(item.gia.replace(/\D/g, '')) || 0;
-                const itemWithPriceVal = { ...item, numericPrice };
-                const packSig = getPackSignature(item.ten);
-                
-                if (item.ma && item.ma.trim().length > 0) {
-                    // Group by SKU, Series AND Combo pack signature
-                    // Normalize the SKU and Series (remove spaces, hyphens, underscores and colors) to match them robustly
-                    const normSku = stripColors(item.ma);
-                    const normSeries = stripColors(item.series);
-                    const skuKey = normSku + (normSeries ? `_${normSeries}` : '') + `_${packSig}`;
-                    if (!skuGroups[skuKey]) {
-                        skuGroups[skuKey] = [];
-                    }
-                    skuGroups[skuKey].push(itemWithPriceVal);
-                } else {
-                    const tokens = getComparisonTokens(item.tenSạch);
-                    let matchedGroup = null;
-                    for (const group of fuzzyGroups) {
-                        const similarity = calculateJaccardSimilarity(tokens, group.tokens);
-                        if (similarity >= 0.8 && packSig === group.packSig && !hasConflict(item.tenSạch, group.name)) {
-                            matchedGroup = group;
-                            break;
-                        }
-                    }
-                    
-                    if (matchedGroup) {
-                        matchedGroup.items.push(itemWithPriceVal);
-                    } else {
-                        fuzzyGroups.push({
-                            tokens: tokens,
-                            name: item.tenSạch,
-                            packSig: packSig,
-                            items: [itemWithPriceVal]
-                        });
-                    }
-                }
-            });
-            
-            function getDomain(url) {
-                if (!url) return '';
-                try {
-                    return new URL(url).hostname.replace('www.', '').toLowerCase();
-                } catch (e) {
-                    return url.toLowerCase().trim();
-                }
-            }
-
-            function filterCheapestPerDomain(itemsList) {
-                const domainMap = {};
-                itemsList.forEach(item => {
-                    const domain = getDomain(item.link);
-                    if (!domainMap[domain]) {
-                        domainMap[domain] = item;
-                    } else {
-                        const existingPrice = domainMap[domain].numericPrice;
-                        const currentPrice = item.numericPrice;
-                        if (currentPrice > 0 && (existingPrice === 0 || currentPrice < existingPrice)) {
-                            domainMap[domain] = item;
-                        }
-                    }
-                });
-                const filtered = Object.values(domainMap);
-                filtered.sort((a, b) => a.numericPrice - b.numericPrice);
-                return filtered;
-            }
-
-            const comparisonResults = [];
-            
-            Object.keys(skuGroups).forEach(skuKey => {
-                const rawItems = skuGroups[skuKey];
-                const items = filterCheapestPerDomain(rawItems);
-                
-                // Only compare if there are at least 2 different websites
-                if (items.length >= 2) {
-                    const validPriceItems = items.filter(x => x.numericPrice > 0);
-                    comparisonResults.push({
-                        type: 'sku',
-                        key: items[0].ma,
-                        name: items[0].tenSạch,
-                        series: items[0].series,
-                        items: items,
-                        minPriceItem: validPriceItems.length > 0 ? validPriceItems[0] : items[0],
-                        maxPriceItem: validPriceItems.length > 0 ? validPriceItems[validPriceItems.length - 1] : items[0]
-                    });
-                }
-            });
-            
-            fuzzyGroups.forEach((group, index) => {
-                const rawItems = group.items;
-                const items = filterCheapestPerDomain(rawItems);
-                
-                // Only compare if there are at least 2 different websites
-                if (items.length >= 2) {
-                    const validPriceItems = items.filter(x => x.numericPrice > 0);
-                    comparisonResults.push({
-                        type: 'fuzzy',
-                        key: `Tương đồng tên #${index + 1}`,
-                        name: items[0].tenSạch,
-                        series: '',
-                        items: items,
-                        minPriceItem: validPriceItems.length > 0 ? validPriceItems[0] : items[0],
-                        maxPriceItem: validPriceItems.length > 0 ? validPriceItems[validPriceItems.length - 1] : items[0]
-                    });
-                }
-            });
-            
-            return comparisonResults;
-        }
-
-        function renderSoSanh() {
-            const vungSoSanh = document.getElementById('vungSoSanh');
-            vungSoSanh.innerHTML = '';
-            
-            if (mangDuLieuToanCuc.length === 0) {
-                vungSoSanh.innerHTML = '<div class="col text-center py-5 text-muted">Chưa có dữ liệu sản phẩm để thực hiện so sánh. Hãy bắt đầu cào dữ liệu trước.</div>';
-                return;
-            }
-            
-            const results = groupAndCompareProducts();
-            
-            if (results.length === 0) {
-                vungSoSanh.innerHTML = '<div class="col text-center py-5 text-muted">Không tìm thấy nhóm sản phẩm nào đủ điều kiện so sánh.</div>';
-                return;
-            }
-            
-            results.sort((a, b) => b.items.length - a.items.length);
-            
-            results.forEach(group => {
-                const cardCol = document.createElement('div');
-                cardCol.className = 'col';
-                
-                let typeBadge = '';
-                if (group.type === 'sku') {
-                    const seriesStr = group.series ? ` <span class="badge badge-series ms-1 fw-bold">Series: ${group.series}</span>` : '';
-                    typeBadge = `<span class="badge badge-sku fw-bold">Mã SKU: ${group.key}</span>${seriesStr}`;
-                } else {
-                    typeBadge = `<span class="badge badge-auto fw-bold">🔍 So khớp tự động (Tên tương đồng)</span>`;
-                }
-                
-                let sourcesHtml = '';
-                const hasMultiple = group.items.length > 1;
-                
-                group.items.forEach(item => {
-                    let priceBadgeHtml = `<span class="price-badge">${item.gia}</span>`;
-                    let statusLabel = '';
-                    
-                    if (hasMultiple && item.numericPrice > 0) {
-                        if (item.numericPrice === group.minPriceItem.numericPrice) {
-                            priceBadgeHtml = `<span class="price-badge text-success">${item.gia}</span>`;
-                            statusLabel = `<span class="badge bg-success bg-opacity-25 text-success ms-2 fw-semibold" style="font-size: 0.7rem;">🏆 Rẻ Nhất</span>`;
-                        } else if (item.numericPrice === group.maxPriceItem.numericPrice) {
-                            priceBadgeHtml = `<span class="price-badge text-danger">${item.gia}</span>`;
-                            statusLabel = `<span class="badge bg-danger bg-opacity-25 text-danger ms-2 fw-semibold" style="font-size: 0.7rem;">📈 Cao Nhất</span>`;
-                        }
-                    }
-                    
-                    const itemLink = item.link 
-                        ? `<a href="${item.link}" target="_blank" class="text-white text-decoration-none hover-primary fw-medium" style="font-size: 0.82rem;">${item.ten}</a>`
-                        : `<span class="text-light fw-medium" style="font-size: 0.82rem;">${item.ten}</span>`;
-                        
-                    sourcesHtml += `
-                        <div class="d-flex justify-content-between align-items-center py-2 px-3 mb-2 rounded bg-dark bg-opacity-40 border border-white border-opacity-5">
-                            <div class="d-flex align-items-center gap-3 flex-grow-1" style="min-width: 0;">
-                                <span class="badge bg-secondary bg-opacity-30 text-light fw-normal" style="font-size: 0.7rem;">Trang ${item.trang}</span>
-                                <div class="text-truncate flex-grow-1">${itemLink}</div>
-                            </div>
-                            <div class="d-flex align-items-center gap-1 ms-3">
-                                ${priceBadgeHtml}
-                                ${statusLabel}
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                let diffBanner = '';
-                if (hasMultiple && group.minPriceItem.numericPrice > 0 && group.maxPriceItem.numericPrice > 0) {
-                    const saving = group.maxPriceItem.numericPrice - group.minPriceItem.numericPrice;
-                    if (saving > 0) {
-                        diffBanner = `
-                            <div class="mt-3 p-2 rounded text-center small fw-semibold bg-success bg-opacity-10 text-success border border-success border-opacity-20">
-                                💡 Chênh lệch giá lớn nhất: <strong>${saving.toLocaleString('vi-VN')} ₫</strong> - Hãy chọn bên rẻ nhất để tối ưu chi phí!
-                            </div>
-                        `;
-                    }
-                }
-                
-                cardCol.innerHTML = `
-                    <div class="card glass-card p-3 border-0 shadow-sm" style="background: rgba(20, 25, 45, 0.4);">
-                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-start gap-2 mb-3">
-                            <div>
-                                <h6 class="fw-bold text-white mb-1" style="font-size: 0.92rem;">${group.name}</h6>
-                                <div class="d-flex flex-wrap gap-1 mt-1">${typeBadge}</div>
-                            </div>
-                            <span class="badge bg-secondary bg-opacity-20 text-light small fw-normal">${group.items.length} nguồn</span>
-                        </div>
-                        
-                        <div class="sources-list">
-                            ${sourcesHtml}
-                        </div>
-                        
-                        ${diffBanner}
-                    </div>
-                `;
-                vungSoSanh.appendChild(cardCol);
-            });
-        }
-
-        function writeToConsole(message, level = 'info') {
-            const consoleEl = document.getElementById('terminalBody');
-            const now = new Date();
-            const timeStr = now.toTimeString().split(' ')[0];
-            
-            const logLine = document.createElement('span');
-            logLine.className = 'log-line';
-            
-            let levelClass = 'log-info';
-            let dotClass = 'bg-info';
-            if (level === 'success') {
-                levelClass = 'log-success';
-                dotClass = 'bg-success';
-            } else if (level === 'warning') {
-                levelClass = 'log-warning';
-                dotClass = 'bg-warning';
-            } else if (level === 'error') {
-                levelClass = 'log-error';
-                dotClass = 'bg-danger';
-            } else if (level === 'info') {
-                dotClass = 'bg-primary';
-            }
-
-            logLine.innerHTML = `<span class="log-time">${timeStr}</span><span class="${levelClass}">${message}</span>`;
-            consoleEl.appendChild(logLine);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
-
-            // Update status message and indicator dot
-            const statusTextEl = document.getElementById('statusText');
-            const statusDotEl = document.getElementById('statusDot');
-            if (statusTextEl && statusDotEl) {
-                statusDotEl.className = 'status-dot rounded-circle ' + dotClass;
-                statusTextEl.innerText = message;
-            }
-        }
-
-        function clearConsole() {
-            document.getElementById('terminalBody').innerHTML = '';
-            writeToConsole("Nhật ký đã được xóa.");
-        }
-
-        function startTimer() {
-            startTime = Date.now();
-            document.getElementById('statTime').innerText = "00:00";
-            
-            if (elapsedInterval) clearInterval(elapsedInterval);
-            
-            elapsedInterval = setInterval(() => {
-                const totalSeconds = Math.floor((Date.now() - startTime) / 1000);
-                const minutes = Math.floor(totalSeconds / 60);
-                const seconds = totalSeconds % 60;
-                
-                const minStr = minutes.toString().padStart(2, '0');
-                const secStr = seconds.toString().padStart(2, '0');
-                
-                document.getElementById('statTime').innerText = `${minStr}:${secStr}`;
-                
-                // Cập nhật tốc độ cào trung bình
-                if (minutes > 0 || seconds > 10) {
-                    const elapsedMin = totalSeconds / 60;
-                    const speed = Math.round(mangDuLieuToanCuc.length / elapsedMin);
-                    document.getElementById('statSpeed').innerText = speed;
-                }
-            }, 1000);
-        }
-
-        function stopTimer() {
-            if (elapsedInterval) {
-                clearInterval(elapsedInterval);
-                elapsedInterval = null;
-            }
-        }
-
-        async function kichHoatHeThongStream() {
-            let urlsToScrape = [];
-            if (activeUrlMode === 'single') {
-                const urlInput = document.getElementById('urlInput').value.trim();
-                if(!urlInput) {
-                    alert('Vui lòng điền link URL hợp lệ!');
-                    return;
-                }
-                urlsToScrape = [urlInput];
-            } else {
-                if(danhSachUrlImport.length === 0) {
-                    alert('Vui lòng chọn tệp .txt chứa danh sách link URL!');
-                    return;
-                }
-                urlsToScrape = danhSachUrlImport;
-            }
-
-            const paginationMode = document.getElementById('paginationMode').value;
-            const pageParam = document.getElementById('pageParam').value.trim() || 'page';
-            
-            const maxPagesLimit = document.getElementById('maxPagesLimit').value;
-            let maxPages = 999;
-            if (maxPagesLimit === 'fixed') {
-                maxPages = parseInt(document.getElementById('maxPages').value) || 10;
-            }
-
-            const delay = parseInt(document.getElementById('delayInput').value) || 2000;
-            const timeout = parseInt(document.getElementById('timeoutInput').value) || 30000;
-            const blockResources = document.getElementById('blockResources').checked;
-            const autoScanCategories = document.getElementById('autoScanCategories').checked;
-
-            // Khởi tạo lại trạng thái
-            mangDuLieuToanCuc = [];
-            globalIndex = 0;
-            seenKeys.clear();
-            globalMinPrice = Infinity;
-            globalMinProduct = null;
-            globalMaxPrice = -Infinity;
-            globalMaxProduct = null;
-            document.getElementById('statMinPrice').innerText = '-';
-            document.getElementById('statMaxPrice').innerText = '-';
-
-            document.getElementById('vungDuLieu').innerHTML = '';
-            document.getElementById('vungLuoi').innerHTML = '';
-            document.getElementById('statProducts').innerText = '0';
-            document.getElementById('statPages').innerText = `0 / ${maxPagesLimit === 'all' ? '♾️' : maxPages * urlsToScrape.length}`;
-            document.getElementById('statSpeed').innerText = '0';
-            document.getElementById('searchFilter').value = '';
-            
-            // Ẩn các khu vực dữ liệu cũ, hiện emptyState
-            document.getElementById('emptyState').classList.remove('d-none');
-            document.getElementById('tableContainer').classList.add('d-none');
-            document.getElementById('gridContainer').classList.add('d-none');
-            document.getElementById('compareContainer').classList.add('d-none');
-            document.getElementById('vungSoSanh').innerHTML = '';
-            
-            // Thiết lập nút bấm và giao diện
-            document.getElementById('btnStart').disabled = true;
-            document.getElementById('btnStart').innerHTML = '⏳ Đang chạy...';
-            document.getElementById('btnStop').disabled = false;
-
-            scrapingCompleted = false;
-            clearConsole();
-
-            startTimer();
-
-            writeToConsole(`Bắt đầu chạy chiến dịch cào dữ liệu cho ${urlsToScrape.length} danh mục...`);
-            netlifyScrapingActive = true;
-            
-            const failedUrls = [];
-            
-            for (let i = 0; i < urlsToScrape.length; i++) {
-                if (!netlifyScrapingActive) break;
-                const currentUrl = urlsToScrape[i];
-                writeToConsole(`👉 Đang quét danh mục (${i + 1}/${urlsToScrape.length}): ${currentUrl}`, 'info');
-                try {
-                    const result = await runNetlifyScraping({ 
-                        urlInput: currentUrl, 
-                        paginationMode, 
-                        pageParam, 
-                        maxPages, 
-                        maxPagesLimit,
-                        delay, 
-                        timeout, 
-                        blockResources,
-                        categoryIndex: i,
-                        totalCategories: urlsToScrape.length
-                    });
-                    
-                    if (result.categoryLinks && result.categoryLinks.length > 0 && autoScanCategories) {
-                        result.categoryLinks.forEach(link => {
-                            if (!urlsToScrape.includes(link)) {
-                                urlsToScrape.push(link);
-                            }
-                        });
-                        writeToConsole(`Đã thêm ${result.categoryLinks.length} danh mục tự động quét từ trang chủ vào hàng đợi.`, 'success');
-                    }
-
-                    if (result.hasError || (result.productCount === 0 && (!result.categoryLinks || result.categoryLinks.length === 0))) {
-                        const reason = result.hasError ? result.errorReason : 'Không lấy được sản phẩm nào (có thể do sai cấu trúc hoặc trang trống)';
-                        failedUrls.push({ url: currentUrl, reason });
-                    }
-                } catch (err) {
-                    failedUrls.push({ url: currentUrl, reason: err.message || 'Lỗi không xác định' });
-                }
-            }
-
-            netlifyScrapingActive = false;
-            scrapingCompleted = true;
-            stopTimer();
-            
-            if (failedUrls.length > 0) {
-                writeToConsole(`==================================================`, 'error');
-                writeToConsole(`⚠️ CẢNH BÁO: Phát hiện ${failedUrls.length} link bị lỗi không lấy được sản phẩm:`, 'error');
-                failedUrls.forEach((f, idx) => {
-                    writeToConsole(`[${idx + 1}] ${f.url} (Lý do: ${f.reason})`, 'error');
-                });
-                writeToConsole(`==================================================`, 'error');
-            }
-            
-            writeToConsole(`=== HOÀN THÀNH TOÀN BỘ CHIẾN DỊCH! Tổng cộng ${globalIndex} sản phẩm. ===`, 'success');
-            
-            if (failedUrls.length > 0) {
-                alert(`Hoàn thành chiến dịch cào dữ liệu!\nTổng cộng thu được: ${globalIndex} sản phẩm.\n\n⚠️ Có ${failedUrls.length} link bị lỗi không lấy được sản phẩm. Xem chi tiết lỗi ở phần Nhật ký cào dữ liệu phía dưới.`);
-            } else if (globalIndex > 0) {
-                alert(`Hoàn thành toàn bộ! Đã thu thập tổng cộng ${globalIndex} sản phẩm.`);
-            } else {
-                alert(`Hoàn thành! Không tìm thấy sản phẩm nào.`);
-            }
-            resetControlsState();
-        }
-
-
-        // ── Thêm sản phẩm vào cả Table và Grid view ──
-        function addProduct(prod) {
-            const extracted = extractSku(prod.ten, prod.link);
-            prod.ma = extracted.sku;
-            prod.series = extracted.series;
-            prod.kichThuoc = extracted.kichThuoc;
-            prod.tenSạch = extracted.cleanName;
-
-            mangDuLieuToanCuc.push(prod);
-            document.getElementById('statProducts').innerText = mangDuLieuToanCuc.length;
-
-            // Cập nhật giá thấp nhất và giá cao nhất toàn cục
-            const numericPrice = parseInt(prod.gia.replace(/\D/g, '')) || 0;
-            if (numericPrice > 0) {
-                if (numericPrice < globalMinPrice) {
-                    globalMinPrice = numericPrice;
-                    globalMinProduct = prod;
-                    document.getElementById('statMinPrice').innerHTML = `
-                        <div class="text-success" style="font-weight: 700;">${prod.gia}</div>
-                        <div class="text-truncate" style="font-size: 0.65rem; color: var(--text-light); max-width: 100%; margin-top: 2px;" title="${prod.tenSạch}">${prod.tenSạch}</div>
-                    `;
-                }
-                if (numericPrice > globalMaxPrice) {
-                    globalMaxPrice = numericPrice;
-                    globalMaxProduct = prod;
-                    document.getElementById('statMaxPrice').innerHTML = `
-                        <div class="text-danger" style="font-weight: 700;">${prod.gia}</div>
-                        <div class="text-truncate" style="font-size: 0.65rem; color: var(--text-light); max-width: 100%; margin-top: 2px;" title="${prod.tenSạch}">${prod.tenSạch}</div>
-                    `;
-                }
-            }
-
-            document.getElementById('emptyState').classList.add('d-none');
-            if (activeViewMode === 'grid') {
-                document.getElementById('gridContainer').classList.remove('d-none');
-            } else if (activeViewMode === 'table') {
-                document.getElementById('tableContainer').classList.remove('d-none');
-            } else if (activeViewMode === 'compare') {
-                document.getElementById('compareContainer').classList.remove('d-none');
-                renderSoSanh();
-            }
-
-            // Table row
-            const row = document.createElement('tr');
-            row.className = 'row-animate';
-            const nameHtml = prod.link 
-                ? `<div class="product-title-cell"><a href="${prod.link}" target="_blank" class="product-link-btn fw-semibold">${prod.tenSạch}</a></div>`
-                : `<div class="product-title-cell text-light fw-semibold">${prod.tenSạch}</div>`;
-            const maHtml = prod.ma 
-                ? `<span class="badge badge-sku fw-semibold">${prod.ma}</span>` 
-                : `<span class="text-muted small">-</span>`;
-            const seriesHtml = prod.series 
-                ? `<span class="badge badge-series fw-semibold">${prod.series}</span>` 
-                : `<span class="text-muted small">-</span>`;
-            const kichThuocHtml = prod.kichThuoc 
-                ? `<span class="badge badge-size fw-semibold">${prod.kichThuoc}</span>` 
-                : `<span class="text-muted small">-</span>`;
-            row.innerHTML = `
-                <td class="text-center text-muted fw-bold">${prod.stt}</td>
-                <td>${nameHtml}</td>
-                <td>${maHtml}</td>
-                <td>${seriesHtml}</td>
-                <td>${kichThuocHtml}</td>
-                <td class="text-center price-badge">${prod.gia}</td>
-                <td class="text-center"><span class="badge bg-secondary bg-opacity-20 text-light fw-normal">Trang ${prod.trang}</span></td>
-            `;
-            document.getElementById('vungDuLieu').appendChild(row);
-
-            // Grid card
-            const cardCol = document.createElement('div');
-            cardCol.className = 'col product-grid-card-col row-animate';
-            const cardTitleHtml = prod.link
-                ? `<a href="${prod.link}" target="_blank" class="product-card-title">${prod.tenSạch}</a>`
-                : `<div class="product-card-title">${prod.tenSạch}</div>`;
-            const cardMaHtml = prod.ma 
-                ? `<span class="badge badge-sku fw-normal" style="font-size: 0.7rem;">${prod.ma}</span>`
-                : '';
-            const cardSeriesHtml = prod.series 
-                ? `<span class="badge badge-series fw-normal ms-1" style="font-size: 0.7rem;">${prod.series}</span>`
-                : '';
-            const cardKichThuocHtml = prod.kichThuoc 
-                ? `<span class="badge badge-size fw-normal ms-1" style="font-size: 0.7rem;">${prod.kichThuoc}</span>`
-                : '';
-            const badgesHtml = (cardMaHtml || cardSeriesHtml || cardKichThuocHtml) 
-                ? `<div class="mb-2">${cardMaHtml}${cardSeriesHtml}${cardKichThuocHtml}</div>`
-                : '';
-            cardCol.innerHTML = `
-                <div class="product-card">
-                    <div>
-                        ${cardTitleHtml}
-                        ${badgesHtml}
-                    </div>
-                    <div class="product-card-price-row">
-                        <span class="product-card-price">${prod.gia}</span>
-                        <span class="product-card-source">Trang ${prod.trang}</span>
-                    </div>
-                </div>
-            `;
-            document.getElementById('vungLuoi').appendChild(cardCol);
-
-            const tableContainer = document.getElementById('tableContainer');
-            const gridContainer = document.getElementById('gridContainer');
-            if (tableContainer) tableContainer.scrollTop = tableContainer.scrollHeight;
-            if (gridContainer) gridContainer.scrollTop = gridContainer.scrollHeight;
-        }
-
-        // ── Netlify REST polling: gọi /api/scrape cho từng trang tuần tự ──
-        async function runNetlifyScraping({ urlInput, paginationMode, pageParam, maxPages, maxPagesLimit, delay, timeout, blockResources, categoryIndex, totalCategories }) {
-            let categoryError = false;
-            let errorReason = '';
-            let totalProductsFromUrl = 0;
-            let categoryLinks = null;
-            let consecutiveEmptyCount = 0;
-            const maxConsecutiveEmpty = 3;
-
-            for (let p = 1; p <= maxPages; p++) {
-                if (!netlifyScrapingActive) {
-                    writeToConsole(`Đã dừng theo lệnh người dùng.`, 'warning');
-                    break;
-                }
-
-                const pagesDisplay = maxPagesLimit === 'all' ? '♾️' : maxPages;
-                document.getElementById('statPages').innerText = `DM ${categoryIndex + 1}/${totalCategories} - T${p}/${pagesDisplay}`;
-                writeToConsole(`======================= DM ${categoryIndex + 1}/${totalCategories} - TRANG ${p} / ${pagesDisplay} =======================`);
-
-                const params = new URLSearchParams({
-                    url: urlInput, paginationMode, pageParam, pageNum: p,
-                    delay, timeout, blockResources: blockResources ? 'true' : 'false'
-                });
-
-                try {
-                    writeToConsole(`Đang gửi yêu cầu tới Netlify Function...`);
-                    const resp = await fetch(`/api/scrape?${params.toString()}`);
-                    
-                    if (!resp.ok) {
-                        const errBody = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
-                        const errMsg = errBody.error || resp.statusText || `HTTP ${resp.status}`;
-                        writeToConsole(`Lỗi trang ${p}: ${errMsg}`, 'error');
-                        categoryError = true;
-                        errorReason = errMsg;
-                        break;
-                    }
-
-                    const data = await resp.json();
-
-                    // Ghi log từ function
-                    if (data.logs) {
-                        data.logs.forEach(log => writeToConsole(log.message, log.level));
-                    }
-
-                    if (data.error) {
-                        writeToConsole(`Lỗi nghiêm trọng: ${data.error}`, 'error');
-                        categoryError = true;
-                        errorReason = data.error;
-                        break;
-                    }
-
-                    const products = data.products || [];
-                    let newCount = 0;
-
-                    if (products.length === 0) {
-                        consecutiveEmptyCount++;
-                        writeToConsole(`Trang ${p}: Không tìm thấy sản phẩm nào. (Trống liên tiếp: ${consecutiveEmptyCount}/${maxConsecutiveEmpty})`, 'warning');
-                        if (consecutiveEmptyCount >= maxConsecutiveEmpty) {
-                            writeToConsole(`Đã vượt quá giới hạn trang trống liên tiếp (${maxConsecutiveEmpty}). Dừng cào sớm.`, 'warning');
-                            break;
-                        }
-                    } else {
-                        products.forEach(sp => {
-                            const key = sp.link || sp.ten;
-                            if (!key || seenKeys.has(key)) return;
-                            seenKeys.add(key);
-                            globalIndex++;
-                            newCount++;
-                            addProduct({ ...sp, stt: globalIndex });
-                        });
-
-                        totalProductsFromUrl += newCount;
-                        writeToConsole(`Trang ${p}: Tìm thấy ${products.length} sản phẩm, ${newCount} sản phẩm mới.`, 'success');
-
-                        if (newCount === 0) {
-                            consecutiveEmptyCount++;
-                            writeToConsole(`Trang ${p}: Toàn bộ sản phẩm đều bị trùng lặp. (Trùng liên tiếp: ${consecutiveEmptyCount}/${maxConsecutiveEmpty})`, 'warning');
-                            if (consecutiveEmptyCount >= maxConsecutiveEmpty) {
-                                writeToConsole(`Đã vượt quá giới hạn trang trùng liên tiếp (${maxConsecutiveEmpty}). Dừng cào sớm.`, 'warning');
-                                break;
-                            }
-                        } else {
-                            consecutiveEmptyCount = 0;
-                        }
-                    }
-
-                    if (data.categoryLinks && data.categoryLinks.length > 0) {
-                        categoryLinks = data.categoryLinks;
-                        writeToConsole(`Đã tìm thấy ${data.categoryLinks.length} liên kết danh mục từ trang chủ.`, 'success');
-                        break;
-                    }
-
-                } catch (fetchErr) {
-                    writeToConsole(`Lỗi kết nối trang ${p}: ${fetchErr.message}`, 'error');
-                    categoryError = true;
-                    errorReason = fetchErr.message;
-                    break;
-                }
-
-                // Delay giữa các trang
-                if (p < maxPages && netlifyScrapingActive) {
-                    writeToConsole(`Chờ ${delay}ms trước trang tiếp theo...`);
-                    await new Promise(r => setTimeout(r, delay));
-                }
-            }
-            return { hasError: categoryError, productCount: totalProductsFromUrl, errorReason, categoryLinks };
-        }
-
-
-
-        function dungHeThongQuet() {
-            // Dừng Netlify REST polling loop
-            netlifyScrapingActive = false;
-
-            scrapingCompleted = true;
-            stopTimer();
-            writeToConsole(`Đã dừng hoạt động bot theo lệnh của người dùng.`, 'warning');
-            resetControlsState();
-            alert(`Đã gửi lệnh dừng bot. Dữ liệu trích xuất hiện tại (${mangDuLieuToanCuc.length} sản phẩm) vẫn có thể tải về.`);
-        }
-
-        function resetControlsState() {
-            document.getElementById('btnStart').disabled = false;
-            document.getElementById('btnStart').innerHTML = '🚀 Chạy';
-            document.getElementById('btnStop').disabled = true;
-        }
-
-        function locDuLieu() {
-            const query = document.getElementById('searchFilter').value.toLowerCase().trim();
-            
-            // Lọc bảng
-            const rows = document.querySelectorAll('#vungDuLieu tr');
-            rows.forEach(row => {
-                const titleCell = row.querySelector('.product-title-cell');
-                const skuCell = row.querySelector('td:nth-child(4)');
-                const seriesCell = row.querySelector('td:nth-child(5)');
-                if (titleCell) {
-                    const text = titleCell.innerText.toLowerCase();
-                    const skuText = skuCell ? skuCell.innerText.toLowerCase() : '';
-                    const seriesText = seriesCell ? seriesCell.innerText.toLowerCase() : '';
-                    if (text.includes(query) || skuText.includes(query) || seriesText.includes(query)) {
-                        row.classList.remove('d-none');
-                    } else {
-                        row.classList.add('d-none');
-                    }
-                }
-            });
-
-            // Lọc lưới
-            const cards = document.querySelectorAll('#vungLuoi .product-grid-card-col');
-            cards.forEach(card => {
-                const titleEl = card.querySelector('.product-card-title');
-                const badges = card.querySelectorAll('.badge');
-                let matchesBadge = false;
-                badges.forEach(b => {
-                    if (b.innerText.toLowerCase().includes(query)) {
-                        matchesBadge = true;
-                    }
-                });
-                if (titleEl) {
-                    const text = titleEl.innerText.toLowerCase();
-                    if (text.includes(query) || matchesBadge) {
-                        card.classList.remove('d-none');
-                    } else {
-                        card.classList.add('d-none');
-                    }
-                }
-            });
-        }
-
-        function taiFileCSV() {
-            if(mangDuLieuToanCuc.length === 0) return alert("Chưa có dữ liệu sản phẩm để xuất file!");
-            
-            const headers = ['STT', 'Ten San Pham', 'Ma San Pham', 'Dong / Series', 'Kich Thuoc', 'Gia Ban', 'Nguon Trang', 'Lien Ket San Pham'];
-            const rows = mangDuLieuToanCuc.map((item, index) => [
-                index + 1, 
-                `"${item.tenSạch.replace(/"/g, '""')}"`, 
-                `"${item.ma || ''}"`, 
-                `"${item.series || ''}"`, 
-                `"${item.kichThuoc || ''}"`, 
-                `"${item.gia}"`, 
-                `"Trang ${item.trang}"`,
-                `"${item.link || ''}"`
-            ]);
-            
-            // Thêm ký tự UTF-8 BOM ở đầu chuỗi (\ufeff) để Excel nhận diện chuẩn font tiếng Việt
-            const csvContent = '\ufeff' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.setAttribute("download", "danh_sach_san_pham_vet_can.csv");
-            a.click();
-            writeToConsole(`Đã tải xuống thành công tệp CSV chứa danh sách sản phẩm.`, 'success');
-        }
-
-        function generateSlug(text) {
-            return text.toString().toLowerCase()
-                .replace(/á|à|ả|ạ|ã|ă|ắ|ằ|ẳ|ẵ|ặ|â|ấ|ầ|ẩ|ẫ|ậ/gi, 'a')
-                .replace(/é|è|ẻ|ẽ|ẹ|ê|ế|ề|ể|ễ|ệ/gi, 'e')
-                .replace(/i|í|ì|ỉ|ĩ|ị/gi, 'i')
-                .replace(/ó|ò|ỏ|õ|ọ|ô|ố|ồ|ổ|ỗ|ộ|ơ|ớ|ờ|ở|ỡ|ợ/gi, 'o')
-                .replace(/ú|ù|ủ|ũ|ụ|ư|ứ|ừ|ử|ữ|ự/gi, 'u')
-                .replace(/ý|ỳ|ỷ|ỹ|ỵ/gi, 'y')
-                .replace(/đ/gi, 'd')
-                .replace(/\s+/g, '-') 
-                .replace(/[^\w\-]+/g, '')
-                .replace(/\-\-+/g, '-')
-                .replace(/^-+/, '') 
-                .replace(/-+$/, '');
-        }
-
-        function taiFileShopify() {
-            if(mangDuLieuToanCuc.length === 0) return alert("Chưa có dữ liệu sản phẩm để xuất file Shopify!");
-            
-            // Header chuẩn của Shopify
-            const headers = [
-                'Handle', 'Title', 'Body (HTML)', 'Vendor', 'Type', 'Tags', 'Published',
-                'Option1 Name', 'Option1 Value', 'Option2 Name', 'Option2 Value', 'Option3 Name', 'Option3 Value',
-                'Variant SKU', 'Variant Grams', 'Variant Inventory Tracker', 'Variant Inventory Qty',
-                'Variant Inventory Policy', 'Variant Fulfillment Service', 'Variant Price', 'Variant Compare At Price',
-                'Variant Requires Shipping', 'Variant Taxable', 'Variant Barcode', 'Image Src', 'Image Position',
-                'Image Alt Text', 'Gift Card', 'SEO Title', 'SEO Description', 'Google Shopping / Google Product Category',
-                'Google Shopping / Gender', 'Google Shopping / Age Group', 'Google Shopping / MPN',
-                'Google Shopping / AdWords Grouping', 'Google Shopping / AdWords Labels', 'Google Shopping / Condition',
-                'Google Shopping / Custom Product', 'Google Shopping / Custom Label 0', 'Google Shopping / Custom Label 1',
-                'Google Shopping / Custom Label 2', 'Google Shopping / Custom Label 3', 'Google Shopping / Custom Label 4',
-                'Variant Image', 'Variant Weight Unit', 'Variant Tax Code', 'Cost per item', 'Price / International',
-                'Compare At Price / International', 'Status'
-            ];
-
-            const rows = mangDuLieuToanCuc.map((item, index) => {
-                // Làm sạch giá tiền (chỉ lấy số)
-                const priceClean = item.gia ? item.gia.replace(/[^0-9]/g, '') : '';
-                const handle = generateSlug(item.tenSạch);
-                
-                // Tạo một mảng trống chứa các cột tương ứng với Shopify
-                const rowData = new Array(headers.length).fill('""');
-                
-                rowData[0] = `"${handle}"`;                               // Handle
-                rowData[1] = `"${item.tenSạch.replace(/"/g, '""')}"`;     // Title
-                rowData[2] = `""`;                                        // Body (HTML)
-                rowData[3] = `"Store Auto Import"`;                       // Vendor
-                
-                const tagsList = [];
-                if (item.series) tagsList.push(`Series ${item.series}`);
-                if (item.kichThuoc) tagsList.push(item.kichThuoc);
-                if (tagsList.length > 0) {
-                    rowData[5] = `"${tagsList.join(', ').replace(/"/g, '""')}"`; // Tags
-                }
-                
-                rowData[6] = `"TRUE"`;                                    // Published
-                rowData[7] = `"Title"`;                                   // Option1 Name
-                rowData[8] = `"Default Title"`;                           // Option1 Value
-                rowData[13] = `"${item.ma || ''}"`;                             // Variant SKU
-                rowData[19] = `"${priceClean}"`;                          // Variant Price
-                rowData[24] = `"${item.anh || ''}"`;                      // Image Src
-                rowData[49] = `"active"`;                                 // Status
-
-                return rowData.join(',');
-            });
-
-            const csvContent = '\ufeff' + [headers.join(','), ...rows].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.setAttribute("download", "shopify_products_import.csv");
-            a.click();
-            writeToConsole(`Đã tải xuống thành công tệp CSV định dạng chuẩn Shopify.`, 'success');
-        }
-
-        function taiFileJSON() {
-            if(mangDuLieuToanCuc.length === 0) return alert("Chưa có dữ liệu sản phẩm để xuất file!");
-            const blob = new Blob([JSON.stringify(mangDuLieuToanCuc, null, 4)], { type: 'application/json' });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.setAttribute("download", "danh_sach_san_pham_vet_can.json");
-            a.click();
-            writeToConsole(`Đã tải xuống thành công tệp dữ liệu JSON.`, 'success');
-        }
-
-        function taiFileSoSanhCSV() {
-            if (mangDuLieuToanCuc.length === 0) return alert("Chưa có dữ liệu sản phẩm để xuất file so sánh!");
-            
-            const results = groupAndCompareProducts();
-            if (results.length === 0) return alert("Không tìm thấy nhóm sản phẩm nào đủ điều kiện so sánh để xuất file!");
-            
-            results.sort((a, b) => b.items.length - a.items.length);
-            
-            const headers = [
-                'STT', 
-                'Ten San Pham', 
-                'Ma San Pham / So Khop', 
-                'Dong / Series', 
-                'So Nguon So Sanh', 
-                'Gia Thap Nhat', 
-                'Nguon Gia Thap Nhat', 
-                'Gia Cao Nhat', 
-                'Nguon Gia Cao Nhat', 
-                'Chenh Lech Gia'
-            ];
-            
-            const rows = results.map((group, index) => {
-                const minPrice = group.minPriceItem.numericPrice;
-                const maxPrice = group.maxPriceItem.numericPrice;
-                const saving = maxPrice > 0 && minPrice > 0 ? (maxPrice - minPrice) : 0;
-                
-                return [
-                    index + 1,
-                    `"${group.name.replace(/"/g, '""')}"`,
-                    `"${group.key || ''}"`,
-                    `"${group.series || ''}"`,
-                    group.items.length,
-                    `"${group.minPriceItem.gia}"`,
-                    `"${group.minPriceItem.link || ''}"`,
-                    `"${group.maxPriceItem.gia}"`,
-                    `"${group.maxPriceItem.link || ''}"`,
-                    `"${saving > 0 ? saving.toLocaleString('vi-VN') + ' ₫' : '0 ₫'}"`
-                ];
-            });
-            
-            const csvContent = '\ufeff' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.setAttribute("download", "so_sanh_gia_san_pham.csv");
-            a.click();
-            writeToConsole(`Đã tải xuống thành công tệp CSV so sánh giá.`, 'success');
-        }
-
-        // ── Local CSV Comparison Logic ──
-        let localCompareResults = [];
-
-        function parseCSVText(text) {
-            const lines = [];
-            let row = [""];
-            let inQuotes = false;
-            
-            for (let i = 0; i < text.length; i++) {
-                const char = text[i];
-                const nextChar = text[i+1];
-                
-                if (char === '"') {
-                    if (inQuotes && nextChar === '"') {
-                        row[row.length - 1] += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (char === ',' && !inQuotes) {
-                    row.push("");
-                } else if ((char === '\r' || char === '\n') && !inQuotes) {
-                    if (char === '\r' && nextChar === '\n') {
-                        i++;
-                    }
-                    lines.push(row.map(val => val.trim()));
-                    row = [""];
-                } else {
-                    row[row.length - 1] += char;
-                }
-            }
-            if (row.length > 1 || row[0] !== "") {
-                lines.push(row.map(val => val.trim()));
-            }
-            return lines;
-        }
-
-        function mapCsvData(parsedLines) {
-            if (parsedLines.length < 2) return [];
-            const headers = parsedLines[0].map(h => h.trim().toLowerCase());
-            
-            const codeIdx = headers.findIndex(h => h.includes('ma san pham') || h.includes('ma sp') || h.includes('model') || h.includes('sku'));
-            const seriesIdx = headers.findIndex(h => h.includes('series') || h.includes('dong / series') || h.includes('dong/series'));
-            const nameIdx = headers.findIndex(h => h.includes('ten san pham') || h.includes('title') || h.includes('name'));
-            const priceIdx = headers.findIndex(h => h.includes('gia ban') || h.includes('gia') || h.includes('price'));
-            const urlIdx = headers.findIndex(h => h.includes('lien ket') || h.includes('link') || h.includes('url'));
-            const imgIdx = headers.findIndex(h => h.includes('anh') || h.includes('image'));
-            const sizeIdx = headers.findIndex(h => h.includes('kich thuoc') || h.includes('size'));
-            
-            return parsedLines.slice(1).map(row => {
-                return {
-                    name: nameIdx !== -1 ? (row[nameIdx] || '') : '',
-                    code: codeIdx !== -1 ? (row[codeIdx] || '') : '',
-                    series: seriesIdx !== -1 ? (row[seriesIdx] || '') : '',
-                    price: priceIdx !== -1 ? (row[priceIdx] || '') : '',
-                    url: urlIdx !== -1 ? (row[urlIdx] || '') : '',
-                    image: imgIdx !== -1 ? (row[imgIdx] || '') : '',
-                    size: sizeIdx !== -1 ? (row[sizeIdx] || '') : ''
-                };
-            }).filter(item => item.name);
-        }
-
-        async function runLocalCsvComparison() {
-            const file1Input = document.getElementById('csvFile1');
-            const file2Input = document.getElementById('csvFile2');
-            
-            const file1 = file1Input.files[0];
-            const file2 = file2Input.files[0];
-            
-            if (!file1 || !file2) {
-                return alert("Vui lòng chọn cả 2 file CSV để tiến hành so sánh!");
-            }
-            
-            const readAsText = (file) => new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.readAsText(file);
-            });
-            
-            try {
-                const text1 = await readAsText(file1);
-                const text2 = await readAsText(file2);
-                
-                const lines1 = parseCSVText(text1);
-                const lines2 = parseCSVText(text2);
-                
-                const data1 = mapCsvData(lines1);
-                const data2 = mapCsvData(lines2);
-                
-                if (data1.length === 0 || data2.length === 0) {
-                    return alert("Một trong hai file hoặc cả hai không chứa dữ liệu hợp lệ hoặc định dạng cột không đúng.");
-                }
-                
-                const normalizeKey = (code, series) => {
-                    const c = (code || '').replace(/[-_\s/]+/g, '').toUpperCase();
-                    const s = (series || '').replace(/[-_\s/]+/g, '').toUpperCase();
-                    return c + (s ? `_SERIES${s}` : '');
-                };
-                
-                const file2Index = {};
-                data2.forEach(item => {
-                    if (!item.code) return;
-                    const key = normalizeKey(item.code, item.series);
-                    if (!file2Index[key]) file2Index[key] = [];
-                    file2Index[key].push(item);
-                });
-                
-                localCompareResults = [];
-                let matchCount = 0;
-                
-                data1.forEach(item1 => {
-                    if (!item1.code) return;
-                    const key = normalizeKey(item1.code, item1.series);
-                    const matches = file2Index[key];
-                    
-                    if (matches && matches.length > 0) {
-                        matches.forEach(item2 => {
-                            matchCount++;
-                            const p1 = parseInt(item1.price.replace(/\D/g, '')) || 0;
-                            const p2 = parseInt(item2.price.replace(/\D/g, '')) || 0;
-                            let diffText = 'N/A';
-                            let diffVal = 0;
-                            
-                            if (p1 > 0 && p2 > 0) {
-                                diffVal = p1 - p2;
-                                if (diffVal === 0) {
-                                    diffText = 'Bằng giá';
-                                } else {
-                                    const dir = diffVal > 0 ? 'đắt hơn' : 'rẻ hơn';
-                                    diffText = `${Math.abs(diffVal).toLocaleString('vi-VN')} ₫ (${dir})`;
-                                }
-                            }
-                            
-                            localCompareResults.push({
-                                stt: matchCount,
-                                code: item1.code,
-                                series: item1.series || item2.series || '',
-                                name1: item1.name,
-                                price1: item1.price || 'Liên hệ',
-                                url1: item1.url,
-                                name2: item2.name,
-                                price2: item2.price || 'Liên hệ',
-                                url2: item2.url,
-                                difference: diffText,
-                                diffVal: diffVal
-                            });
-                        });
-                    }
-                });
-                
-                const tbody = document.getElementById('vungSoSanhCsv');
-                tbody.innerHTML = '';
-                
-                if (localCompareResults.length === 0) {
-                    document.getElementById('csvCompareResults').classList.add('d-none');
-                    document.getElementById('csvCompareEmpty').innerHTML = "❌ Không tìm thấy sản phẩm nào trùng khớp Mã sản phẩm và Series giữa 2 file.";
-                    document.getElementById('csvCompareEmpty').classList.remove('d-none');
-                    return;
-                }
-                
-                document.getElementById('csvMatchCount').innerText = localCompareResults.length;
-                document.getElementById('csvCompareEmpty').classList.add('d-none');
-                document.getElementById('csvCompareResults').classList.remove('d-none');
-                
-                localCompareResults.forEach(row => {
-                    const tr = document.createElement('tr');
-                    
-                    const p1Val = parseInt(row.price1.replace(/\D/g, '')) || 0;
-                    const p2Val = parseInt(row.price2.replace(/\D/g, '')) || 0;
-                    
-                    let p1Html = `<span>${row.price1}</span>`;
-                    let p2Html = `<span>${row.price2}</span>`;
-                    let diffClass = '';
-                    
-                    if (p1Val > 0 && p2Val > 0) {
-                        if (p1Val < p2Val) {
-                            p1Html = `<span class="text-success fw-bold">${row.price1} 🏆</span>`;
-                            p2Html = `<span class="text-light">${row.price2}</span>`;
-                            diffClass = 'text-success';
-                        } else if (p1Val > p2Val) {
-                            p1Html = `<span class="text-light">${row.price1}</span>`;
-                            p2Html = `<span class="text-success fw-bold">${row.price2} 🏆</span>`;
-                            diffClass = 'text-danger';
-                        } else {
-                            diffClass = 'text-warning';
-                        }
-                    }
-                    
-                    const link1 = row.url1 
-                        ? `<a href="${row.url1}" target="_blank" class="text-white text-decoration-none hover-primary">${row.name1}</a>`
-                        : `<span class="text-light">${row.name1}</span>`;
-                        
-                    const link2 = row.url2 
-                        ? `<a href="${row.url2}" target="_blank" class="text-white text-decoration-none hover-primary">${row.name2}</a>`
-                        : `<span class="text-light">${row.name2}</span>`;
-                    
-                    tr.innerHTML = `
-                        <td class="text-center text-muted fw-bold">${row.stt}</td>
-                        <td class="text-center"><span class="badge badge-sku fw-semibold">${row.code}</span></td>
-                        <td class="text-center">${row.series ? `<span class="badge badge-series fw-normal">${row.series}</span>` : ''}</td>
-                        <td>${link1}</td>
-                        <td class="text-center">${p1Html}</td>
-                        <td>${link2}</td>
-                        <td class="text-center">${p2Html}</td>
-                        <td class="text-center ${diffClass} fw-bold" style="font-size:0.82rem;">${row.difference}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-                
-                writeToConsole(`Đã hoàn tất so sánh. Tìm thấy ${localCompareResults.length} cặp sản phẩm khớp.`, 'success');
-                
-            } catch (err) {
-                console.error(err);
-                alert(`Lỗi khi đọc hoặc xử lý file CSV: ${err.message}`);
-            }
-        }
-        
-        function taiFileCompareCSVResults() {
-            if (localCompareResults.length === 0) return alert("Chưa có kết quả so sánh để tải!");
-            
-            const headers = [
-                'STT', 
-                'Ma San Pham', 
-                'Dong / Series', 
-                'Ten San Pham (File 1)', 
-                'Gia File 1', 
-                'Lien Ket File 1', 
-                'Ten San Pham (File 2)', 
-                'Gia File 2', 
-                'Lien Ket File 2', 
-                'Chenh Lech Gia'
-            ];
-            
-            const rows = localCompareResults.map(r => [
-                r.stt,
-                `"${r.code}"`,
-                `"${r.series}"`,
-                `"${r.name1.replace(/"/g, '""')}"`,
-                `"${r.price1}"`,
-                `"${r.url1 || ''}"`,
-                `"${r.name2.replace(/"/g, '""')}"`,
-                `"${r.price2}"`,
-                `"${r.url2 || ''}"`,
-                `"${r.difference}"`
-            ]);
-            
-            const csvContent = '\ufeff' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.setAttribute("download", "ket_qua_so_sanh_2_file.csv");
-            a.click();
-            writeToConsole(`Đã tải xuống thành công tệp CSV kết quả so sánh.`, 'success');
-        }
-    </script>
+    <!-- Core Application Logic -->
     <script src="/sheet-pricing.js"></script>
 </body>
 </html>

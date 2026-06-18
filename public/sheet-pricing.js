@@ -7,6 +7,7 @@
         success: 0,
         errors: 0,
         writes: 0,
+        totalRows: 0,
         pollInterval: null,
     };
 
@@ -56,27 +57,33 @@
         const tbody = document.getElementById('sheetPricingBody');
         if (!tbody) return;
 
-        const query = (document.getElementById('searchFilter')?.value || '').trim().toLowerCase();
-        const filtered = state.rows.filter((row) => {
-            if (!query) return true;
-            return [row.productId, row.brand, row.model].some((value) => String(value || '').toLowerCase().includes(query));
-        });
+        if (state.rows.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">Chưa có dữ liệu nào được tải về.</td>
+                </tr>
+            `;
+            return;
+        }
 
-        tbody.innerHTML = filtered.map((row) => `
-            <tr>
-                <td class="text-center text-muted fw-bold">${escapeHtml(row.rowNumber)}</td>
-                <td>${escapeHtml(row.productId || '-')}</td>
-                <td>${escapeHtml(row.brand || '-')}</td>
-                <td class="fw-semibold">${escapeHtml(row.model || '-')}</td>
-                <td class="text-center">${formatMoney(row.salePriceValue)}</td>
-                <td class="text-center">${row.marketPrices ? row.marketPrices.length : 0}</td>
-                <td class="text-center price-badge">${formatMoney(row.minPrice)}</td>
-                <td class="text-center ${row.gapValue > 0 ? 'text-danger' : 'text-success'}">${formatMoney(row.gapValue)}</td>
-                <td class="text-center">${formatPercent(row.gapPercent)}</td>
-                <td class="text-center fw-bold text-warning">${formatMoney(row.suggestedPrice)}</td>
-                <td class="text-center">${statusLabel(row)}</td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = state.rows.map((row) => {
+            const minPriceVal = row.minPrice;
+            const suggestedPriceVal = row.suggestedPrice;
+            const marketCount = row.marketPrices ? row.marketPrices.length : 0;
+            return `
+                <tr>
+                    <td class="text-center text-muted fw-bold">${escapeHtml(row.rowNumber)}</td>
+                    <td><span class="badge bg-secondary bg-opacity-10 text-white border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
+                    <td>${escapeHtml(row.brand || '-')}</td>
+                    <td class="fw-semibold text-white">${escapeHtml(row.model || '-')}</td>
+                    <td class="text-center price-badge">${formatMoney(row.salePriceValue)}</td>
+                    <td class="text-center">${marketCount}</td>
+                    <td class="text-center price-badge text-success">${formatMoney(minPriceVal)}</td>
+                    <td class="text-center price-badge text-warning fw-bold">${formatMoney(suggestedPriceVal)}</td>
+                    <td class="text-center">${statusLabel(row)}</td>
+                </tr>
+            `;
+        }).join('');
     }
 
     function updateCounter(id, value) {
@@ -89,24 +96,36 @@
         if (!badge) return;
 
         const styles = {
-            idle: { background: 'rgba(255,255,255,0.04)', color: 'var(--text-light)' },
-            running: { background: 'rgba(6,182,212,0.14)', color: '#67e8f9' },
-            success: { background: 'rgba(16,185,129,0.16)', color: '#6ee7b7' },
-            warning: { background: 'rgba(245,158,11,0.14)', color: '#fcd34d' },
-            error: { background: 'rgba(239,68,68,0.16)', color: '#fca5a5' },
+            idle: { background: 'rgba(255,255,255,0.03)', color: 'var(--text-light)', border: '1px solid rgba(255,255,255,0.05)' },
+            running: { background: 'rgba(6,182,212,0.12)', color: '#67e8f9', border: '1px solid rgba(6,182,212,0.2)' },
+            success: { background: 'rgba(16,185,129,0.12)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.2)' },
+            warning: { background: 'rgba(245,158,11,0.12)', color: '#fcd34d', border: '1px solid rgba(245,158,11,0.2)' },
+            error: { background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.2)' },
         };
 
         const style = styles[tone] || styles.idle;
         badge.innerText = text;
         badge.style.background = style.background;
         badge.style.color = style.color;
+        badge.style.borderColor = style.border;
     }
 
     function refreshSummary() {
+        updateCounter('pricingTotalRows', state.totalRows);
         updateCounter('pricingProcessedCount', state.processed);
         updateCounter('pricingSuccessCount', state.success);
         updateCounter('pricingErrorCount', state.errors);
         updateCounter('pricingWriteCount', state.writes);
+
+        // Update progress bar
+        const percent = state.totalRows > 0 ? Math.round((state.processed / state.totalRows) * 100) : 0;
+        const progressTextEl = document.getElementById('progressText');
+        if (progressTextEl) progressTextEl.innerText = `${percent}%`;
+        const progressBar = document.getElementById('pricingProgressBar');
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
+            progressBar.setAttribute('aria-valuenow', percent);
+        }
     }
 
     function collectPricingForm() {
@@ -127,7 +146,7 @@
         const stopButton = document.getElementById('btnPricingStop');
         if (startButton) {
             startButton.disabled = running;
-            startButton.innerText = running ? '⏳ Đang chạy pricing...' : '🚀 Chạy Sheet Pricing';
+            startButton.innerText = running ? '⏳ Đang quét dữ liệu...' : '🚀 Bắt Đầu Quét';
         }
         if (stopButton) {
             stopButton.disabled = !running;
@@ -136,7 +155,7 @@
 
     function translateStatus(status) {
         switch(status) {
-            case 'running': return 'Đang chạy pricing...';
+            case 'running': return 'Đang chạy...';
             case 'completed': return 'Hoàn tất';
             case 'stopped': return 'Đã dừng';
             case 'error': return 'Lỗi';
@@ -167,6 +186,7 @@
                     state.success = data.successCount || 0;
                     state.errors = data.errorCount || 0;
                     state.writes = data.writeCount || 0;
+                    state.totalRows = data.totalRows || 0;
                     state.rows = data.rows || [];
                     
                     refreshSummary();
@@ -206,22 +226,25 @@
         const form = collectPricingForm();
         if (!form.appsScriptUrl || !form.sheetUrl || !form.sheetName) {
             alert('Vui lòng nhập đầy đủ Apps Script URL, Google Sheet URL và tên sheet.');
+            // Open settings accordion to highlight inputs
+            const collapseConfig = document.getElementById('collapseConfig');
+            if (collapseConfig && !collapseConfig.classList.contains('show')) {
+                const trigger = document.querySelector('[data-bs-target="#collapseConfig"]');
+                if (trigger) trigger.click();
+            }
             return;
         }
 
         state.running = true;
         setPricingButtons(true);
-        setPricingStatus('Đang khởi tạo job...', 'running');
+        setPricingStatus('Khởi tạo...', 'running');
         
-        if (typeof writeToConsole === 'function') {
-            writeToConsole(`Đang gửi yêu cầu khởi tạo job Sheet Pricing cho sheet "${form.sheetName}"...`, 'info');
+        const termBody = document.getElementById('terminalBody');
+        if (termBody) {
+            termBody.innerHTML = `<span class="log-line text-info">Đang kết nối tới Google Sheets và khởi chạy quét dữ liệu...</span>`;
         }
 
         try {
-            if (typeof setCheDoXem === 'function') {
-                setCheDoXem('sheetPricing');
-            }
-
             const response = await fetch('/api/sheet-pricing/start', {
                 method: 'POST',
                 headers: {
@@ -241,8 +264,8 @@
             state.running = false;
             setPricingButtons(false);
             setPricingStatus('Lỗi khởi tạo', 'error');
-            if (typeof writeToConsole === 'function') {
-                writeToConsole(`Khởi tạo job lỗi: ${error.message}`, 'error');
+            if (termBody) {
+                termBody.innerHTML = `<span class="log-line log-error">Lỗi khởi tạo: ${escapeHtml(error.message)}</span>`;
             }
             alert(`Lỗi khởi tạo: ${error.message}`);
         }
@@ -255,60 +278,9 @@
             await fetch(`/api/sheet-pricing/stop/${state.jobId}`, {
                 method: 'POST',
             });
-            if (typeof writeToConsole === 'function') {
-                writeToConsole('Đã gửi yêu cầu dừng job. Hệ thống đang hoàn tất xử lý các dòng hiện tại và ghi kết quả...', 'warning');
-            }
         } catch (error) {
             console.error('Stop job error:', error);
         }
-    }
-
-    const originalSetCheDoXem = window.setCheDoXem;
-    if (typeof originalSetCheDoXem === 'function') {
-        window.setCheDoXem = function patchedSetCheDoXem(mode) {
-            window.activeViewMode = mode;
-            const sheetButton = document.getElementById('btnViewSheetPricing');
-            const sheetContainer = document.getElementById('sheetPricingContainer');
-            if (sheetButton) sheetButton.classList.remove('active');
-            if (sheetContainer) sheetContainer.classList.add('d-none');
-
-            if (mode !== 'sheetPricing') {
-                return originalSetCheDoXem(mode);
-            }
-
-            window.activeViewMode = mode;
-            originalSetCheDoXem('grid');
-
-            ['btnViewGrid', 'btnViewTable', 'btnViewCompare', 'btnViewCsvCompare'].forEach((id) => {
-                const button = document.getElementById(id);
-                if (button) button.classList.remove('active');
-            });
-            const tableDiv = document.getElementById('tableContainer');
-            const gridDiv = document.getElementById('gridContainer');
-            const compareDiv = document.getElementById('compareContainer');
-            const csvCompareDiv = document.getElementById('csvCompareContainer');
-            const emptyState = document.getElementById('emptyState');
-
-            if (tableDiv) tableDiv.classList.add('d-none');
-            if (gridDiv) gridDiv.classList.add('d-none');
-            if (compareDiv) compareDiv.classList.add('d-none');
-            if (csvCompareDiv) csvCompareDiv.classList.add('d-none');
-            if (emptyState) emptyState.classList.add('d-none');
-            if (sheetButton) sheetButton.classList.add('active');
-            if (sheetContainer) sheetContainer.classList.remove('d-none');
-            renderSheetPricingRows();
-        };
-    }
-
-    const originalLocDuLieu = window.locDuLieu;
-    if (typeof originalLocDuLieu === 'function') {
-        window.locDuLieu = function patchedLocDuLieu() {
-            if (window.activeViewMode === 'sheetPricing') {
-                renderSheetPricingRows();
-                return;
-            }
-            return originalLocDuLieu();
-        };
     }
 
     async function loadConfig() {
