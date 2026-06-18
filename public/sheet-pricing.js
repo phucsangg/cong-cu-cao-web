@@ -142,8 +142,8 @@
             sheetName: document.getElementById('pricingSheetName')?.value.trim(),
             startRow: document.getElementById('pricingStartRow')?.value.trim(),
             endRow: document.getElementById('pricingEndRow')?.value.trim(),
-            rowsConcurrency: Math.max(1, parseInt(document.getElementById('pricingRowsConcurrency')?.value || '2', 10)),
-            linksConcurrency: Math.max(1, parseInt(document.getElementById('pricingLinksConcurrency')?.value || '4', 10)),
+            rowsConcurrency: Math.max(1, parseInt(document.getElementById('pricingRowsConcurrency')?.value || '1', 10)),
+            linksConcurrency: Math.max(1, parseInt(document.getElementById('pricingLinksConcurrency')?.value || '5', 10)),
             batchSize: Math.max(1, parseInt(document.getElementById('pricingBatchSize')?.value || '5', 10)),
         };
     }
@@ -432,9 +432,9 @@
 
                             if (result.status === 'success' || result.status === 'insufficient_prices') {
                                 if (result.status === 'success') {
-                                    logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) thành công: Min=${result.minPrice.toLocaleString('vi-VN')} đ, Đề xuất=${result.suggestedPrice ? result.suggestedPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'success');
+                                    logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) thành công: Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice.toLocaleString('vi-VN')} đ, Đề xuất=${result.suggestedPrice ? result.suggestedPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'success');
                                 } else {
-                                    logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) thành công (thiếu giá): Min=${result.minPrice ? result.minPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'warning');
+                                    logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) thành công (thiếu giá hoặc ít hơn 3 giá): Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice ? result.minPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'warning');
                                 }
 
                                 pendingUpdates.push({
