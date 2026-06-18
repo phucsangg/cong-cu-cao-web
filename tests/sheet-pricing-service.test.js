@@ -92,3 +92,45 @@ test('isLikelyProductDetailUrl accepts standard Vietnamese slug URLs', () => {
     assert.equal(isLikelyProductDetailUrl('https://example.com/bep-tu-kocher-di-333-pro?utm_source=fb'), true);
 });
 
+test('processPricingRow skips rows with purely numeric models', async () => {
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 5,
+            productId: 'BT-005',
+            brand: 'Kocher',
+            model: '123', // Purely numeric model
+            salePrice: '5,000,000',
+        },
+        deps: {
+            searchProductLinks: async () => ['https://a.vn/p/kocher-123'],
+            extractProductPrice: async () => 4500000,
+        }
+    });
+
+    assert.equal(result.status, 'skipped');
+    assert.deepEqual(result.marketPrices, []);
+    assert.equal(result.minPrice, null);
+});
+
+test('processPricingRow skips rows with missing or whitespace-only brand or model', async () => {
+    const resultNoBrand = await processPricingRow({
+        row: {
+            rowNumber: 6,
+            brand: '   ',
+            model: 'DI-3332Pro',
+        }
+    });
+    assert.equal(resultNoBrand.status, 'skipped');
+
+    const resultNoModel = await processPricingRow({
+        row: {
+            rowNumber: 7,
+            brand: 'Kocher',
+            model: '',
+        }
+    });
+    assert.equal(resultNoModel.status, 'skipped');
+});
+
+
+
