@@ -771,6 +771,7 @@
                                 <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end border-white border-opacity-10 shadow-lg" aria-labelledby="exportDropdown">
                                     <li><button onclick="taiFileCSV()" class="dropdown-item d-flex align-items-center gap-2 py-2" style="font-size: 0.78rem;">📊 Tải CSV Tiêu chuẩn</button></li>
                                     <li><button onclick="taiFileShopify()" class="dropdown-item d-flex align-items-center gap-2 py-2" style="font-size: 0.78rem;">🛍️ Tải Shopify Import CSV</button></li>
+                                    <li><button onclick="taiFileSoSanhCSV()" class="dropdown-item d-flex align-items-center gap-2 py-2 text-warning" style="font-size: 0.78rem;">⚖️ Tải CSV So Sánh Giá</button></li>
                                     <li><hr class="dropdown-divider border-white border-opacity-5"></li>
                                     <li><button onclick="taiFileJSON()" class="dropdown-item d-flex align-items-center gap-2 py-2 text-info" style="font-size: 0.78rem;">📄 Tải file JSON</button></li>
                                 </ul>
@@ -2127,6 +2128,55 @@
             a.setAttribute("download", "danh_sach_san_pham_vet_can.json");
             a.click();
             writeToConsole(`Đã tải xuống thành công tệp dữ liệu JSON.`, 'success');
+        }
+
+        function taiFileSoSanhCSV() {
+            if (mangDuLieuToanCuc.length === 0) return alert("Chưa có dữ liệu sản phẩm để xuất file so sánh!");
+            
+            const results = groupAndCompareProducts();
+            if (results.length === 0) return alert("Không tìm thấy nhóm sản phẩm nào đủ điều kiện so sánh để xuất file!");
+            
+            results.sort((a, b) => b.items.length - a.items.length);
+            
+            const headers = [
+                'STT', 
+                'Ten San Pham', 
+                'Ma San Pham / So Khop', 
+                'Dong / Series', 
+                'So Nguon So Sanh', 
+                'Gia Thap Nhat', 
+                'Nguon Gia Thap Nhat', 
+                'Gia Cao Nhat', 
+                'Nguon Gia Cao Nhat', 
+                'Chenh Lech Gia'
+            ];
+            
+            const rows = results.map((group, index) => {
+                const minPrice = group.minPriceItem.numericPrice;
+                const maxPrice = group.maxPriceItem.numericPrice;
+                const saving = maxPrice > 0 && minPrice > 0 ? (maxPrice - minPrice) : 0;
+                
+                return [
+                    index + 1,
+                    `"${group.name.replace(/"/g, '""')}"`,
+                    `"${group.key || ''}"`,
+                    `"${group.series || ''}"`,
+                    group.items.length,
+                    `"${group.minPriceItem.gia}"`,
+                    `"${group.minPriceItem.link || ''}"`,
+                    `"${group.maxPriceItem.gia}"`,
+                    `"${group.maxPriceItem.link || ''}"`,
+                    `"${saving > 0 ? saving.toLocaleString('vi-VN') + ' ₫' : '0 ₫'}"`
+                ];
+            });
+            
+            const csvContent = '\ufeff' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.setAttribute("download", "so_sanh_gia_san_pham.csv");
+            a.click();
+            writeToConsole(`Đã tải xuống thành công tệp CSV so sánh giá.`, 'success');
         }
     </script>
 </body>
