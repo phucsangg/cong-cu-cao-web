@@ -156,6 +156,36 @@ test('processPricingRow falls back to row.marketPrices when crawler finds 0 pric
     assert.equal(result.status, 'success');
 });
 
+test('processPricingRow filters out invalid prices outside range [1,000,000 - 200,000,000]', async () => {
+    const priceMap = new Map([
+        ['https://a.vn/p/kocher-di-333pro', 999999], // Too low, should be ignored
+        ['https://b.vn/p/kocher-di-333pro', 9000000], // Valid
+        ['https://c.vn/p/kocher-di-333pro', 9100000], // Valid
+        ['https://d.vn/p/kocher-di-333pro', 9200000], // Valid
+        ['https://e.vn/p/kocher-di-333pro', 200000001], // Too high, should be ignored
+    ]);
+
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 9,
+            productId: 'BT-009',
+            brand: 'Kocher',
+            model: 'DI-333Pro',
+            salePrice: '9,500,000',
+        },
+        deps: {
+            searchProductLinks: async () => [...priceMap.keys()],
+            extractProductPrice: async (url) => priceMap.get(url) || null,
+        },
+    });
+
+    assert.equal(result.status, 'success');
+    assert.deepEqual(result.marketPrices, [9000000, 9100000, 9200000]); // Low and high prices are excluded
+    assert.equal(result.minPrice, 9000000);
+    assert.equal(result.suggestedPrice, 9054500);
+});
+
+
 
 
 

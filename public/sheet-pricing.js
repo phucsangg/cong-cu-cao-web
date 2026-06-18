@@ -440,6 +440,7 @@
                                 pendingUpdates.push({
                                     rowNumber: result.rowNumber,
                                     marketPrices: result.marketPrices,
+                                    hasNewPrices: result.hasNewPrices,
                                     minPrice: result.minPrice,
                                     gapValue: result.gapValue,
                                     gapPercent: result.gapPercent,
