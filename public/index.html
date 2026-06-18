@@ -952,7 +952,30 @@
                 const isNextLetter = nextChar && letterRegex.test(nextChar);
                 
                 if (!isPrevLetter && !isNextLetter) {
-                    codes.push(matched);
+                    let cleanedCode = matched;
+                    const excludedWords = [
+                        'GAS', 'VÙNG', 'VUNG', 'NẤU', 'NAU', 'LÍT', 'LIT', 'TỪ', 'TU', 'ĐÔI', 'DOI',
+                        'HỒNG', 'NGOẠI', 'LÒ', 'HÚT', 'MÙI', 'MÁY', 'RỬA', 'BÁT', 'CHÉN', 'KÍNH',
+                        'ÂM', 'DƯƠNG', 'NHẬP', 'KHẨU', 'ĐỨC', 'DUC', 'TÂY', 'BAN', 'NHA', 'THÁI', 'LAN', 'THAI',
+                        'MALAYSIA', 'HÀNG', 'CHÍNH', 'HÃNG', 'GIA', 'GIÁ', 'RẺ', 'RE', 'TẶNG', 'TANG', 'QUÀ', 'QUA',
+                        'KHUYẾN', 'KHUYEN', 'MÃI', 'MAI', 'HOT', 'NEW', 'MODEL', 'BẾP', 'BEP', 'ĐIỆN', 'DIEN',
+                        'VÙNG NẤU', 'VUNG NAU', 'KÍNH ÂM', 'KINH AM', 'NHẬP KHẨU', 'NHAP KHAU', 'CHÍNH HÃNG', 'CHINH HANG',
+                        'TRANG', 'MS', 'VV', 'GB', 'TB', 'MB', 'VÒNG', 'VONG', 'LÍT/PHÚT', 'LIT/PHUT', 'MÉT', 'MET',
+                        'INOX', 'PHI', 'PHÍ', 'ĐỘ', 'DO', 'NĂM', 'NAM', 'KÍCH', 'KICH', 'THÁNG', 'THANG', 'BẢO', 'HÀNH', 
+                        'BAO', 'HANH', 'BH', 'ĐỨNG', 'DUNG', 'NẰM', 'ĐẦU', 'DAU', 'LỖ', 'LO', 'BỘ', 'BO', 'CÁNH', 'CANH', 
+                        'KHE', 'KHAY', 'MÂM', 'MAM', 'CHẬU', 'CHAU', 'VÒI', 'VOI', 'RỔ', 'RO', 'KỆ', 'KE', 'ĐÁ', 'DA', 
+                        'CẮT', 'CAT', 'MẶT', 'MAT', 'DÀY', 'DAY', 'RỘNG', 'RONG', 'CAO', 'SÂU', 'SAU', 'THÀNH', 'THANH', 
+                        'PHÂN', 'PHAN', 'LI', 'LY', 'CHÂN', 'CHAN', 'ỐNG', 'ONG', 'KHOÁ', 'KHOA', 'CỬA', 'CUA', 'HỐ', 
+                        'HO', 'CHỔI', 'CHOI', 'DÂY', 'DAY'
+                    ];
+                    const lastWordMatch = matched.match(/[- ]([A-Z]{2,4})$/i);
+                    if (lastWordMatch) {
+                        const lastWord = lastWordMatch[1].toUpperCase();
+                        if (excludedWords.includes(lastWord)) {
+                            cleanedCode = matched.substring(0, matched.length - lastWordMatch[0].length).trim();
+                        }
+                    }
+                    codes.push(cleanedCode);
                 }
             }
 
