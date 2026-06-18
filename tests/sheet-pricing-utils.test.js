@@ -113,7 +113,7 @@ test('buildSheetUpdateRow pads market columns and keeps blanks for missing value
     assert.equal(row[13], '');
 });
 
-test('mapSheetHeaders handles parentheses and prioritized salePrice columns', () => {
+test('mapSheetHeaders handles parentheses and maps salePrice to Giá bán', () => {
     const headers = [
         'Mã SP',
         'Thương hiệu',
@@ -135,8 +135,8 @@ test('mapSheetHeaders handles parentheses and prioritized salePrice columns', ()
 
     assert.equal(mapping.brand, 1);
     assert.equal(mapping.model, 2);
-    // Since both 'Giá bán (₫)' and 'Giá khuyến mãi (₫)' are present, 'Giá khuyến mãi (₫)' is prioritized (index 7)
-    assert.equal(mapping.salePrice, 7);
+    // Maps to 'Giá bán (₫)' at index 6
+    assert.equal(mapping.salePrice, 6);
     assert.deepEqual(mapping.marketColumns, [8, 9]);
     assert.equal(mapping.minPrice, 10);
     assert.equal(mapping.gapValue, 11);

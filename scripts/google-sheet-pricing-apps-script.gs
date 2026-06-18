@@ -14,11 +14,27 @@ function normalizeText(value) {
 }
 
 function findHeaderIndex(headers, names) {
-  for (var i = 0; i < headers.length; i += 1) {
-    var header = normalizeText(headers[i]);
-    for (var j = 0; j < names.length; j += 1) {
-      if (header === normalizeText(names[j])) {
-        return i;
+  for (var i = 0; i < names.length; i += 1) {
+    var name = names[i];
+    var normalizedCandidate = normalizeText(name);
+    var cleanCandidate = normalizedCandidate.replace(/[^a-z0-9]/g, '');
+
+    for (var j = 0; j < headers.length; j += 1) {
+      var header = headers[j];
+      var normalizedHeader = normalizeText(header);
+
+      if (normalizedHeader === normalizedCandidate) return j;
+      if (normalizedHeader.indexOf(normalizedCandidate) === 0) return j; // startsWith
+
+      // Differentiate %GAP and GAP
+      if (normalizedCandidate.indexOf('%') !== -1 && normalizedHeader.indexOf('%') === -1) continue;
+      if (normalizedCandidate.indexOf('%') === -1 && normalizedHeader.indexOf('%') !== -1) continue;
+
+      var cleanHeader = normalizedHeader.replace(/[^a-z0-9]/g, '');
+      if (!cleanCandidate) continue;
+
+      if (cleanHeader === cleanCandidate || cleanHeader.indexOf(cleanCandidate) !== -1) {
+        return j;
       }
     }
   }
@@ -95,19 +111,74 @@ function writePricing_(payload) {
     if (!update || !update.rowNumber) return;
     if (update.rowNumber <= 2) return; // Bảo vệ hàng tiêu đề không bị ghi đè
     
-    // Write marketPrices
+    // 1. Ghi giá thị trường mới nạp nếu có
     var marketPrices = update.marketPrices || [];
-    for (var i = 0; i < 10; i += 1) {
-      var colIdx = headerMap.marketColumns[i];
-      var val = (i < marketPrices.length && typeof marketPrices[i] === 'number') ? marketPrices[i] : '';
-      sheet.getRange(update.rowNumber, colIdx + 1).setValue(val);
+    if (marketPrices.length > 0) {
+      for (var i = 0; i < 10; i += 1) {
+        var colIdx = headerMap.marketColumns[i];
+        var val = (i < marketPrices.length && typeof marketPrices[i] === 'number') ? marketPrices[i] : '';
+        sheet.getRange(update.rowNumber, colIdx + 1).setValue(val);
+      }
     }
     
-    // Write summary fields
-    sheet.getRange(update.rowNumber, headerMap.minPrice + 1).setValue(typeof update.minPrice === 'number' ? update.minPrice : '');
-    sheet.getRange(update.rowNumber, headerMap.gapValue + 1).setValue(typeof update.gapValue === 'number' ? update.gapValue : '');
-    sheet.getRange(update.rowNumber, headerMap.gapPercent + 1).setValue(typeof update.gapPercent === 'number' ? update.gapPercent : '');
-    sheet.getRange(update.rowNumber, headerMap.suggestedPrice + 1).setValue(typeof update.suggestedPrice === 'number' ? update.suggestedPrice : '');
+    // 2. Đọc lại toàn bộ 10 cột thị trường thực tế đang có trên sheet (bao gồm cả giá mới ghi hoặc cũ có sẵn)
+    var currentMarketPrices = [];
+    for (var i = 0; i < 10; i += 1) {
+      var colIdx = headerMap.marketColumns[i];
+      var val = sheet.getRange(update.rowNumber, colIdx + 1).getValue();
+      var parsed = parseInt(String(val).replace(/\D/g, ''), 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        currentMarketPrices.push(parsed);
+      }
+    }
+    
+    // Sắp xếp các giá thị trường theo thứ tự tăng dần
+    currentMarketPrices.sort(function(a, b) { return a - b; });
+    
+    // 3. Tính toán các giá trị tổng hợp dựa trên 10 cột thị trường thực tế
+    var minPrice = null;
+    var gapValue = null;
+    var gapPercent = null;
+    var suggestedPrice = null;
+    
+    if (currentMarketPrices.length > 0) {
+      var filteredPrices = [].concat(currentMarketPrices);
+      // Loại bỏ outlier thấp hơn 90% của giá thấp thứ 2
+      if (filteredPrices.length >= 2 && filteredPrices[0] < filteredPrices[1] * 0.9) {
+        filteredPrices.shift();
+      }
+      
+      if (filteredPrices.length > 0) {
+        minPrice = filteredPrices[0];
+      }
+      
+      // Đọc giá bán hiện tại trên sheet (cột Giá bán (₫))
+      var salePriceIdx = findHeaderIndex(headers, ['Giá bán', 'Gia ban']);
+      if (salePriceIdx !== -1) {
+        var salePriceVal = sheet.getRange(update.rowNumber, salePriceIdx + 1).getValue();
+        var parsedSalePrice = parseInt(String(salePriceVal).replace(/\D/g, ''), 10);
+        if (!isNaN(parsedSalePrice) && parsedSalePrice > 0 && minPrice !== null) {
+          gapValue = parsedSalePrice - minPrice;
+          gapPercent = gapValue / minPrice;
+        }
+      }
+      
+      // Tính Giá đề xuất bằng trung bình cộng 3 giá thấp nhất nhân 0.995
+      if (filteredPrices.length >= 3) {
+        var top3 = filteredPrices.slice(0, 3);
+        var sum = 0;
+        for (var k = 0; k < top3.length; k++) {
+          sum += top3[k];
+        }
+        suggestedPrice = Math.round((sum / top3.length) * 0.995);
+      }
+    }
+    
+    // 4. Ghi các trường tổng hợp lại vào sheet
+    sheet.getRange(update.rowNumber, headerMap.minPrice + 1).setValue(minPrice !== null ? minPrice : '');
+    sheet.getRange(update.rowNumber, headerMap.gapValue + 1).setValue(gapValue !== null ? gapValue : '');
+    sheet.getRange(update.rowNumber, headerMap.gapPercent + 1).setValue(gapPercent !== null ? gapPercent : '');
+    sheet.getRange(update.rowNumber, headerMap.suggestedPrice + 1).setValue(suggestedPrice !== null ? suggestedPrice : '');
   });
 
   return {

@@ -132,5 +132,30 @@ test('processPricingRow skips rows with missing or whitespace-only brand or mode
     assert.equal(resultNoModel.status, 'skipped');
 });
 
+test('processPricingRow falls back to row.marketPrices when crawler finds 0 prices', async () => {
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 8,
+            productId: 'BT-008',
+            brand: 'Kocher',
+            model: 'DI-333Pro',
+            salePrice: '9,500,000',
+            marketPrices: [9000000, 9100000, 9200000],
+        },
+        deps: {
+            searchProductLinks: async () => [], // Return 0 links
+            extractProductPrice: async () => null,
+        },
+    });
+
+    assert.equal(result.hasNewPrices, false);
+    assert.deepEqual(result.marketPrices, [9000000, 9100000, 9200000]);
+    assert.equal(result.minPrice, 9000000);
+    assert.equal(result.gapValue, 500000);
+    assert.equal(result.suggestedPrice, 9054500); // (9000000 + 9100000 + 9200000)/3 * 0.995 = 9054500
+    assert.equal(result.status, 'success');
+});
+
+
 
 
