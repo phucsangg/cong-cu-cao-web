@@ -7,7 +7,8 @@
     "start": "node server.js",
     "compare:once": "node scripts/compare-once.mjs",
     "scrape:site": "node scripts/scrape-site.mjs",
-    "check": "node --check lib/scraper-core.js"
+    "check": "node --check lib/scraper-core.js && node --check lib/sheet-pricing-utils.js && node --check lib/sheet-pricing-service.js && node --check netlify/functions/scrape.js && node --check netlify/functions/sheet-pricing.js && node --check public/sheet-pricing.js",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@sparticuz/chromium": "^149.0.0",

@@ -10,6 +10,10 @@
   memory = 3008
   timeout = 26
 
+[functions.sheet-pricing]
+  memory = 3008
+  timeout = 26
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"

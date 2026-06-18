@@ -1,0 +1,94 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const {
+    extractSheetId,
+    isLikelyProductDetailUrl,
+    processPricingRow,
+} = require('../lib/sheet-pricing-service.js');
+
+test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
+    assert.equal(
+        extractSheetId('https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit?gid=0#gid=0'),
+        '1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo'
+    );
+});
+
+test('isLikelyProductDetailUrl rejects category and search pages', () => {
+    assert.equal(isLikelyProductDetailUrl('https://example.com/bep-tu/kocher-di-333-pro.html'), true);
+    assert.equal(isLikelyProductDetailUrl('https://example.com/collections/bep-tu'), false);
+    assert.equal(isLikelyProductDetailUrl('https://example.com/search?q=kocher+di333pro'), false);
+});
+
+test('processPricingRow filters links, keeps top 10 prices, and builds sheet update payload', async () => {
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 3,
+            productId: 'BT-010',
+            brand: 'Kocher',
+            model: 'DI-355',
+            salePrice: '11,040,000',
+        },
+        deps: {
+            searchProductLinks: async () => ([
+                'https://shop-a.vn/products/kocher-di-355.html',
+                'https://shop-b.vn/search?q=kocher+di355',
+                'https://shop-c.vn/products/kocher-di-355-pro',
+                'https://shop-d.vn/collections/bep-tu',
+            ]),
+            extractProductPrice: async (url) => {
+                const values = {
+                    'https://shop-a.vn/products/kocher-di-355.html': 10100000,
+                    'https://shop-c.vn/products/kocher-di-355-pro': 10200000,
+                };
+                return values[url] || null;
+            },
+        },
+    });
+
+    assert.equal(result.rowNumber, 3);
+    assert.deepEqual(result.matchedUrls, [
+        'https://shop-a.vn/products/kocher-di-355.html',
+        'https://shop-c.vn/products/kocher-di-355-pro',
+    ]);
+    assert.deepEqual(result.marketPrices, [10100000, 10200000]);
+    assert.equal(result.minPrice, 10100000);
+    assert.equal(result.gapValue, 940000);
+    assert.equal(result.suggestedPrice, null);
+    assert.equal(result.status, 'insufficient_prices');
+});
+
+test('processPricingRow sets success status when enough prices are found', async () => {
+    const priceMap = new Map([
+        ['https://a.vn/p/kocher-di-333pro', 9000000],
+        ['https://b.vn/p/kocher-di-333pro', 9100000],
+        ['https://c.vn/p/kocher-di-333pro', 9200000],
+        ['https://d.vn/p/kocher-di-333pro', 9300000],
+    ]);
+
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 4,
+            productId: 'BT-002',
+            brand: 'Kocher',
+            model: 'DI-3332Pro',
+            salePrice: '9,120,000',
+        },
+        deps: {
+            searchProductLinks: async () => [...priceMap.keys()],
+            extractProductPrice: async (url) => priceMap.get(url) || null,
+        },
+    });
+
+    assert.equal(result.status, 'success');
+    assert.equal(result.minPrice, 9000000);
+    assert.equal(result.gapValue, 120000);
+    assert.equal(result.suggestedPrice, 9054500);
+});
+
+test('isLikelyProductDetailUrl accepts standard Vietnamese slug URLs', () => {
+    assert.equal(isLikelyProductDetailUrl('https://bepvuson.vn/bep-tu-kocher-di-333-pro'), true);
+    assert.equal(isLikelyProductDetailUrl('https://bepnamduong.vn/bep-tu/kocher-di-333-pro'), true);
+    assert.equal(isLikelyProductDetailUrl('https://example.com/bep-tu-kocher-di-333-pro?utm_source=fb'), true);
+});
+

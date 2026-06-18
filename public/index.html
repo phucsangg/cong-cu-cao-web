@@ -693,6 +693,78 @@
                     </div>
                 </div>
 
+                <div class="card glass-card border-0 p-3 shadow-lg mb-4">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center text-white" style="font-size: 0.95rem;">
+                        <span class="me-2">📄</span> Google Sheet Pricing
+                    </h5>
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Apps Script Web App URL</label>
+                            <input type="text" id="pricingAppsScriptUrl" class="form-control form-control-sm" placeholder="https://script.google.com/macros/s/.../exec">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Google Sheet URL</label>
+                            <input type="text" id="pricingSheetUrl" class="form-control form-control-sm" value="https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit?gid=0#gid=0">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Tên sheet</label>
+                            <input type="text" id="pricingSheetName" class="form-control form-control-sm" value="01.Bếp từ">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Start row</label>
+                            <input type="number" id="pricingStartRow" class="form-control form-control-sm" min="3" value="3">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">End row</label>
+                            <input type="number" id="pricingEndRow" class="form-control form-control-sm" min="3" placeholder="Để trống = hết sheet">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Row song song</label>
+                            <input type="number" id="pricingRowsConcurrency" class="form-control form-control-sm" min="1" max="5" value="2">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Link song song / row</label>
+                            <input type="number" id="pricingLinksConcurrency" class="form-control form-control-sm" min="1" max="8" value="4">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Batch ghi sheet</label>
+                            <input type="number" id="pricingBatchSize" class="form-control form-control-sm" min="1" max="20" value="5">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-light fw-semibold mb-1" style="font-size: 0.72rem;">Trạng thái</label>
+                            <div id="pricingStatusBadge" class="small rounded-3 px-3 py-2 text-center" style="background: rgba(255,255,255,0.04); color: var(--text-light); font-size: 0.74rem;">Sẵn sàng</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Dòng đã chạy</div>
+                                <div id="pricingProcessedCount" class="stat-value text-success">0</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Dòng thành công</div>
+                                <div id="pricingSuccessCount" class="stat-value text-info">0</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Dòng lỗi / thiếu giá</div>
+                                <div id="pricingErrorCount" class="stat-value text-danger">0</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card text-center">
+                                <div class="stat-label">Lần ghi sheet</div>
+                                <div id="pricingWriteCount" class="stat-value text-warning">0</div>
+                            </div>
+                        </div>
+                        <div class="col-12 d-flex gap-2 mt-2">
+                            <button type="button" id="btnPricingStart" onclick="startSheetPricingJob()" class="btn btn-premium btn-sm flex-grow-1 py-2">🚀 Chạy Sheet Pricing</button>
+                            <button type="button" id="btnPricingStop" onclick="stopSheetPricingJob()" class="btn btn-stop btn-sm flex-grow-1 py-2" disabled>Dừng job</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Stats Dashboard Grid -->
                 <div class="card glass-card border-0 p-3 shadow-lg">
                     <h5 class="fw-bold mb-3 d-flex align-items-center text-white" style="font-size: 0.95rem;">
@@ -763,6 +835,9 @@
                                 </button>
                                 <button type="button" onclick="setCheDoXem('csvCompare')" id="btnViewCsvCompare" class="btn rounded-pill px-3 btn-view-mode">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>So sánh CSV
+                                </button>
+                                <button type="button" onclick="setCheDoXem('sheetPricing')" id="btnViewSheetPricing" class="btn rounded-pill px-3 btn-view-mode">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>Sheet Pricing
                                 </button>
                             </div>
                             
@@ -866,6 +941,27 @@
                             <div id="csvCompareEmpty" class="text-center py-5 text-muted small" style="font-size: 0.78rem;">
                                 📂 Vui lòng chọn hai tệp tin CSV ở trên và nhấn nút <strong>So Sánh</strong> để bắt đầu đối chiếu.
                             </div>
+                        </div>
+
+                        <div id="sheetPricingContainer" class="table-responsive-container flex-grow-1 d-none">
+                            <table class="table table-dark table-hover table-premium mb-0 align-middle">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 70px;" class="text-center">Dòng</th>
+                                        <th style="width: 100px;">Mã SP</th>
+                                        <th style="width: 120px;">Thương hiệu</th>
+                                        <th style="min-width: 180px;">Model</th>
+                                        <th style="width: 120px;" class="text-center">Giá bán</th>
+                                        <th style="width: 90px;" class="text-center">Số giá</th>
+                                        <th style="width: 120px;" class="text-center">Min</th>
+                                        <th style="width: 110px;" class="text-center">GAP</th>
+                                        <th style="width: 100px;" class="text-center">%GAP</th>
+                                        <th style="width: 130px;" class="text-center">Giá đề xuất</th>
+                                        <th style="width: 130px;" class="text-center">Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sheetPricingBody"></tbody>
+                            </table>
                         </div>
 
                         <!-- Empty Placeholder State -->
@@ -2495,5 +2591,6 @@
             writeToConsole(`Đã tải xuống thành công tệp CSV kết quả so sánh.`, 'success');
         }
     </script>
+    <script src="/sheet-pricing.js"></script>
 </body>
 </html>
