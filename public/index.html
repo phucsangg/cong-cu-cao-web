@@ -2091,7 +2091,7 @@
         function taiFileCSV() {
             if(mangDuLieuToanCuc.length === 0) return alert("Chưa có dữ liệu sản phẩm để xuất file!");
             
-            const headers = ['STT', 'Ten San Pham', 'Ma San Pham', 'Dong / Series', 'Kich Thuoc', 'Gia Ban', 'Nguon Trang', 'Lien Ket San Pham', 'Link Anh'];
+            const headers = ['STT', 'Ten San Pham', 'Ma San Pham', 'Dong / Series', 'Kich Thuoc', 'Gia Ban', 'Nguon Trang', 'Lien Ket San Pham'];
             const rows = mangDuLieuToanCuc.map((item, index) => [
                 index + 1, 
                 `"${item.tenSạch.replace(/"/g, '""')}"`, 
@@ -2100,8 +2100,7 @@
                 `"${item.kichThuoc || ''}"`, 
                 `"${item.gia}"`, 
                 `"Trang ${item.trang}"`,
-                `"${item.link || ''}"`,
-                `"${item.anh || ''}"`
+                `"${item.link || ''}"`
             ]);
             
             // Thêm ký tự UTF-8 BOM ở đầu chuỗi (\ufeff) để Excel nhận diện chuẩn font tiếng Việt
