@@ -88,28 +88,46 @@ export function extractSeries(text) {
 }
 
 export function extractSize(text) {
-    const m = cleanText(text).match(/\b\d+(?:[.,]\d+)?\s*(?:cm|mm|l|lit|lít|w|kw|kg|g)(?![a-zA-ZÀ-ỹ])/i);
-    return m ? m[0].replace(/\s+/g, '').toUpperCase() : null;
+    const m = cleanText(text).match(/\b\d+(?:[.,]\d+)?\s*[-_]?\s*(?:cm|mm|l|lit|lít|kg|g)(?![a-zA-ZÀ-ỹ])/i);
+    return m ? m[0].replace(/[-_\s]+/g, '').toUpperCase() : null;
 }
 
 export function stripNonCodeInfo(text) {
     return cleanText(text)
         .replace(/\b(?:series|serie|seri)\s*\d+\b/gi, ' ')
-        .replace(/\b\d+(?:[.,]\d+)?\s*(?:cm|mm|l|lit|lít|w|kw|kg|g)(?![a-zA-ZÀ-ỹ])/gi, ' ')
+        .replace(/\b\d+(?:[.,]\d+)?\s*[-_]?\s*(?:cm|mm|l|lit|lít|kg|g)(?![a-zA-ZÀ-ỹ])/gi, ' ')
         .replace(/\b\d+\s*(?:bộ|bo|món|mon|lớp|lop|năm|nam)(?![a-zA-ZÀ-ỹ])/gi, ' ')
         .replace(/\bAISI\s*304\b/gi, ' ')
         .replace(/\bSUS\s*304\b/gi, ' ')
         .replace(/\bPVD\s*\d+\b/gi, ' ')
         .replace(/\b\d{2,4}\s*[x×]\s*\d{2,4}\b/gi, ' ')
+        .replace(/\b\d{2,4}[-_]\d{2,4}\b/gi, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
+export function removeRepeatingSegments(str) {
+    const parts = str.split('-');
+    if (parts.length % 2 === 0) {
+        const half = parts.length / 2;
+        const firstHalf = parts.slice(0, half).join('-');
+        const secondHalf = parts.slice(half).join('-');
+        if (firstHalf === secondHalf) {
+            return firstHalf;
+        }
+    }
+    return str;
+}
+
 export function scoreCode(code, fullText) {
     const c = code.toUpperCase();
-    let score = 0;
+    
+    if (!(/[A-Z]/.test(c) && /\d/.test(c))) {
+        return 0;
+    }
 
-    if (/[A-Z]/.test(c) && /\d/.test(c)) score += 5;
+    let score = 5;
+
     if (c.length >= 6) score += 3;
     if (/[-_.]/.test(c)) score += 2;
     
@@ -119,15 +137,16 @@ export function scoreCode(code, fullText) {
         score += 2;
     }
 
-    // Bonus points for Konox specific keywords
     if (/(VIGO|STELO|NERON|TARI|MEKONG|DIAMOND)/i.test(c)) {
         score += 5;
     }
 
-    // Trừ điểm các thứ dễ là thông số
-    if (/^\d+$/.test(c)) score -= 10;
-    if (/^\d+(CM|MM|L|W|KG|G)$/i.test(c)) score -= 10;
-    if (/^(PVD|AISI|SUS|BAT|BO|TRANG|SAN|GIA|KHUYEN|BAO|NHAP|MOI|NEW|SERIES|SERI|SERIE)/i.test(c)) score -= 10;
+    if (/^\d+[-_]?(CM|MM|L|LIT|LITRES?|W|KG|G)$/i.test(c)) score -= 10;
+    
+    const penaltyPattern = /\b(PVD|AISI|SUS|BAT|BO|TRANG|SAN|GIA|KHUYEN|BAO|NHAP|MOI|NEW|SERIES|SERI|SERIE|LAP|DOC|AM|DUONG|LINEN|BEP|HUT|MUI|RUA|BAT|CHEN|TU|LANH|RUOU|LO|VI|SONG|NUONG|VOI|CHAU|CHONG|XUOC|CONG|NGHE|POSCO|SS304|STT|BOSCH|TEFAL|HAFELE|KOCHER|TOSHIBA|KONOX|SPELIER|KAFF|DEN|BAC|KEM|XAM|PRO|AI|LIT|CUONG|TANG|SAY|DUC|MALAYSIA|THAI|VIET|NAM|CHINH|HANG|CAO|CAP|202\d|201\d|199\d)\b/i;
+    if (penaltyPattern.test(c)) {
+        score -= 10;
+    }
 
     return score;
 }
@@ -142,11 +161,9 @@ export function extractModelInfo(name = '', link = '') {
 
     let candidates = [];
 
-    // Rule đặc biệt cho KAFF: slug kiểu kaffkf-ih202ic => KF-IH202IC
     const kaff = slug.match(/kaffkf-?([a-z0-9]+)/i);
     if (kaff) candidates.push(`KF-${kaff[1].toUpperCase()}`);
 
-    // Rule cho Konox chậu/vòi dạng Vigo 860, Stelo 780U, Neron 600T
     const konox = normalized.match(/\b(VIGO|STELO|NERON|TARI(?:[-_\s]+SMART)?|MEKONG|DIAMOND)[-_\s]+(\d{3,4}[A-Z]{0,2})\b/i);
     if (konox) candidates.push(`${konox[1]} ${konox[2]}`.replace(/[-_]/g, ' ').toUpperCase());
 
@@ -154,10 +171,14 @@ export function extractModelInfo(name = '', link = '') {
 
     const codePatterns = [
         /\b\d{3}[._-]\d{2}[._-]\d{3}\b/gi,
-        /\b[A-Z]{1,5}[-_]\d[A-Z0-9]{1,}\b/gi,
+        /\b[A-Z0-9]{2,5}[-_][A-Z0-9]{3,10}\b/gi,
+        /\b[A-Z][-_][A-Z0-9]{3,8}\b/gi,
+        /\b[A-Z0-9]{2,5}[-_]\d{3}[-_][A-Z]{3,4}\b/gi,
+        /\b[A-Z]{2}[-_]\d{2}[-_][A-Z0-9]{3,8}\b/gi,
+        /\b[A-Z][-_][A-Z]{3,5}[-_]\d(?:[-_][A-Z]{3,5})?\b/gi,
+        /\b[A-Z]{2,3}[-_]\d{2}\b/gi,
         /\b[A-Z]{2,}\d[A-Z0-9]{1,}\b/gi,
-        /\b[A-Z]\d[A-Z0-9]{1,}\b/gi,
-        /\b[A-Z0-9]{2,5}[-_ ]\d{3}[-_ ][A-Z]{3,4}\b/gi
+        /\b[A-Z]\d[A-Z0-9]{1,}\b/gi
     ];
 
     for (const re of codePatterns) {
@@ -169,6 +190,7 @@ export function extractModelInfo(name = '', link = '') {
         candidates
             .map(x => {
                 let formatted = x.replace(/[._]/g, '.').replace(/\s+/g, ' ').trim().toUpperCase();
+                formatted = removeRepeatingSegments(formatted);
                 if (/(VIGO|STELO|NERON|TARI|MEKONG|DIAMOND)/i.test(formatted)) {
                     formatted = formatted.replace(/-/g, ' ');
                 }
@@ -182,12 +204,17 @@ export function extractModelInfo(name = '', link = '') {
         .filter(x => x.score >= 5)
         .sort((a, b) => b.score - a.score);
 
+    const nonSubstrings = ranked.filter((item, idx) => {
+        return !ranked.some((other, otherIdx) => otherIdx !== idx && other.code.includes(item.code));
+    });
+
     return {
-        maSanPham: ranked[0]?.code || null,
+        maSanPham: nonSubstrings[0]?.code || null,
         series,
         kichThuoc: size
     };
 }
+
 
 export function getCleanName(fullName, maSanPham, series, kichThuoc) {
     let clean = fullName;
@@ -205,7 +232,7 @@ export function getCleanName(fullName, maSanPham, series, kichThuoc) {
     clean = clean.replace(/\b\d+(?:[\s.,]\d{3})*(?:\s*(?:đ|₫|vnd|vnđ|vnd))(?![a-zA-ZÀ-ỹ])/gi, '');
     clean = clean.replace(/\b[-+]?\s*\d+\s*%(?![a-zA-ZÀ-ỹ])/g, '');
     clean = clean.replace(/\b(?:series|serie|seri)\s*\d+\b/gi, '');
-    clean = clean.replace(/\b\d+(?:[.,]\d+)?\s*(?:cm|mm|l|lit|lít|w|kw|kg|g)(?![a-zA-ZÀ-ỹ])/gi, '');
+    clean = clean.replace(/\b\d+(?:[.,]\d+)?\s*[-_]?\s*(?:cm|mm|l|lit|lít|w|kw|kg|g)(?![a-zA-ZÀ-ỹ])/gi, '');
     clean = clean.replace(/\b(?:AISI\s*304|SUS\s*304|PVD\s*\d+|lớp)(?![a-zA-ZÀ-ỹ])/gi, '');
 
     clean = clean.replace(/[\[\]|,\-+()]/g, ' ');
