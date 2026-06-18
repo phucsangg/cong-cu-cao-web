@@ -71,7 +71,7 @@
             const suggestedPriceVal = row.suggestedPrice;
             const marketCount = row.marketPrices ? row.marketPrices.length : 0;
             return `
-                <tr>
+                <tr onclick="showProductDetails(${row.rowNumber})" style="cursor: pointer;" class="align-middle">
                     <td class="text-center text-light opacity-50 fw-bold">${escapeHtml(row.rowNumber)}</td>
                     <td><span class="badge bg-secondary bg-opacity-10 text-white border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
                     <td>${escapeHtml(row.brand || '-')}</td>
@@ -295,6 +295,7 @@
                 salePriceValue: parseInt(String(row.salePrice || '').replace(/\D/g, ''), 10) || null,
                 status: 'pending',
                 marketPrices: [],
+                matchedDetails: [],
                 minPrice: null,
                 gapValue: null,
                 gapPercent: null,
@@ -424,6 +425,7 @@
                         if (localRow) {
                             localRow.status = result.status;
                             localRow.marketPrices = result.marketPrices || [];
+                            localRow.matchedDetails = result.matchedDetails || [];
                             localRow.minPrice = result.minPrice;
                             localRow.gapValue = result.gapValue;
                             localRow.gapPercent = result.gapPercent;
@@ -590,9 +592,53 @@
         }
     }
 
+    function showProductDetails(rowNumber) {
+        const row = state.rows.find(r => r.rowNumber === rowNumber);
+        if (!row) return;
+
+        const titleEl = document.getElementById('modalProductTitle');
+        const codeEl = document.getElementById('modalProductCode');
+        const tableBody = document.getElementById('modalUrlsTableBody');
+
+        if (titleEl) titleEl.innerText = `${row.brand || ''} ${row.model || ''}`;
+        if (codeEl) codeEl.innerText = row.productId || '-';
+
+        if (tableBody) {
+            if (!row.matchedDetails || row.matchedDetails.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="2" class="text-center text-light opacity-75 py-3">Không có liên kết giá nào được tìm thấy.</td>
+                    </tr>
+                `;
+            } else {
+                tableBody.innerHTML = row.matchedDetails.map(detail => {
+                    return `
+                        <tr>
+                            <td>
+                                <a href="${escapeHtml(detail.url)}" target="_blank" class="text-accent text-decoration-none" style="word-break: break-all; color: var(--accent-color);">
+                                    ${escapeHtml(detail.url)}
+                                </a>
+                            </td>
+                            <td class="text-end fw-bold text-success price-badge" style="width: 150px; font-family: 'JetBrains Mono', monospace;">
+                                ${formatMoney(detail.price)}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        const modalElement = document.getElementById('productDetailModal');
+        if (modalElement) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+            modal.show();
+        }
+    }
+
     loadConfig();
     setPricingStatus('Chờ chạy', 'idle');
 
     window.startSheetPricingJob = startSheetPricingJob;
     window.stopSheetPricingJob = stopSheetPricingJob;
+    window.showProductDetails = showProductDetails;
 })();

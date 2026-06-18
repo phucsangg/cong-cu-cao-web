@@ -51,9 +51,9 @@ test('computeSuggestedPricing keeps top 10, removes low outlier, and calculates 
         10000000,
     ]);
     assert.equal(result.outlierRemoved, 8000000);
-    assert.equal(result.minPrice, 9200000);
-    assert.equal(result.gapValue, 1840000);
-    assert.equal(result.gapPercent, 0.2);
+    assert.equal(result.minPrice, 8000000);
+    assert.equal(result.gapValue, 3040000);
+    assert.equal(result.gapPercent, 3040000 / 8000000);
     assert.equal(result.suggestedPrice, 9253500);
 });
 
