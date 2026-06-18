@@ -60,7 +60,7 @@
         if (state.rows.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="text-center text-light opacity-75 py-4">Chưa có dữ liệu nào được tải về.</td>
+                    <td colspan="10" class="text-center text-light opacity-75 py-4">Chưa có dữ liệu nào được tải về.</td>
                 </tr>
             `;
             return;
@@ -71,8 +71,9 @@
             const suggestedPriceVal = row.suggestedPrice;
             const marketCount = row.marketPrices ? row.marketPrices.length : 0;
             return `
-                <tr onclick="showProductDetails(${row.rowNumber})" data-bs-toggle="modal" data-bs-target="#productDetailModal" style="cursor: pointer;" class="align-middle">
+                <tr onclick="showProductDetails('${escapeHtml(row.sheetName)}', ${row.rowNumber})" data-bs-toggle="modal" data-bs-target="#productDetailModal" style="cursor: pointer;" class="align-middle">
                     <td class="text-center text-light opacity-50 fw-bold">${escapeHtml(row.rowNumber)}</td>
+                    <td><span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">${escapeHtml(row.sheetName || '-')}</span></td>
                     <td><span class="badge bg-secondary bg-opacity-10 text-white border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
                     <td>${escapeHtml(row.brand || '-')}</td>
                     <td class="fw-semibold text-white">${escapeHtml(row.model || '-')}</td>
@@ -255,40 +256,55 @@
 
     async function runClientSidePricing(form) {
         logToTerminal(`Khởi tạo tiến trình quét phía client...`, 'info');
-        logToTerminal(`Đang tải danh sách sản phẩm từ sheet "${form.sheetName}"...`, 'info');
+        
+        const sheetNames = String(form.sheetName).split(',').map(s => s.trim()).filter(Boolean);
+        if (sheetNames.length === 0) {
+            throw new Error('Tên sheet không hợp lệ.');
+        }
+
+        logToTerminal(`Đang tải danh sách sản phẩm từ các sheet: ${sheetNames.join(', ')}...`, 'info');
         
         try {
-            // Fetch rows from Netlify API endpoint
-            const response = await fetch('/api/sheet-pricing', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'fetch-sheet',
-                    appsScriptUrl: form.appsScriptUrl,
-                    sheetUrl: form.sheetUrl,
-                    sheetName: form.sheetName,
-                    startRow: form.startRow,
-                    endRow: form.endRow,
-                })
+            const fetchPromises = sheetNames.map(async (name) => {
+                const response = await fetch('/api/sheet-pricing', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'fetch-sheet',
+                        appsScriptUrl: form.appsScriptUrl,
+                        sheetUrl: form.sheetUrl,
+                        sheetName: name,
+                        startRow: form.startRow,
+                        endRow: form.endRow,
+                    })
+                });
+                
+                const data = await response.json();
+                if (!response.ok || data.ok === false) {
+                    throw new Error(data.error || `Lỗi tải dữ liệu từ sheet "${name}".`);
+                }
+                
+                const rows = data.rows || [];
+                logToTerminal(`Đã tải ${rows.length} dòng từ sheet "${name}".`, 'success');
+                
+                return rows.map(r => ({ ...r, sheetName: name }));
             });
-            
-            const data = await response.json();
-            if (!response.ok || data.ok === false) {
-                throw new Error(data.error || 'Lỗi tải dữ liệu từ Google Sheet.');
-            }
 
-            const rows = data.rows || [];
-            logToTerminal(`Đã nạp ${rows.length} dòng từ Google Sheet.`, 'success');
+            const allResults = await Promise.all(fetchPromises);
+            const mergedRows = allResults.flat();
+            
+            logToTerminal(`Tổng cộng đã nạp ${mergedRows.length} dòng từ Google Sheet.`, 'success');
 
             // Reset job state
             state.jobId = null; // Mark as client side
-            state.totalRows = rows.length;
+            state.totalRows = mergedRows.length;
             state.processed = 0;
             state.success = 0;
             state.errors = 0;
             state.writes = 0;
-            state.rows = rows.map(row => ({
+            state.rows = mergedRows.map(row => ({
                 rowNumber: row.rowNumber,
+                sheetName: row.sheetName,
                 productId: row.productId || '',
                 brand: row.brand,
                 model: row.model,
@@ -356,29 +372,48 @@
                 const batch = [...pendingUpdates];
                 pendingUpdates.splice(0, batch.length);
 
+                // Group by sheetName
+                const updatesBySheet = {};
+                batch.forEach(update => {
+                    const name = update.sheetName;
+                    if (!updatesBySheet[name]) updatesBySheet[name] = [];
+                    updatesBySheet[name].push(update);
+                });
+
                 logToTerminal(`Đang ghi ${batch.length} dòng kết quả lên Google Sheet...`, 'info');
                 try {
-                    const writeRes = await fetch('/api/sheet-pricing', {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'write-results',
-                            appsScriptUrl: form.appsScriptUrl,
-                            sheetUrl: form.sheetUrl,
-                            sheetName: form.sheetName,
-                            updates: batch,
-                        })
-                    });
-                    const writeData = await writeRes.json();
-                    if (!writeRes.ok || writeData.ok === false) {
-                        throw new Error(writeData.error || 'Lỗi ghi kết quả.');
-                    }
+                    await Promise.all(Object.entries(updatesBySheet).map(async ([name, sheetUpdates]) => {
+                        const writeRes = await fetch('/api/sheet-pricing', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'write-results',
+                                appsScriptUrl: form.appsScriptUrl,
+                                sheetUrl: form.sheetUrl,
+                                sheetName: name,
+                                updates: sheetUpdates.map(u => ({
+                                    rowNumber: u.rowNumber,
+                                    marketPrices: u.marketPrices,
+                                    hasNewPrices: u.hasNewPrices,
+                                    minPrice: u.minPrice,
+                                    gapValue: u.gapValue,
+                                    gapPercent: u.gapPercent,
+                                    suggestedPrice: u.suggestedPrice,
+                                    status: u.status,
+                                })),
+                            })
+                        });
+                        const writeData = await writeRes.json();
+                        if (!writeRes.ok || writeData.ok === false) {
+                            throw new Error(writeData.error || `Lỗi ghi kết quả cho sheet "${name}".`);
+                        }
+                    }));
 
                     state.writes += 1;
                     logToTerminal(`Ghi thành công ${batch.length} dòng kết quả lên Google Sheet.`, 'success');
 
                     batch.forEach(update => {
-                        const localRow = state.rows.find(r => r.rowNumber === update.rowNumber);
+                        const localRow = state.rows.find(r => r.sheetName === update.sheetName && r.rowNumber === update.rowNumber);
                         if (localRow) localRow.writtenToSheet = true;
                     });
                     refreshSummary();
@@ -398,20 +433,26 @@
             const worker = async () => {
                 while (state.running && cursor < runnableRows.length) {
                     const currentRow = runnableRows[cursor++];
-                    const localRow = state.rows.find(r => r.rowNumber === currentRow.rowNumber);
+                    const localRow = state.rows.find(r => r.sheetName === currentRow.sheetName && r.rowNumber === currentRow.rowNumber);
                     if (localRow) {
                         localRow.status = 'processing';
                         renderSheetPricingRows();
                     }
 
-                    logToTerminal(`Đang cào dòng ${currentRow.rowNumber}: ${currentRow.brand} ${currentRow.model}...`, 'info');
+                    logToTerminal(`Đang cào dòng ${currentRow.rowNumber} [${currentRow.sheetName}]: ${currentRow.brand} ${currentRow.model}...`, 'info');
                     try {
                         const processRes = await fetch('/api/sheet-pricing', {
                             method: 'POST',
                             headers: { 'content-type': 'application/json' },
                             body: JSON.stringify({
                                 action: 'process-row',
-                                row: currentRow,
+                                row: {
+                                    rowNumber: currentRow.rowNumber,
+                                    brand: currentRow.brand,
+                                    model: currentRow.model,
+                                    salePrice: currentRow.salePrice,
+                                    marketPrices: currentRow.marketPrices,
+                                },
                                 linksConcurrency: form.linksConcurrency,
                             })
                         });
@@ -434,13 +475,14 @@
 
                             if (result.status === 'success' || result.status === 'insufficient_prices') {
                                 if (result.status === 'success') {
-                                    logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) thành công: Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice.toLocaleString('vi-VN')} đ, Đề xuất=${result.suggestedPrice ? result.suggestedPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'success');
+                                    logToTerminal(`Dòng ${currentRow.rowNumber} [${currentRow.sheetName}] (${currentRow.brand} ${currentRow.model}) thành công: Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice.toLocaleString('vi-VN')} đ, Đề xuất=${result.suggestedPrice ? result.suggestedPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'success');
                                 } else {
-                                    logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) thành công (thiếu giá hoặc ít hơn 3 giá): Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice ? result.minPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'warning');
+                                    logToTerminal(`Dòng ${currentRow.rowNumber} [${currentRow.sheetName}] (${currentRow.brand} ${currentRow.model}) thành công (thiếu giá hoặc ít hơn 3 giá): Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice ? result.minPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'warning');
                                 }
 
                                 pendingUpdates.push({
                                     rowNumber: result.rowNumber,
+                                    sheetName: currentRow.sheetName,
                                     marketPrices: result.marketPrices,
                                     hasNewPrices: result.hasNewPrices,
                                     minPrice: result.minPrice,
@@ -450,7 +492,7 @@
                                     status: result.status,
                                 });
                             } else {
-                                logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) lỗi: ${result.errorMessage || result.status}`, 'warning');
+                                logToTerminal(`Dòng ${currentRow.rowNumber} [${currentRow.sheetName}] (${currentRow.brand} ${currentRow.model}) lỗi: ${result.errorMessage || result.status}`, 'warning');
                             }
                         }
                     } catch (rowErr) {
@@ -458,7 +500,7 @@
                             localRow.status = 'error';
                             localRow.errorMessage = rowErr.message;
                         }
-                        logToTerminal(`Lỗi xử lý dòng ${currentRow.rowNumber}: ${rowErr.message}`, 'error');
+                        logToTerminal(`Lỗi xử lý dòng ${currentRow.rowNumber} [${currentRow.sheetName}]: ${rowErr.message}`, 'error');
                     } finally {
                         refreshSummary();
                         renderSheetPricingRows();
@@ -592,8 +634,8 @@
         }
     }
 
-    function showProductDetails(rowNumber) {
-        const row = state.rows.find(r => Number(r.rowNumber) === Number(rowNumber));
+    function showProductDetails(sheetName, rowNumber) {
+        const row = state.rows.find(r => r.sheetName === sheetName && Number(r.rowNumber) === Number(rowNumber));
         if (!row) return;
 
         const titleEl = document.getElementById('modalProductTitle');
