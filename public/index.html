@@ -111,6 +111,12 @@
             transition: all 0.2s ease;
         }
 
+        .form-control:disabled, .form-select:disabled {
+            background-color: rgba(9, 13, 26, 0.4);
+            color: rgba(255, 255, 255, 0.45);
+            border-color: rgba(255, 255, 255, 0.04);
+        }
+
         .form-control:focus, .form-select:focus {
             background-color: rgba(9, 13, 26, 0.95);
             color: #fff;
@@ -341,7 +347,7 @@
 
         .table-custom th {
             background-color: rgba(9, 13, 26, 0.85);
-            color: var(--text-muted);
+            color: #94a3b8; /* Slate 400 - high contrast */
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -381,7 +387,7 @@
         <div class="glass-card d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
                 <h1 class="title mb-1">Auto Pricing Dashboard</h1>
-                <p class="text-muted small mb-0">Hệ thống quét giá thị trường tự động qua Google Sheet</p>
+                <p class="text-light small mb-0 opacity-75">Hệ thống quét giá thị trường tự động qua Google Sheet</p>
             </div>
             <div>
                 <span id="pricingStatusBadge" class="status-badge">Chờ chạy</span>

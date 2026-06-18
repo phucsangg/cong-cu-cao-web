@@ -48,7 +48,7 @@
             return `<span class="badge bg-warning bg-opacity-25 text-warning">${row.writtenToSheet ? 'Đã ghi, thiếu giá' : 'Thiếu giá'}</span>`;
         }
         if (row.status === 'skipped') {
-            return `<span class="badge bg-secondary bg-opacity-25 text-muted">Bỏ qua</span>`;
+            return `<span class="badge bg-secondary bg-opacity-25 text-light opacity-75">Bỏ qua</span>`;
         }
         return `<span class="badge bg-secondary bg-opacity-25 text-light">${escapeHtml(row.status || 'Chờ chạy')}</span>`;
     }
@@ -60,7 +60,7 @@
         if (state.rows.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="text-center text-muted py-4">Chưa có dữ liệu nào được tải về.</td>
+                    <td colspan="9" class="text-center text-light opacity-75 py-4">Chưa có dữ liệu nào được tải về.</td>
                 </tr>
             `;
             return;
@@ -72,7 +72,7 @@
             const marketCount = row.marketPrices ? row.marketPrices.length : 0;
             return `
                 <tr>
-                    <td class="text-center text-muted fw-bold">${escapeHtml(row.rowNumber)}</td>
+                    <td class="text-center text-light opacity-50 fw-bold">${escapeHtml(row.rowNumber)}</td>
                     <td><span class="badge bg-secondary bg-opacity-10 text-white border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
                     <td>${escapeHtml(row.brand || '-')}</td>
                     <td class="fw-semibold text-white">${escapeHtml(row.model || '-')}</td>
@@ -111,6 +111,13 @@
     }
 
     function refreshSummary() {
+        // Compute stats dynamically from state.rows for client-side mode
+        if (state.totalRows > 0 && !state.jobId) {
+            state.processed = state.rows.filter(r => r.status !== 'pending' && r.status !== 'processing').length;
+            state.success = state.rows.filter(r => r.status === 'success' || r.status === 'insufficient_prices').length;
+            state.errors = state.rows.filter(r => r.status === 'error' || r.status === 'skipped').length;
+        }
+
         updateCounter('pricingTotalRows', state.totalRows);
         updateCounter('pricingProcessedCount', state.processed);
         updateCounter('pricingSuccessCount', state.success);
@@ -141,6 +148,18 @@
         };
     }
 
+    function setInputsDisabled(disabled) {
+        const inputs = [
+            'pricingAppsScriptUrl', 'pricingSheetUrl', 'pricingSheetName',
+            'pricingStartRow', 'pricingEndRow', 'pricingBatchSize',
+            'pricingRowsConcurrency', 'pricingLinksConcurrency'
+        ];
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = disabled;
+        });
+    }
+
     function setPricingButtons(running) {
         const startButton = document.getElementById('btnPricingStart');
         const stopButton = document.getElementById('btnPricingStop');
@@ -151,6 +170,7 @@
         if (stopButton) {
             stopButton.disabled = !running;
         }
+        setInputsDisabled(running);
     }
 
     function translateStatus(status) {
@@ -171,6 +191,19 @@
             case 'error': return 'error';
             default: return 'idle';
         }
+    }
+
+    function logToTerminal(message, level = 'info') {
+        const termBody = document.getElementById('terminalBody');
+        if (!termBody) return;
+        const timestamp = new Date().toLocaleTimeString('vi-VN');
+        let cls = 'log-info';
+        if (level === 'success') cls = 'log-success';
+        if (level === 'warning') cls = 'log-warning';
+        if (level === 'error') cls = 'log-error';
+        
+        termBody.innerHTML += `<span class="log-line"><span class="log-time">${timestamp}</span><span class="${cls}">${escapeHtml(message)}</span></span>`;
+        termBody.scrollTop = termBody.scrollHeight;
     }
 
     function startPolling(jobId) {
@@ -220,13 +253,254 @@
         }, 1500);
     }
 
+    async function runClientSidePricing(form) {
+        logToTerminal(`Khởi tạo tiến trình quét phía client...`, 'info');
+        logToTerminal(`Đang tải danh sách sản phẩm từ sheet "${form.sheetName}"...`, 'info');
+        
+        try {
+            // Fetch rows from Netlify API endpoint
+            const response = await fetch('/api/sheet-pricing', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'fetch-sheet',
+                    appsScriptUrl: form.appsScriptUrl,
+                    sheetUrl: form.sheetUrl,
+                    sheetName: form.sheetName,
+                    startRow: form.startRow,
+                    endRow: form.endRow,
+                })
+            });
+            
+            const data = await response.json();
+            if (!response.ok || data.ok === false) {
+                throw new Error(data.error || 'Lỗi tải dữ liệu từ Google Sheet.');
+            }
+
+            const rows = data.rows || [];
+            logToTerminal(`Đã nạp ${rows.length} dòng từ Google Sheet.`, 'success');
+
+            // Reset job state
+            state.jobId = null; // Mark as client side
+            state.totalRows = rows.length;
+            state.processed = 0;
+            state.success = 0;
+            state.errors = 0;
+            state.writes = 0;
+            state.rows = rows.map(row => ({
+                rowNumber: row.rowNumber,
+                productId: row.productId || '',
+                brand: row.brand,
+                model: row.model,
+                salePriceValue: parseInt(String(row.salePrice || '').replace(/\D/g, ''), 10) || null,
+                status: 'pending',
+                marketPrices: [],
+                minPrice: null,
+                gapValue: null,
+                gapPercent: null,
+                suggestedPrice: null,
+                writtenToSheet: false,
+                errorMessage: '',
+            }));
+
+            // Helpers to validate brand & model on client side
+            const isValidBrand = (brand) => {
+                if (!brand) return false;
+                return !!String(brand).trim();
+            };
+            const isValidModel = (model) => {
+                if (!model) return false;
+                const trimmed = String(model).trim();
+                if (!trimmed) return false;
+                return !/^\d+$/.test(trimmed);
+            };
+
+            // Process skipped rows
+            state.rows.forEach(r => {
+                if (!isValidBrand(r.brand) || !isValidModel(r.model)) {
+                    r.status = 'skipped';
+                }
+            });
+
+            const skippedCount = state.rows.filter(r => r.status === 'skipped').length;
+            if (skippedCount > 0) {
+                logToTerminal(`Bỏ qua ${skippedCount} dòng do thiếu Thương hiệu, Model hoặc Model chỉ toàn số.`, 'warning');
+            }
+
+            refreshSummary();
+            renderSheetPricingRows();
+
+            const runnableRows = state.rows.filter(r => r.status === 'pending');
+            if (runnableRows.length === 0) {
+                state.running = false;
+                setPricingButtons(false);
+                setPricingStatus('Hoàn tất', 'success');
+                logToTerminal('Không có dòng nào đủ điều kiện quét.', 'info');
+                return;
+            }
+
+            logToTerminal(`Bắt đầu xử lý ${runnableRows.length} dòng sản phẩm...`, 'info');
+
+            let cursor = 0;
+            const pendingUpdates = [];
+            let activeWorkers = 0;
+            let isWriting = false;
+
+            const flushUpdates = async (force = false) => {
+                if (pendingUpdates.length === 0) return;
+                if (isWriting) return;
+                if (!force && pendingUpdates.length < form.batchSize) return;
+
+                isWriting = true;
+                const batch = [...pendingUpdates];
+                pendingUpdates.splice(0, batch.length);
+
+                logToTerminal(`Đang ghi ${batch.length} dòng kết quả lên Google Sheet...`, 'info');
+                try {
+                    const writeRes = await fetch('/api/sheet-pricing', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'write-results',
+                            appsScriptUrl: form.appsScriptUrl,
+                            sheetUrl: form.sheetUrl,
+                            sheetName: form.sheetName,
+                            updates: batch,
+                        })
+                    });
+                    const writeData = await writeRes.json();
+                    if (!writeRes.ok || writeData.ok === false) {
+                        throw new Error(writeData.error || 'Lỗi ghi kết quả.');
+                    }
+
+                    state.writes += 1;
+                    logToTerminal(`Ghi thành công ${batch.length} dòng kết quả lên Google Sheet.`, 'success');
+
+                    batch.forEach(update => {
+                        const localRow = state.rows.find(r => r.rowNumber === update.rowNumber);
+                        if (localRow) localRow.writtenToSheet = true;
+                    });
+                    refreshSummary();
+                    renderSheetPricingRows();
+                } catch (writeErr) {
+                    logToTerminal(`Lỗi ghi kết quả: ${writeErr.message}`, 'error');
+                    pendingUpdates.unshift(...batch); // Put back
+                } finally {
+                    isWriting = false;
+                    // If no more workers are active and we have leftover pending items
+                    if (activeWorkers === 0 && cursor >= runnableRows.length && pendingUpdates.length > 0) {
+                        setTimeout(() => flushUpdates(true), 1000);
+                    }
+                }
+            };
+
+            const worker = async () => {
+                while (state.running && cursor < runnableRows.length) {
+                    const currentRow = runnableRows[cursor++];
+                    const localRow = state.rows.find(r => r.rowNumber === currentRow.rowNumber);
+                    if (localRow) {
+                        localRow.status = 'processing';
+                        renderSheetPricingRows();
+                    }
+
+                    logToTerminal(`Đang cào dòng ${currentRow.rowNumber}: ${currentRow.brand} ${currentRow.model}...`, 'info');
+                    try {
+                        const processRes = await fetch('/api/sheet-pricing', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'process-row',
+                                row: currentRow,
+                                linksConcurrency: form.linksConcurrency,
+                            })
+                        });
+
+                        const processData = await processRes.json();
+                        if (!processRes.ok || processData.ok === false) {
+                            throw new Error(processData.error || 'Lỗi cào dòng.');
+                        }
+
+                        const result = processData.result;
+                        if (localRow) {
+                            localRow.status = result.status;
+                            localRow.marketPrices = result.marketPrices || [];
+                            localRow.minPrice = result.minPrice;
+                            localRow.gapValue = result.gapValue;
+                            localRow.gapPercent = result.gapPercent;
+                            localRow.suggestedPrice = result.suggestedPrice;
+                            localRow.errorMessage = result.errorMessage || '';
+
+                            if (result.status === 'success' || result.status === 'insufficient_prices') {
+                                if (result.status === 'success') {
+                                    logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) thành công: Min=${result.minPrice.toLocaleString('vi-VN')} đ, Đề xuất=${result.suggestedPrice ? result.suggestedPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'success');
+                                } else {
+                                    logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) thành công (thiếu giá): Min=${result.minPrice ? result.minPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'warning');
+                                }
+
+                                pendingUpdates.push({
+                                    rowNumber: result.rowNumber,
+                                    marketPrices: result.marketPrices,
+                                    minPrice: result.minPrice,
+                                    gapValue: result.gapValue,
+                                    gapPercent: result.gapPercent,
+                                    suggestedPrice: result.suggestedPrice,
+                                    status: result.status,
+                                });
+                            } else {
+                                logToTerminal(`Dòng ${currentRow.rowNumber} (${currentRow.brand} ${currentRow.model}) lỗi: ${result.errorMessage || result.status}`, 'warning');
+                            }
+                        }
+                    } catch (rowErr) {
+                        if (localRow) {
+                            localRow.status = 'error';
+                            localRow.errorMessage = rowErr.message;
+                        }
+                        logToTerminal(`Lỗi xử lý dòng ${currentRow.rowNumber}: ${rowErr.message}`, 'error');
+                    } finally {
+                        refreshSummary();
+                        renderSheetPricingRows();
+                        await flushUpdates(false);
+                    }
+                }
+            };
+
+            const workerPromises = [];
+            activeWorkers = Math.min(form.rowsConcurrency, runnableRows.length);
+            for (let i = 0; i < activeWorkers; i++) {
+                workerPromises.push(worker());
+            }
+
+            Promise.all(workerPromises).finally(async () => {
+                activeWorkers = 0;
+                await flushUpdates(true);
+
+                state.running = false;
+                setPricingButtons(false);
+
+                if (cursor < runnableRows.length) {
+                    setPricingStatus('Đã dừng', 'warning');
+                    logToTerminal('Tiến trình quét đã bị dừng bởi người dùng.', 'warning');
+                } else {
+                    setPricingStatus('Hoàn tất', 'success');
+                    logToTerminal('Tiến trình quét toàn bộ sheet đã hoàn thành!', 'success');
+                }
+            });
+
+        } catch (error) {
+            state.running = false;
+            setPricingButtons(false);
+            setPricingStatus('Lỗi', 'error');
+            logToTerminal(`Tiến trình cào lỗi: ${error.message}`, 'error');
+            alert(`Lỗi cào: ${error.message}`);
+        }
+    }
+
     async function startSheetPricingJob() {
         if (state.running) return;
 
         const form = collectPricingForm();
         if (!form.appsScriptUrl || !form.sheetUrl || !form.sheetName) {
             alert('Vui lòng nhập đầy đủ Apps Script URL, Google Sheet URL và tên sheet.');
-            // Open settings accordion to highlight inputs
             const collapseConfig = document.getElementById('collapseConfig');
             if (collapseConfig && !collapseConfig.classList.contains('show')) {
                 const trigger = document.querySelector('[data-bs-target="#collapseConfig"]');
@@ -241,45 +515,57 @@
         
         const termBody = document.getElementById('terminalBody');
         if (termBody) {
-            termBody.innerHTML = `<span class="log-line text-info">Đang kết nối tới Google Sheets và khởi chạy quét dữ liệu...</span>`;
+            termBody.innerHTML = `<span class="log-line text-info">Đang kết nối và khởi chạy quét dữ liệu...</span>`;
         }
 
-        try {
-            const response = await fetch('/api/sheet-pricing/start', {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                },
-                body: JSON.stringify(form),
-            });
+        const isNetlify = window.location.hostname.endsWith('netlify.app');
+        if (isNetlify) {
+            runClientSidePricing(form);
+        } else {
+            try {
+                const response = await fetch('/api/sheet-pricing/start', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify(form),
+                });
 
-            const data = await response.json();
-            if (!response.ok || data.ok === false) {
-                throw new Error(data.error || `HTTP ${response.status}`);
-            }
+                const data = await response.json();
+                if (!response.ok || data.ok === false) {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
 
-            state.jobId = data.jobId;
-            startPolling(state.jobId);
-        } catch (error) {
-            state.running = false;
-            setPricingButtons(false);
-            setPricingStatus('Lỗi khởi tạo', 'error');
-            if (termBody) {
-                termBody.innerHTML = `<span class="log-line log-error">Lỗi khởi tạo: ${escapeHtml(error.message)}</span>`;
+                state.jobId = data.jobId;
+                startPolling(state.jobId);
+            } catch (error) {
+                // If it hits Netlify function locally via netlify dev redirects
+                if (error.message.includes('Thieu action') || error.message.includes('404')) {
+                    logToTerminal('Môi trường Serverless / Netlify phát hiện. Chuyển sang quét tự động phía client...', 'warning');
+                    runClientSidePricing(form);
+                } else {
+                    state.running = false;
+                    setPricingButtons(false);
+                    setPricingStatus('Lỗi khởi tạo', 'error');
+                    if (termBody) {
+                        termBody.innerHTML = `<span class="log-line log-error">Lỗi khởi tạo: ${escapeHtml(error.message)}</span>`;
+                    }
+                    alert(`Lỗi khởi tạo: ${error.message}`);
+                }
             }
-            alert(`Lỗi khởi tạo: ${error.message}`);
         }
     }
 
     async function stopSheetPricingJob() {
-        if (!state.running || !state.jobId) return;
+        if (!state.running) return;
         setPricingStatus('Đang dừng...', 'warning');
-        try {
-            await fetch(`/api/sheet-pricing/stop/${state.jobId}`, {
-                method: 'POST',
-            });
-        } catch (error) {
-            console.error('Stop job error:', error);
+        state.running = false; // Triggers cancellation for client-side mode
+        if (state.jobId) {
+            try {
+                await fetch(`/api/sheet-pricing/stop/${state.jobId}`, {
+                    method: 'POST',
+                });
+            } catch (error) {
+                console.error('Stop job error:', error);
+            }
         }
     }
 
