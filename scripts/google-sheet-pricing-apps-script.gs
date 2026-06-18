@@ -52,7 +52,7 @@ function getSheet_(sheetId, sheetName) {
 function readRows_(sheetId, sheetName, startRow, endRow) {
   var sheet = getSheet_(sheetId, sheetName);
   var headers = sheet.getRange(2, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var firstRow = Number(startRow || 3);
+  var firstRow = Math.max(3, Number(startRow || 3));
   var lastRow = Number(endRow || sheet.getLastRow());
 
   if (lastRow < firstRow) {
@@ -93,6 +93,7 @@ function writePricing_(payload) {
 
   payload.updates.forEach(function(update) {
     if (!update || !update.rowNumber) return;
+    if (update.rowNumber <= 2) return; // Bảo vệ hàng tiêu đề không bị ghi đè
     
     // Write marketPrices
     var marketPrices = update.marketPrices || [];
