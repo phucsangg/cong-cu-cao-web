@@ -1,6 +1,0 @@
-# Điền các link danh mục sản phẩm từ website của bạn ở đây (mỗi dòng 1 link)
-# Ví dụ:
-# https://website-cua-ban.vn/collections/bep-tu
-# https://website-cua-ban.vn/collections/may-hut-mui
-
-https://website-cua-ban.vn/collections/all

@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const scraperCore = require('./lib/scraper-core.js');
 const sheetPricingService = require('./lib/sheet-pricing-service.js');
 
 const PORT = process.env.PORT || 3000;
@@ -66,51 +65,6 @@ const server = http.createServer(async (req, res) => {
     const pathname = parsedUrl.pathname;
 
     // API Routing
-    if (pathname === '/api/scrape' && req.method === 'POST') {
-        try {
-            const body = await getJsonBody(req);
-            const targetUrl = body.url;
-            const paginationMode = body.paginationMode || 'url';
-            const pageParam = body.pageParam || 'page';
-            const pageNum = parseInt(body.pageNum) || 1;
-            const isBlockResources = body.blockResources !== false;
-            const timeout = parseInt(body.timeout) || 30000;
-
-            if (!targetUrl) {
-                return sendJson(res, 400, { ok: false, error: 'Thiếu link đường dẫn' });
-            }
-
-            const logs = [];
-            const log = (msg, level = 'info') => logs.push({ message: msg, level });
-
-            // Apply page number logic
-            let finalUrl = targetUrl.trim();
-            if (pageNum > 1) {
-                if (finalUrl.includes('?')) {
-                    const [base, qs] = finalUrl.split('?');
-                    const sp = new URLSearchParams(qs);
-                    sp.set(pageParam, pageNum);
-                    finalUrl = `${base}?${sp.toString()}`;
-                } else {
-                    finalUrl = `${finalUrl}?${pageParam}=${pageNum}`;
-                }
-            }
-
-            const scrapeResult = await scraperCore.scrapeUrl(finalUrl, pageNum, {
-                blockResources: isBlockResources,
-                timeout: timeout,
-            }, log);
-
-            const responseBody = { products: scrapeResult.products, logs };
-            if (scraperCore.isHomepage(finalUrl) && scrapeResult.categoryLinks) {
-                responseBody.categoryLinks = scrapeResult.categoryLinks;
-            }
-
-            return sendJson(res, 200, responseBody);
-        } catch (error) {
-            return sendJson(res, 500, { ok: false, error: error.message });
-        }
-    }
 
     if (pathname === '/api/sheet-pricing/config' && req.method === 'GET') {
         return sendJson(res, 200, {
