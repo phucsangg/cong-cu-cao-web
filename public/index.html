@@ -139,8 +139,9 @@
         }
 
         .btn-premium:disabled {
-            background: rgba(255, 255, 255, 0.08);
-            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.35);
             box-shadow: none;
             transform: none;
         }
@@ -163,9 +164,9 @@
         }
 
         .btn-stop:disabled {
-            background: transparent;
-            border-color: rgba(255, 255, 255, 0.04);
-            color: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.25);
         }
 
         /* Progress Bar */
@@ -210,7 +211,7 @@
         .stat-label {
             font-size: 0.725rem;
             font-weight: 600;
-            color: var(--text-muted);
+            color: #94a3b8; /* Slate 400 - much clearer contrast than Slate 500 */
             text-transform: uppercase;
             letter-spacing: 0.08em;
         }
@@ -401,7 +402,7 @@
                             🛑 Dừng Quét
                         </button>
                     </div>
-                    <div class="mb-1 d-flex justify-content-between small text-muted">
+                    <div class="mb-1 d-flex justify-content-between small text-light">
                         <span>Tiến trình</span>
                         <span id="progressText">0%</span>
                     </div>
@@ -513,7 +514,7 @@
                             <span>Live feed</span>
                         </div>
                         <div id="terminalBody" class="terminal-body">
-                            <span class="log-line text-muted">Hệ thống sẵn sàng. Nhấn nút "Bắt đầu quét" để kích hoạt...</span>
+                            <span class="log-line log-info">Hệ thống sẵn sàng. Nhấn nút "Bắt đầu quét" để kích hoạt...</span>
                         </div>
                     </div>
                 </div>

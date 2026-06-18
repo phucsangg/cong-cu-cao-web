@@ -304,6 +304,7 @@
     }
 
     loadConfig();
+    setPricingStatus('Chờ chạy', 'idle');
 
     window.startSheetPricingJob = startSheetPricingJob;
     window.stopSheetPricingJob = stopSheetPricingJob;
