@@ -284,6 +284,36 @@ function writeHaravanLog_(payload) {
   };
 }
 
+function updateSalePrice_(payload) {
+  var sheet = getSheet_(payload.sheetId, payload.sheetName);
+  var headers = sheet.getRange(2, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var headerMap = buildHeaderMap(headers);
+  var salePriceIdx = findHeaderIndex(headers, ['Giá bán', 'Gia ban']);
+  if (salePriceIdx === -1) {
+    throw new Error('Khong tim thay cot Gia ban trong sheet ' + payload.sheetName);
+  }
+  
+  var newPrice = Number(payload.price);
+  sheet.getRange(payload.rowNumber, salePriceIdx + 1).setValue(newPrice);
+  
+  // Read minPrice from sheet to update GAP and %GAP
+  if (headerMap.minPrice !== -1 && headerMap.gapValue !== -1 && headerMap.gapPercent !== -1) {
+    var minPriceVal = sheet.getRange(payload.rowNumber, headerMap.minPrice + 1).getValue();
+    var parsedMinPrice = parseInt(String(minPriceVal).replace(/\D/g, ''), 10);
+    if (!isNaN(parsedMinPrice) && parsedMinPrice > 0) {
+      if (parsedMinPrice < 100000) parsedMinPrice = parsedMinPrice * 1000;
+      
+      var gapValue = newPrice - parsedMinPrice;
+      var gapPercent = gapValue / parsedMinPrice;
+      
+      sheet.getRange(payload.rowNumber, headerMap.gapValue + 1).setValue(gapValue);
+      sheet.getRange(payload.rowNumber, headerMap.gapPercent + 1).setValue(gapPercent);
+    }
+  }
+  
+  return { ok: true };
+}
+
 function listSheets_(sheetId) {
   var spreadsheet = SpreadsheetApp.openById(sheetId);
   var sheets = spreadsheet.getSheets();
@@ -329,6 +359,9 @@ function doPost(e) {
     }
     if (payload.action === 'writeHaravanLog') {
       return jsonOutput(writeHaravanLog_(payload));
+    }
+    if (payload.action === 'updateSalePrice') {
+      return jsonOutput(updateSalePrice_(payload));
     }
 
     return jsonOutput({

@@ -17,6 +17,7 @@ const {
     updateHaravanVariantPrice,
     sendTelegramNotification,
     writeHaravanLog,
+    updateSheetSalePrice,
 } = require('../lib/sheet-pricing-service.js');
 
 test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
@@ -1007,6 +1008,40 @@ test('writeHaravanLog dispatches correct POST request to Apps Script API', async
     assert.equal(body.model, 'SMS4IVI01P');
     assert.equal(body.price, '15000000');
     assert.equal(body.status, 'Thành công');
+});
+
+test('updateSheetSalePrice dispatches correct POST request to Apps Script API', async () => {
+    let capturedUrl = null;
+    let capturedOptions = null;
+
+    const mockFetch = async (url, options = {}) => {
+        capturedUrl = String(url);
+        capturedOptions = options;
+        return {
+            ok: true,
+            json: async () => ({ ok: true })
+        };
+    };
+
+    const result = await updateSheetSalePrice({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        sheetName: '08.Giặt sấy',
+        rowNumber: 3,
+        price: '23900000',
+        fetchImpl: mockFetch
+    });
+
+    assert.deepEqual(result, { ok: true });
+    assert.ok(capturedUrl.includes('example/exec'));
+    assert.equal(capturedOptions.method, 'POST');
+
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.action, 'updateSalePrice');
+    assert.equal(body.sheetId, '1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo');
+    assert.equal(body.sheetName, '08.Giặt sấy');
+    assert.equal(body.rowNumber, 3);
+    assert.equal(body.price, 23900000);
 });
 
 

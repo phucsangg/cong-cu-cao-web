@@ -151,6 +151,17 @@ const server = http.createServer(async (req, res) => {
                 return sendJson(res, 200, { ok: true, result });
             }
 
+            if (action === 'sheet-update-sale-price') {
+                const result = await sheetPricingService.updateSheetSalePrice({
+                    appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                    sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                    sheetName: payload.sheetName,
+                    rowNumber: payload.rowNumber,
+                    price: payload.price,
+                });
+                return sendJson(res, 200, { ok: true, result });
+            }
+
             if (action === 'fetch-sheet') {
                 const data = await sheetPricingService.readSheetRows({
                     appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,

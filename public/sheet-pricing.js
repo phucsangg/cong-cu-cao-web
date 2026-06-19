@@ -753,6 +753,34 @@
                                                 localRow.haravanUpdateState = 'accepted';
                                                 await sendTelegramUpdateNotification(localRow, 'accept', 'Thành công');
                                                 await logHaravanUpdateToSheet(localRow, 'Thành công');
+
+                                                try {
+                                                    logToTerminal(`Đang ghi nhận giá bán mới lên Google Sheet ${currentRow.sheetName} (Dòng: ${currentRow.rowNumber})...`, 'info');
+                                                    const sheetUpdateRes = await fetch('/api/sheet-pricing', {
+                                                        method: 'POST',
+                                                        headers: { 'content-type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            action: 'sheet-update-sale-price',
+                                                            appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value.trim(),
+                                                            sheetUrl: document.getElementById('pricingSheetUrl')?.value.trim(),
+                                                            sheetName: currentRow.sheetName,
+                                                            rowNumber: currentRow.rowNumber,
+                                                            price: result.suggestedPrice
+                                                        })
+                                                    });
+                                                    const sheetUpdateData = await sheetUpdateRes.json();
+                                                    if (!sheetUpdateRes.ok || sheetUpdateData.ok === false) {
+                                                        throw new Error(sheetUpdateData.error || `HTTP ${sheetUpdateRes.status}`);
+                                                    }
+                                                    logToTerminal(`Đã ghi nhận giá bán mới lên Google Sheet thành công!`, 'success');
+                                                    localRow.salePriceValue = result.suggestedPrice;
+                                                    if (localRow.minPrice !== null) {
+                                                        localRow.gapValue = localRow.salePriceValue - localRow.minPrice;
+                                                        localRow.gapPercent = localRow.gapValue / localRow.minPrice;
+                                                    }
+                                                } catch (sheetErr) {
+                                                    logToTerminal(`Lỗi ghi nhận giá bán mới lên Google Sheet: ${sheetErr.message}`, 'error');
+                                                }
                                             } catch (upErr) {
                                                 logToTerminal(`Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
                                                 alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
@@ -1193,6 +1221,34 @@
             alert(`Cập nhật giá Haravan thành công cho sản phẩm ${productName}!`);
             await sendTelegramUpdateNotification(row, 'accept', 'Thành công');
             await logHaravanUpdateToSheet(row, 'Thành công');
+
+            try {
+                logToTerminal(`[Cập nhật] Đang ghi nhận giá bán mới lên Google Sheet ${sheetName} (Dòng: ${rowNumber})...`, 'info');
+                const sheetUpdateRes = await fetch('/api/sheet-pricing', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'sheet-update-sale-price',
+                        appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value.trim(),
+                        sheetUrl: document.getElementById('pricingSheetUrl')?.value.trim(),
+                        sheetName: sheetName,
+                        rowNumber: rowNumber,
+                        price: row.suggestedPrice
+                    })
+                });
+                const sheetUpdateData = await sheetUpdateRes.json();
+                if (!sheetUpdateRes.ok || sheetUpdateData.ok === false) {
+                    throw new Error(sheetUpdateData.error || `HTTP ${sheetUpdateRes.status}`);
+                }
+                logToTerminal(`[Cập nhật] Đã ghi nhận giá bán mới lên Google Sheet thành công!`, 'success');
+                row.salePriceValue = row.suggestedPrice;
+                if (row.minPrice !== null) {
+                    row.gapValue = row.salePriceValue - row.minPrice;
+                    row.gapPercent = row.gapValue / row.minPrice;
+                }
+            } catch (sheetErr) {
+                logToTerminal(`[Cập nhật] Lỗi ghi nhận giá bán mới lên Google Sheet: ${sheetErr.message}`, 'error');
+            }
         } catch (upErr) {
             logToTerminal(`[Cập nhật] Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
             alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
