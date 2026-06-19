@@ -723,6 +723,131 @@ test('syncHaravanIds model extraction fallback when SKU/Barcode missing', async 
     ]);
 });
 
+test('syncHaravanIds model extraction with new patterns and brand auto-detection', async () => {
+    let capturedPayload = null;
+
+    const mockFetch = async (url, options = {}) => {
+        const urlStr = String(url);
+        
+        // Mock Haravan API - page 1
+        if (urlStr.includes('admin/products.json')) {
+            const parsed = new URL(urlStr);
+            const page = parseInt(parsed.searchParams.get('page'), 10);
+            
+            if (page === 1) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        products: [
+                            {
+                                // Pattern: \b[A-Z]{2,}\d+[A-Z0-9\-]*\b
+                                title: 'Bếp từ Bosch PIE631FB1E cao cấp',
+                                vendor: '', // Test title brand auto-detect (bosch -> Bosch)
+                                variants: [
+                                    { sku: '', barcode: '', id: 101 }
+                                ]
+                            },
+                            {
+                                // Pattern: \b\d+[A-Z]{2,}[A-Z0-9\-]*\b
+                                title: 'Lò nướng Hafele 53RPM-A',
+                                vendor: 'Hafele',
+                                variants: [
+                                    { sku: '', barcode: '', id: 102 }
+                                ]
+                            },
+                            {
+                                // Pattern: \b[A-Z]+\-\d+[A-Z0-9\-]*\b
+                                title: 'Vòi rửa chén Konox KN-1234',
+                                vendor: 'Konox',
+                                variants: [
+                                    { sku: '', barcode: '', id: 103 }
+                                ]
+                            },
+                            {
+                                // Pattern: \b[A-Z0-9]+\-[A-Z0-9]+\b
+                                title: 'Khóa cửa Kluger K3-A9',
+                                vendor: 'Kluger',
+                                variants: [
+                                    { sku: '', barcode: '', id: 104 }
+                                ]
+                            },
+                            {
+                                // Pattern: \bH\d{2,}[A-Z0-9\-]*\b
+                                title: 'Hút mùi Canzy H789-Pro',
+                                vendor: 'Canzy',
+                                variants: [
+                                    { sku: '', barcode: '', id: 105 }
+                                ]
+                            }
+                        ]
+                    })
+                };
+            }
+            
+            return {
+                ok: true,
+                json: async () => ({ products: [] })
+            };
+        }
+        
+        // Mock Apps Script
+        if (urlStr.includes('example/exec')) {
+            capturedPayload = JSON.parse(options.body || '{}');
+            return {
+                ok: true,
+                json: async () => ({ ok: true, written: capturedPayload.rows.length })
+            };
+        }
+        
+        return { ok: false };
+    };
+
+    const result = await syncHaravanIds({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        haravanShopUrl: 'https://bepngocbao.myharavan.com',
+        haravanAccessToken: 'mock-token',
+        fetchImpl: mockFetch,
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.fetched, 5);
+    assert.ok(capturedPayload);
+
+    assert.deepEqual(capturedPayload.rows, [
+        {
+            product_name: 'Bếp từ Bosch PIE631FB1E cao cấp',
+            brand: 'Bosch', // Auto-detected from title and formatted in Title case
+            model: 'PIE631FB1E',
+            variant_id: 101,
+        },
+        {
+            product_name: 'Lò nướng Hafele 53RPM-A',
+            brand: 'Hafele',
+            model: '53RPM-A',
+            variant_id: 102,
+        },
+        {
+            product_name: 'Vòi rửa chén Konox KN-1234',
+            brand: 'Konox',
+            model: 'KN-1234',
+            variant_id: 103,
+        },
+        {
+            product_name: 'Khóa cửa Kluger K3-A9',
+            brand: 'Kluger',
+            model: 'K3-A9',
+            variant_id: 104,
+        },
+        {
+            product_name: 'Hút mùi Canzy H789-Pro',
+            brand: 'Canzy',
+            model: 'H789-PRO', // Capitalized in model extraction
+            variant_id: 105,
+        }
+    ]);
+});
+
 
 
 
