@@ -4,6 +4,7 @@ const {
     processPricingRow,
     loadModelMapping,
     listSpreadsheetSheets,
+    syncHaravanIds,
 } = require('../../lib/sheet-pricing-service.js');
 
 const headers = {
@@ -69,6 +70,21 @@ exports.handler = async (event) => {
             return json(200, {
                 ok: true,
                 sheets: data.sheets || [],
+            });
+        }
+
+        if (action === 'haravan-sync') {
+            const data = await syncHaravanIds({
+                appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                haravanShopUrl: payload.haravanShopUrl,
+                haravanAccessToken: payload.haravanAccessToken,
+            });
+
+            return json(200, {
+                ok: true,
+                fetched: data.fetched,
+                written: data.written,
             });
         }
 

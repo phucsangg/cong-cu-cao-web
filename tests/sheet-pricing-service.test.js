@@ -12,6 +12,7 @@ const {
     startBackgroundPricingJob,
     getBackgroundPricingJobStatus,
     stopBackgroundPricingJob,
+    syncHaravanIds,
 } = require('../lib/sheet-pricing-service.js');
 
 test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
@@ -565,6 +566,81 @@ test('startBackgroundPricingJob includes successfully matched details in logs pa
     assert.equal(capturedLogs[0].model, 'WQB245B40');
     assert.equal(capturedLogs[0].price, 23900000);
     assert.equal(capturedLogs[0].url, 'https://example.com/bosch-wqb245b40');
+});
+
+test('syncHaravanIds fetches pages from Haravan and writes them via Apps Script', async () => {
+    let capturedAppsScriptPayload = null;
+
+    const mockFetch = async (url, options = {}) => {
+        const urlStr = String(url);
+        
+        // Mock Haravan API
+        if (urlStr.includes('admin/products.json')) {
+            const parsed = new URL(urlStr);
+            const page = parseInt(parsed.searchParams.get('page'), 10);
+            
+            if (page === 1) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        products: [
+                            {
+                                title: 'Tefal Blender',
+                                vendor: 'Tefal',
+                                variants: [
+                                    { sku: 'BL871D31', id: 12345, price: '1,500,000' }
+                                ]
+                            }
+                        ]
+                    })
+                };
+            }
+            
+            // End of pages
+            return {
+                ok: true,
+                json: async () => ({ products: [] })
+            };
+        }
+
+        // Mock Apps Script
+        if (urlStr.includes('example/exec')) {
+            const body = JSON.parse(options.body || '{}');
+            if (body.action === 'writeHaravanIds') {
+                capturedAppsScriptPayload = body;
+                return {
+                    ok: true,
+                    json: async () => ({ ok: true, written: body.rows.length })
+                };
+            }
+        }
+
+        return { ok: false };
+    };
+
+    const result = await syncHaravanIds({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        haravanShopUrl: 'https://bepngocbao.myharavan.com',
+        haravanAccessToken: 'mock-token',
+        fetchImpl: mockFetch,
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.fetched, 1);
+    assert.equal(result.written, 1);
+
+    assert.ok(capturedAppsScriptPayload);
+    assert.equal(capturedAppsScriptPayload.action, 'writeHaravanIds');
+    assert.equal(capturedAppsScriptPayload.sheetId, '1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo');
+    assert.deepEqual(capturedAppsScriptPayload.rows, [
+        {
+            product_name: 'Tefal Blender',
+            brand: 'Tefal',
+            model: 'BL871D31',
+            variant_id: 12345,
+        }
+    ]);
 });
 
 

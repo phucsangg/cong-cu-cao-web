@@ -100,6 +100,16 @@ const server = http.createServer(async (req, res) => {
                 return sendJson(res, 200, { ok: true, sheets: data.sheets || [] });
             }
 
+            if (action === 'haravan-sync') {
+                const data = await sheetPricingService.syncHaravanIds({
+                    appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                    sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                    haravanShopUrl: payload.haravanShopUrl,
+                    haravanAccessToken: payload.haravanAccessToken,
+                });
+                return sendJson(res, 200, { ok: true, fetched: data.fetched, written: data.written });
+            }
+
             if (action === 'fetch-sheet') {
                 const data = await sheetPricingService.readSheetRows({
                     appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,

@@ -227,6 +227,32 @@ function writePricing_(payload) {
   };
 }
 
+function writeHaravanIds_(payload) {
+  var sheet = getSheet_(payload.sheetId, '20. ID Haravan');
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
+  }
+
+  var rows = payload.rows || [];
+  if (rows.length > 0) {
+    var values = rows.map(function(row) {
+      return [
+        row.product_name || '',
+        row.brand || '',
+        row.model || '',
+        String(row.variant_id || '')
+      ];
+    });
+    sheet.getRange(2, 1, values.length, 4).setValues(values);
+  }
+
+  return {
+    ok: true,
+    written: rows.length
+  };
+}
+
 function listSheets_(sheetId) {
   var spreadsheet = SpreadsheetApp.openById(sheetId);
   var sheets = spreadsheet.getSheets();
@@ -266,6 +292,9 @@ function doPost(e) {
     var payload = JSON.parse(e.postData.contents || '{}');
     if (payload.action === 'writePricing') {
       return jsonOutput(writePricing_(payload));
+    }
+    if (payload.action === 'writeHaravanIds') {
+      return jsonOutput(writeHaravanIds_(payload));
     }
 
     return jsonOutput({

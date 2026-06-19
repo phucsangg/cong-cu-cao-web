@@ -619,6 +619,27 @@
                                 <input type="number" id="pricingLinksConcurrency" class="form-control" value="5" min="1">
                             </div>
                         </div>
+                </div>
+
+                <!-- Haravan Sync Box -->
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <h3 class="panel-title">4. Đồng bộ ID Haravan</h3>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="haravanShopUrl" class="form-label">Haravan Shop URL</label>
+                            <input type="text" id="haravanShopUrl" class="form-control" value="https://bepngocbao.myharavan.com">
+                        </div>
+                        <div class="col-12">
+                            <label for="haravanAccessToken" class="form-label">Access Token</label>
+                            <input type="password" id="haravanAccessToken" class="form-control" placeholder="Nhập token Haravan...">
+                        </div>
+                        <div class="col-12">
+                            <button id="btnHaravanSync" onclick="syncHaravanIds()" type="button" class="btn btn-pricing-start w-100 py-2" style="background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);">
+                                🔄 Đồng bộ lên sheet 20. ID Haravan
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

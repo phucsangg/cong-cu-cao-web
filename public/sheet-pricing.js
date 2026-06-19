@@ -939,8 +939,59 @@
     loadConfig();
     setPricingStatus('Chờ chạy', 'idle');
 
+    async function syncHaravanIds() {
+        const btn = document.getElementById('btnHaravanSync');
+        const shopUrl = document.getElementById('haravanShopUrl')?.value.trim();
+        const token = document.getElementById('haravanAccessToken')?.value.trim();
+        const appsScriptUrl = document.getElementById('pricingAppsScriptUrl')?.value.trim();
+        const sheetUrl = document.getElementById('pricingSheetUrl')?.value.trim();
+
+        if (!shopUrl || !token || !appsScriptUrl || !sheetUrl) {
+            alert('Vui lòng nhập đầy đủ: Apps Script URL, Google Sheet URL, Haravan Shop URL và Access Token.');
+            return;
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = '⏳ Đang đồng bộ...';
+        }
+
+        logToTerminal(`Bắt đầu đồng bộ ID Haravan từ ${shopUrl}...`, 'info');
+
+        try {
+            const response = await fetch('/api/sheet-pricing', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'haravan-sync',
+                    appsScriptUrl,
+                    sheetUrl,
+                    haravanShopUrl: shopUrl,
+                    haravanAccessToken: token,
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok || data.ok === false) {
+                throw new Error(data.error || `HTTP ${response.status}`);
+            }
+
+            logToTerminal(`Đồng bộ thành công! Đã lấy ${data.fetched} biến thể, ghi thành công ${data.written} dòng lên sheet "20. ID Haravan".`, 'success');
+            alert(`Đồng bộ thành công! Đã ghi ${data.written} dòng lên sheet "20. ID Haravan".`);
+        } catch (error) {
+            logToTerminal(`Lỗi đồng bộ Haravan: ${error.message}`, 'error');
+            alert(`Lỗi đồng bộ Haravan: ${error.message}`);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = '🔄 Đồng bộ lên sheet 20. ID Haravan';
+            }
+        }
+    }
+
     window.startSheetPricingJob = startSheetPricingJob;
     window.stopSheetPricingJob = stopSheetPricingJob;
     window.showProductDetails = showProductDetails;
     window.loadSheetNames = loadSheetNames;
+    window.syncHaravanIds = syncHaravanIds;
 })();
