@@ -916,6 +916,28 @@ test('updateHaravanVariantPrice makes correct PUT request to Haravan', async () 
     });
 });
 
+test('processPricingRow mock crawls for sheet 21.Test', async () => {
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 3,
+            productId: 'TS-001',
+            brand: 'Cleer',
+            model: 'test',
+            salePrice: '100,000',
+            sheetName: '21.Test',
+        }
+    });
+
+    assert.equal(result.status, 'success');
+    assert.equal(result.minPrice, 100000);
+    assert.equal(result.suggestedPrice, 99500);
+    assert.equal(result.totalLinksCount, 10);
+    assert.ok(Array.isArray(result.marketPrices));
+    assert.equal(result.marketPrices.length, 10);
+    assert.equal(result.marketPrices[0], 100000);
+    assert.equal(result.matchedUrls[0], 'https://mock-market-test.vn/cleer-test-p1');
+});
+
 
 
 

@@ -679,6 +679,7 @@
                                     model: currentRow.model,
                                     salePrice: currentRow.salePrice,
                                     marketPrices: currentRow.marketPrices,
+                                    sheetName: currentRow.sheetName,
                                 },
                                 linksConcurrency: form.linksConcurrency,
                             })
@@ -720,7 +721,7 @@
                                     const variantId = window.haravanMapping?.[key];
                                     if (variantId) {
                                         const productName = `${currentRow.brand} ${currentRow.model}`;
-                                        const confirmed = confirm(`Cập nhật giá cho sản phẩm ${productName} giá đề xuất ${result.suggestedPrice.toLocaleString('vi-VN')}?`);
+                                        const confirmed = confirm(`Cập nhật giá cho sản phẩm ${productName} với giá đề xuất ${result.suggestedPrice.toLocaleString('vi-VN')} đ?`);
                                         if (confirmed) {
                                             logToTerminal(`Đang cập nhật giá Haravan cho sản phẩm ${productName} (ID: ${variantId})...`, 'info');
                                             try {
