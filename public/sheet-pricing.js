@@ -843,7 +843,7 @@
                 return;
             }
             if (data && data.ok !== false && data.sheets) {
-                const visibleSheets = data.sheets.filter((sheet) => sheet !== '18.Mã sản phẩm' && sheet !== '19.Log');
+                const visibleSheets = data.sheets.filter((sheet) => sheet !== '18.Mã sản phẩm' && sheet !== '19.Log' && sheet !== '20. ID Haravan');
                 const initialSelection = normalizeSelectedSheetNames(hiddenInput.value || state.initialSheetName)
                     .filter((sheet) => visibleSheets.includes(sheet));
                 renderSheetOptions(visibleSheets, initialSelection);
