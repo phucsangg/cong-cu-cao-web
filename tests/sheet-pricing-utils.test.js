@@ -13,6 +13,10 @@ test('parseVietnamesePrice converts formatted VND text to integer', () => {
     assert.equal(parseVietnamesePrice('9,120,000₫'), 9120000);
     assert.equal(parseVietnamesePrice(' 11.340.000 đ '), 11340000);
     assert.equal(parseVietnamesePrice('Liên hệ'), null);
+    assert.equal(parseVietnamesePrice('850'), 850000);
+    assert.equal(parseVietnamesePrice(850), 850000);
+    assert.equal(parseVietnamesePrice('689'), 689000);
+    assert.equal(parseVietnamesePrice('1.458.000'), 1458000);
 });
 
 test('normalizeModelText removes separators and uppercases for matching', () => {

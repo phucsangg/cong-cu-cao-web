@@ -75,6 +75,65 @@ const server = http.createServer(async (req, res) => {
         });
     }
 
+    if (pathname === '/api/sheet-pricing' && req.method === 'POST') {
+        try {
+            const payload = await getJsonBody(req);
+            const action = payload.action;
+
+            if (!action) {
+                return sendJson(res, 400, { ok: false, error: 'Thiếu action.' });
+            }
+
+            if (action === 'fetch-mapping') {
+                const mapping = await sheetPricingService.loadModelMapping({
+                    appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                    sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                });
+                return sendJson(res, 200, { ok: true, mapping });
+            }
+
+            if (action === 'fetch-sheet') {
+                const data = await sheetPricingService.readSheetRows({
+                    appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                    sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                    sheetName: payload.sheetName || process.env.SHEET_NAME,
+                    startRow: payload.startRow,
+                    endRow: payload.endRow,
+                });
+                return sendJson(res, 200, {
+                    ok: true,
+                    sheetId: data.sheetId,
+                    headers: data.headers,
+                    rows: data.rows,
+                });
+            }
+
+            if (action === 'process-row') {
+                const result = await sheetPricingService.processPricingRow({
+                    row: payload.row,
+                    deps: {
+                        linksConcurrency: payload.linksConcurrency,
+                    },
+                });
+                return sendJson(res, 200, { ok: true, result });
+            }
+
+            if (action === 'write-results') {
+                const data = await sheetPricingService.writeSheetUpdates({
+                    appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                    sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                    sheetName: payload.sheetName || process.env.SHEET_NAME,
+                    updates: payload.updates || [],
+                });
+                return sendJson(res, 200, { ok: true, updated: data.updated || 0 });
+            }
+
+            return sendJson(res, 400, { ok: false, error: `Action không hợp lệ: ${action}` });
+        } catch (error) {
+            return sendJson(res, 500, { ok: false, error: error.message });
+        }
+    }
+
     if (pathname === '/api/sheet-pricing/start' && req.method === 'POST') {
         try {
             const body = await getJsonBody(req);

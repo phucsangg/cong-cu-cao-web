@@ -262,6 +262,30 @@
             throw new Error('Tên sheet không hợp lệ.');
         }
 
+        logToTerminal(`Đang tải bảng ánh xạ model từ sheet 18.Mã sản phẩm...`, 'info');
+        let modelMapping = {};
+        try {
+            const mappingResponse = await fetch('/api/sheet-pricing', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'fetch-mapping',
+                    appsScriptUrl: form.appsScriptUrl,
+                    sheetUrl: form.sheetUrl,
+                })
+            });
+            const mappingData = await mappingResponse.json();
+            if (mappingResponse.ok && mappingData.ok !== false && mappingData.mapping) {
+                modelMapping = mappingData.mapping;
+                const mappingKeys = Object.keys(modelMapping);
+                logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ model từ 18.Mã sản phẩm.`, 'success');
+            } else {
+                logToTerminal(`Không tìm thấy ánh xạ model nào hoặc lỗi tải 18.Mã sản phẩm.`, 'warning');
+            }
+        } catch (mapErr) {
+            logToTerminal(`Không thể tải bảng ánh xạ: ${mapErr.message}. Vẫn tiếp tục chạy...`, 'warning');
+        }
+
         logToTerminal(`Đang tải danh sách sản phẩm từ các sheet: ${sheetNames.join(', ')}...`, 'info');
         
         try {
@@ -302,23 +326,44 @@
             state.success = 0;
             state.errors = 0;
             state.writes = 0;
-            state.rows = mergedRows.map(row => ({
-                rowNumber: row.rowNumber,
-                sheetName: row.sheetName,
-                productId: row.productId || '',
-                brand: row.brand,
-                model: row.model,
-                salePriceValue: parseInt(String(row.salePrice || '').replace(/\D/g, ''), 10) || null,
-                status: 'pending',
-                marketPrices: [],
-                matchedDetails: [],
-                minPrice: null,
-                gapValue: null,
-                gapPercent: null,
-                suggestedPrice: null,
-                writtenToSheet: false,
-                errorMessage: '',
-            }));
+            state.rows = mergedRows.map(row => {
+                const originalModel = String(row.model || '').trim();
+                let model = originalModel;
+                let mapped = false;
+                if (/^\d+$/.test(originalModel)) {
+                    if (modelMapping[originalModel]) {
+                        model = modelMapping[originalModel];
+                        mapped = true;
+                    }
+                }
+                if (mapped) {
+                    logToTerminal(`Dòng ${row.rowNumber} [${row.sheetName}]: Ánh xạ model số ${originalModel} thành ${model}.`);
+                }
+                return {
+                    rowNumber: row.rowNumber,
+                    sheetName: row.sheetName,
+                    productId: row.productId || '',
+                    brand: row.brand,
+                    model: model,
+                    originalModel: originalModel,
+                    salePriceValue: (() => {
+                        let parsed = parseInt(String(row.salePrice || '').replace(/\D/g, ''), 10) || null;
+                        if (parsed !== null && parsed < 100000) {
+                            parsed = parsed * 1000;
+                        }
+                        return parsed;
+                    })(),
+                    status: 'pending',
+                    marketPrices: [],
+                    matchedDetails: [],
+                    minPrice: null,
+                    gapValue: null,
+                    gapPercent: null,
+                    suggestedPrice: null,
+                    writtenToSheet: false,
+                    errorMessage: '',
+                };
+            });
 
             // Helpers to validate brand & model on client side
             const isValidBrand = (brand) => {

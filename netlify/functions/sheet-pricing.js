@@ -2,6 +2,7 @@ const {
     readSheetRows,
     writeSheetUpdates,
     processPricingRow,
+    loadModelMapping,
 } = require('../../lib/sheet-pricing-service.js');
 
 const headers = {
@@ -44,6 +45,18 @@ exports.handler = async (event) => {
 
         if (!action) {
             return json(400, { ok: false, error: 'Thieu action.' });
+        }
+
+        if (action === 'fetch-mapping') {
+            const mapping = await loadModelMapping({
+                appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+            });
+
+            return json(200, {
+                ok: true,
+                mapping,
+            });
         }
 
         if (action === 'fetch-sheet') {

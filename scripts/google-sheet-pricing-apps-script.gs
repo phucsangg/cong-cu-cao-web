@@ -65,10 +65,11 @@ function getSheet_(sheetId, sheetName) {
   return sheet;
 }
 
-function readRows_(sheetId, sheetName, startRow, endRow) {
+function readRows_(sheetId, sheetName, startRow, endRow, headerRow) {
   var sheet = getSheet_(sheetId, sheetName);
-  var headers = sheet.getRange(2, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var firstRow = Math.max(3, Number(startRow || 3));
+  var hRow = Number(headerRow || 2);
+  var headers = sheet.getRange(hRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var firstRow = Math.max(hRow + 1, Number(startRow || (hRow + 1)));
   var lastRow = Number(endRow || sheet.getLastRow());
 
   if (lastRow < firstRow) {
@@ -128,6 +129,9 @@ function writePricing_(payload) {
       var val = sheet.getRange(update.rowNumber, colIdx + 1).getValue();
       var parsed = parseInt(String(val).replace(/\D/g, ''), 10);
       if (!isNaN(parsed) && parsed > 0) {
+        if (parsed < 100000) {
+          parsed = parsed * 1000;
+        }
         currentMarketPrices.push(parsed);
       }
     }
@@ -157,9 +161,14 @@ function writePricing_(payload) {
       if (salePriceIdx !== -1) {
         var salePriceVal = sheet.getRange(update.rowNumber, salePriceIdx + 1).getValue();
         var parsedSalePrice = parseInt(String(salePriceVal).replace(/\D/g, ''), 10);
-        if (!isNaN(parsedSalePrice) && parsedSalePrice > 0 && minPrice !== null) {
-          gapValue = parsedSalePrice - minPrice;
-          gapPercent = gapValue / minPrice;
+        if (!isNaN(parsedSalePrice) && parsedSalePrice > 0) {
+          if (parsedSalePrice < 100000) {
+            parsedSalePrice = parsedSalePrice * 1000;
+          }
+          if (minPrice !== null) {
+            gapValue = parsedSalePrice - minPrice;
+            gapPercent = gapValue / minPrice;
+          }
         }
       }
       
@@ -191,7 +200,7 @@ function doGet(e) {
   try {
     var params = e.parameter || {};
     if (params.action === 'readRows') {
-      return jsonOutput(readRows_(params.sheetId, params.sheetName, params.startRow, params.endRow));
+      return jsonOutput(readRows_(params.sheetId, params.sheetName, params.startRow, params.endRow, params.headerRow));
     }
 
     return jsonOutput({

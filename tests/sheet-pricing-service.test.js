@@ -5,6 +5,7 @@ const {
     extractSheetId,
     isLikelyProductDetailUrl,
     processPricingRow,
+    loadModelMapping,
 } = require('../lib/sheet-pricing-service.js');
 
 test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
@@ -183,6 +184,32 @@ test('processPricingRow filters out invalid prices outside range [1,000,000 - 20
     assert.deepEqual(result.marketPrices, [9000000, 9100000, 9200000]); // Low and high prices are excluded
     assert.equal(result.minPrice, 9000000);
     assert.equal(result.suggestedPrice, 9054500);
+});
+
+test('loadModelMapping loads mapping rows and parses columns correctly', async () => {
+    const mockFetch = async () => {
+        return {
+            ok: true,
+            json: async () => ({
+                headers: ['Thương hiệu', 'Mã sản phẩm', 'Model'],
+                rows: [
+                    { rowNumber: 2, values: ['Tefal', '2100112290', 'G2550402'] },
+                    { rowNumber: 8, values: ['Tefal', '8010001304', 'BL100230'] }
+                ]
+            })
+        };
+    };
+
+    const mapping = await loadModelMapping({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        fetchImpl: mockFetch,
+    });
+
+    assert.deepEqual(mapping, {
+        '2100112290': 'G2550402',
+        '8010001304': 'BL100230',
+    });
 });
 
 
