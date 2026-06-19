@@ -501,6 +501,72 @@ test('loadModelMapping resolves sheet name via listSheets to prevent unicode mis
     assert.deepEqual(requestedSheetNames, ['18.Mã sản phẩm']);
 });
 
+test('startBackgroundPricingJob includes successfully matched details in logs passed to writeSheetUpdates', async () => {
+    let capturedLogs = null;
+    let capturedUpdates = null;
+
+    const jobId = startBackgroundPricingJob({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        sheetName: '08.Giặt sấy',
+        rowsConcurrency: 1,
+        linksConcurrency: 1,
+        batchSize: 1,
+        deps: {
+            loadModelMapping: async () => ({}),
+            readSheetRows: async () => ({
+                rows: [
+                    { rowNumber: 3, productId: 'A', brand: 'Bosch', model: 'WQB245B40', salePrice: '25,000,000', marketPrices: [] },
+                ],
+            }),
+            processPricingRow: async () => {
+                return {
+                    rowNumber: 3,
+                    productId: 'A',
+                    brand: 'Bosch',
+                    model: 'WQB245B40',
+                    matchedUrls: ['https://example.com/bosch-wqb245b40'],
+                    matchedDetails: [
+                        { url: 'https://example.com/bosch-wqb245b40', price: 23900000 }
+                    ],
+                    totalLinksCount: 1,
+                    marketPrices: [23900000],
+                    hasNewPrices: true,
+                    minPrice: 23900000,
+                    gapValue: 1100000,
+                    gapPercent: 0.044,
+                    suggestedPrice: null,
+                    status: 'insufficient_prices',
+                };
+            },
+            writeSheetUpdates: async ({ updates, logs }) => {
+                capturedUpdates = updates;
+                capturedLogs = logs;
+                return { updated: 1 };
+            },
+        },
+    });
+
+    // Wait for the job to complete
+    for (let i = 0; i < 50; i += 1) {
+        const status = getBackgroundPricingJobStatus(jobId);
+        if (status && status.status === 'completed') {
+            break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    assert.equal(capturedUpdates.length, 1);
+    assert.equal(capturedUpdates[0].rowNumber, 3);
+    
+    assert.ok(Array.isArray(capturedLogs));
+    assert.equal(capturedLogs.length, 1);
+    assert.equal(capturedLogs[0].brand, 'Bosch');
+    assert.equal(capturedLogs[0].model, 'WQB245B40');
+    assert.equal(capturedLogs[0].price, 23900000);
+    assert.equal(capturedLogs[0].url, 'https://example.com/bosch-wqb245b40');
+});
+
 
 
 

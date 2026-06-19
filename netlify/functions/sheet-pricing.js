@@ -109,6 +109,7 @@ exports.handler = async (event) => {
                 sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
                 sheetName: payload.sheetName || process.env.SHEET_NAME,
                 updates: payload.updates || [],
+                logs: payload.logs || [],
             });
 
             return json(200, {

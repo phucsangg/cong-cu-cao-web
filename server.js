@@ -132,6 +132,7 @@ const server = http.createServer(async (req, res) => {
                     sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
                     sheetName: payload.sheetName || process.env.SHEET_NAME,
                     updates: payload.updates || [],
+                    logs: payload.logs || [],
                 });
                 return sendJson(res, 200, { ok: true, updated: data.updated || 0 });
             }

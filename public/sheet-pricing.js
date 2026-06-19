@@ -552,6 +552,21 @@
                 logToTerminal(`Đang ghi ${batch.length} dòng kết quả lên Google Sheet...`, 'info');
                 try {
                     await Promise.all(Object.entries(updatesBySheet).map(async ([name, sheetUpdates]) => {
+                        const sheetLogs = [];
+                        sheetUpdates.forEach((u) => {
+                            if (u.matchedDetails && u.matchedDetails.length > 0) {
+                                u.matchedDetails.forEach((detail) => {
+                                    sheetLogs.push({
+                                        timestamp: new Date().toLocaleString('vi-VN'),
+                                        brand: u.brand || '',
+                                        model: u.model || '',
+                                        price: detail.price,
+                                        url: detail.url,
+                                    });
+                                });
+                            }
+                        });
+
                         const writeRes = await fetch('/api/sheet-pricing', {
                             method: 'POST',
                             headers: { 'content-type': 'application/json' },
@@ -570,6 +585,7 @@
                                     suggestedPrice: u.suggestedPrice,
                                     status: u.status,
                                 })),
+                                logs: sheetLogs,
                             })
                         });
                         const writeData = await writeRes.json();
@@ -659,6 +675,8 @@
                                 pendingUpdates.push({
                                     rowNumber: result.rowNumber,
                                     sheetName: currentRow.sheetName,
+                                    brand: currentRow.brand,
+                                    model: currentRow.model,
                                     marketPrices: result.marketPrices,
                                     hasNewPrices: result.hasNewPrices,
                                     minPrice: result.minPrice,
@@ -666,6 +684,7 @@
                                     gapPercent: result.gapPercent,
                                     suggestedPrice: result.suggestedPrice,
                                     status: result.status,
+                                    matchedDetails: result.matchedDetails || [],
                                 });
                             } else {
                                 logToTerminal(`Dòng ${currentRow.rowNumber} [${currentRow.sheetName}] (${currentRow.brand} ${currentRow.model}) lỗi: ${result.errorMessage || result.status}`, 'warning');

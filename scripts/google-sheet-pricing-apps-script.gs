@@ -202,6 +202,25 @@ function writePricing_(payload) {
     sheet.getRange(update.rowNumber, headerMap.suggestedPrice + 1).setValue(suggestedPrice !== null ? suggestedPrice : '');
   });
 
+  // Ghi nhận nhật ký cào giá vào sheet 19.Log nếu có dữ liệu truyền lên
+  if (payload.logs && payload.logs.length > 0) {
+    try {
+      var logSheet = getSheet_(payload.sheetId, '19.Log');
+      payload.logs.forEach(function(logEntry) {
+        var timestampStr = logEntry.timestamp || new Date().toLocaleString('vi-VN');
+        logSheet.appendRow([
+          timestampStr,
+          logEntry.brand || '',
+          logEntry.model || '',
+          logEntry.price || '',
+          logEntry.url || ''
+        ]);
+      });
+    } catch (logErr) {
+      // Bỏ qua lỗi ghi log để không làm gián đoạn luồng cập nhật giá chính
+    }
+  }
+
   return {
     ok: true,
     updated: payload.updates.length
