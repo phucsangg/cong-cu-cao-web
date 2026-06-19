@@ -157,9 +157,9 @@ test('processPricingRow falls back to row.marketPrices when crawler finds 0 pric
     assert.equal(result.status, 'success');
 });
 
-test('processPricingRow filters out invalid prices outside range [1,000,000 - 200,000,000]', async () => {
+test('processPricingRow filters out invalid prices outside range [100,000 - 200,000,000]', async () => {
     const priceMap = new Map([
-        ['https://a.vn/p/kocher-di-333pro', 999999], // Too low, should be ignored
+        ['https://a.vn/p/kocher-di-333pro', 99999], // Too low, should be ignored
         ['https://b.vn/p/kocher-di-333pro', 9000000], // Valid
         ['https://c.vn/p/kocher-di-333pro', 9100000], // Valid
         ['https://d.vn/p/kocher-di-333pro', 9200000], // Valid
@@ -184,6 +184,34 @@ test('processPricingRow filters out invalid prices outside range [1,000,000 - 20
     assert.deepEqual(result.marketPrices, [9000000, 9100000, 9200000]); // Low and high prices are excluded
     assert.equal(result.minPrice, 9000000);
     assert.equal(result.suggestedPrice, 9054500);
+});
+
+test('processPricingRow supports products and prices under 1,000,000 VND', async () => {
+    const priceMap = new Map([
+        ['https://a.vn/p/tefal-bl1c0230', 550000],  // Valid
+        ['https://b.vn/p/tefal-bl1c0230', 580000],  // Valid
+        ['https://c.vn/p/tefal-bl1c0230', 600000],  // Valid
+        ['https://d.vn/p/tefal-bl1c0230', 99000],   // Too low (< 100k)
+    ]);
+
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 5,
+            productId: 'XS-003',
+            brand: 'Tefal',
+            model: 'BL1C0230',
+            salePrice: '689,000',
+        },
+        deps: {
+            searchProductLinks: async () => [...priceMap.keys()],
+            extractProductPrice: async (url) => priceMap.get(url) || null,
+        },
+    });
+
+    assert.equal(result.status, 'success');
+    assert.deepEqual(result.marketPrices, [550000, 580000, 600000]); // 99k is excluded as it is < 100k
+    assert.equal(result.minPrice, 550000);
+    assert.equal(result.suggestedPrice, 573783); // (550k + 580k + 600k)/3 * 0.995 = 573783.333 -> round is 573783
 });
 
 test('loadModelMapping loads mapping rows and parses columns correctly', async () => {
