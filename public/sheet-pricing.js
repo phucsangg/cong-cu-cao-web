@@ -449,35 +449,7 @@
             logToTerminal(`Không thể tải bảng ánh xạ: ${mapErr.message}. Vẫn tiếp tục chạy...`, 'warning');
         }
 
-        const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
-        const haravanToken = document.getElementById('haravanAccessToken')?.value.trim();
-        window.haravanMapping = {};
-        window.haravanMappingLoaded = false;
-        if (updateHaravanEnabled || haravanToken) {
-            logToTerminal(`Đang tải bảng ánh xạ Haravan ID từ sheet 20. ID Haravan...`, 'info');
-            try {
-                const haravanMappingResponse = await fetch('/api/sheet-pricing', {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'fetch-haravan-mapping',
-                        appsScriptUrl: form.appsScriptUrl,
-                        sheetUrl: form.sheetUrl,
-                    })
-                });
-                const haravanMappingData = await haravanMappingResponse.json();
-                if (haravanMappingResponse.ok && haravanMappingData.ok !== false && haravanMappingData.mapping) {
-                    window.haravanMapping = haravanMappingData.mapping;
-                    window.haravanMappingLoaded = true;
-                    const mappingKeys = Object.keys(window.haravanMapping);
-                    logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ ID từ 20. ID Haravan.`, 'success');
-                } else {
-                    logToTerminal(`Không tìm thấy ánh xạ ID nào hoặc lỗi tải 20. ID Haravan.`, 'warning');
-                }
-            } catch (hMapErr) {
-                logToTerminal(`Không thể tải bảng ánh xạ Haravan ID: ${hMapErr.message}.`, 'warning');
-            }
-        }
+        // Note: Haravan mapping is fetched at the start of startSheetPricingJob
 
         logToTerminal(`Đang tải danh sách sản phẩm từ các sheet: ${sheetNames.join(', ')}...`, 'info');
 
@@ -858,6 +830,44 @@
         }
     }
 
+    async function fetchHaravanMappingIfPossible() {
+        const appsScriptUrl = document.getElementById('pricingAppsScriptUrl')?.value.trim();
+        const sheetUrl = document.getElementById('pricingSheetUrl')?.value.trim();
+        const haravanToken = document.getElementById('haravanAccessToken')?.value.trim();
+        const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
+
+        if (!appsScriptUrl || !sheetUrl) return;
+        
+        window.haravanMapping = {};
+        window.haravanMappingLoaded = false;
+
+        if (updateHaravanEnabled || haravanToken) {
+            logToTerminal(`Đang tải bảng ánh xạ Haravan ID từ sheet 20. ID Haravan...`, 'info');
+            try {
+                const haravanMappingResponse = await fetch('/api/sheet-pricing', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'fetch-haravan-mapping',
+                        appsScriptUrl,
+                        sheetUrl,
+                    })
+                });
+                const haravanMappingData = await haravanMappingResponse.json();
+                if (haravanMappingResponse.ok && haravanMappingData.ok !== false && haravanMappingData.mapping) {
+                    window.haravanMapping = haravanMappingData.mapping;
+                    window.haravanMappingLoaded = true;
+                    const mappingKeys = Object.keys(window.haravanMapping);
+                    logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ ID từ 20. ID Haravan.`, 'success');
+                } else {
+                    logToTerminal(`Không tìm thấy ánh xạ ID nào hoặc lỗi tải 20. ID Haravan.`, 'warning');
+                }
+            } catch (hMapErr) {
+                logToTerminal(`Không thể tải bảng ánh xạ Haravan ID: ${hMapErr.message}.`, 'warning');
+            }
+        }
+    }
+
     async function startSheetPricingJob() {
         if (state.running) return;
 
@@ -880,6 +890,9 @@
         if (termBody) {
             termBody.innerHTML = `<span class="log-line text-info">Đang kết nối và khởi chạy quét dữ liệu...</span>`;
         }
+
+        // Fetch Haravan mapping first so it's ready in memory for client actions/renders
+        await fetchHaravanMappingIfPossible();
 
         const isNetlify = window.location.hostname.endsWith('netlify.app');
         const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
