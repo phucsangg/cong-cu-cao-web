@@ -643,6 +643,86 @@ test('syncHaravanIds fetches pages from Haravan and writes them via Apps Script'
     ]);
 });
 
+test('syncHaravanIds model extraction fallback when SKU/Barcode missing', async () => {
+    let capturedPayload = null;
+
+    const mockFetch = async (url, options = {}) => {
+        const urlStr = String(url);
+        
+        // Mock Haravan API - page 1
+        if (urlStr.includes('admin/products.json')) {
+            const parsed = new URL(urlStr);
+            const page = parseInt(parsed.searchParams.get('page'), 10);
+            
+            if (page === 1) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        products: [
+                            {
+                                title: 'MÁY RỬA CHÉN BOSCH SMS4IVI01P CHÍNH HÃNG',
+                                vendor: 'Bosch',
+                                variants: [
+                                    { sku: '', barcode: '', id: 111 }
+                                ]
+                            },
+                            {
+                                title: 'NỒI CHIÊN KHÔNG DẦU TEFAL',
+                                vendor: 'Tefal',
+                                variants: [
+                                    { sku: ' ', barcode: null, id: 222 }
+                                ]
+                            }
+                        ]
+                    })
+                };
+            }
+            
+            return {
+                ok: true,
+                json: async () => ({ products: [] })
+            };
+        }
+        
+        // Mock Apps Script
+        if (urlStr.includes('example/exec')) {
+            capturedPayload = JSON.parse(options.body || '{}');
+            return {
+                ok: true,
+                json: async () => ({ ok: true, written: capturedPayload.rows.length })
+            };
+        }
+        
+        return { ok: false };
+    };
+
+    const result = await syncHaravanIds({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        haravanShopUrl: 'https://bepngocbao.myharavan.com',
+        haravanAccessToken: 'mock-token',
+        fetchImpl: mockFetch,
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.fetched, 2);
+    assert.ok(capturedPayload);
+    assert.deepEqual(capturedPayload.rows, [
+        {
+            product_name: 'MÁY RỬA CHÉN BOSCH SMS4IVI01P CHÍNH HÃNG',
+            brand: 'Bosch',
+            model: 'SMS4IVI01P', // Extracted via regex
+            variant_id: 111,
+        },
+        {
+            product_name: 'NỒI CHIÊN KHÔNG DẦU TEFAL',
+            brand: 'Tefal',
+            model: 'CHIÊN KHÔNG DẦU', // Extracted via cleanProductName (prefix "NỒI" and brand "TEFAL" removed)
+            variant_id: 222,
+        }
+    ]);
+});
+
 
 
 
