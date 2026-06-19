@@ -1,621 +1,757 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Hệ thống tự động quét và cập nhật giá thị trường trực tiếp vào Google Sheet.">
     <title>Auto Pricing Dashboard</title>
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <!-- Bootstrap 5 -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #060813;
-            --card-bg: rgba(15, 22, 42, 0.65);
-            --border-color: rgba(255, 255, 255, 0.06);
-            --primary-color: #10b981; /* Emerald Green */
-            --accent-color: #06b6d4;  /* Cyan */
-            --warning-color: #f59e0b; /* Amber */
-            --danger-color: #ef4444;  /* Red */
-            --text-main: #f8fafc;     /* Slate 50 */
-            --text-muted: #64748b;    /* Slate 500 */
-            --text-light: #cbd5e1;    /* Slate 300 */
-            --glow-green: rgba(16, 185, 129, 0.2);
-            --glow-cyan: rgba(6, 182, 212, 0.2);
+            --bg-primary: #f8fafc;
+            --bg-surface: #ffffff;
+            --border-color: rgba(15, 23, 42, 0.06);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-tertiary: #94a3b8;
+            
+            --color-teal: #0d9488;
+            --color-teal-light: #f0fdfa;
+            --color-teal-hover: #0f766e;
+            
+            --color-slate: #0f172a;
+            --color-slate-light: #f8fafc;
+            
+            --color-emerald: #10b981;
+            --color-emerald-light: #ecfdf5;
+            
+            --color-amber: #f59e0b;
+            --color-amber-light: #fffbeb;
+            
+            --color-rose: #f43f5e;
+            --color-rose-light: #fff1f2;
+            
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+            
+            --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
         }
 
         body {
-            background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 10% 30%, rgba(6, 182, 212, 0.04) 0%, transparent 35%),
-                radial-gradient(circle at 90% 70%, rgba(16, 185, 129, 0.03) 0%, transparent 35%);
-            background-attachment: fixed;
-            color: var(--text-main);
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            margin: 0;
+            padding: 0;
             min-height: 100vh;
-            padding: 2rem 0;
-            position: relative;
         }
 
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: radial-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 0);
-            background-size: 20px 20px;
-            pointer-events: none;
-            z-index: -1;
+        .page-header {
+            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 24px 0;
+            margin-bottom: 24px;
         }
 
-        /* Glassmorphism Cards */
-        .glass-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.4);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .glass-card:hover {
-            border-color: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Title Styling */
-        h1.title {
-            font-size: 2.25rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #ffffff 30%, #34d399 70%, #06b6d4 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.03em;
-        }
-
-        /* Custom Status Badge */
-        .status-badge {
+        .eyebrow {
             display: inline-flex;
             align-items: center;
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 0.4rem 1rem;
-            border-radius: 50px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.3s ease;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 99px;
+            background: var(--color-teal-light);
+            color: var(--color-teal);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
 
-        /* Form elements */
-        .form-label {
-            font-size: 0.825rem;
-            font-weight: 600;
-            color: var(--text-light);
+        .dashboard-title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin: 8px 0 4px;
+        }
+
+        .dashboard-title span {
+            color: var(--color-teal);
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .status-badge-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            height: 100%;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 99px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            transition: all 0.2s ease;
+        }
+
+        /* KPI Cards */
+        .kpi-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .kpi-title {
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 0.4rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .kpi-value.total { color: var(--text-primary); }
+        .kpi-value.processed { color: #0284c7; }
+        .kpi-value.success { color: var(--color-emerald); }
+        .kpi-value.error { color: var(--color-rose); }
+        .kpi-value.write { color: var(--color-amber); }
+
+        .kpi-desc {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+        }
+
+        /* Setup Rail and Sidebar panels */
+        .panel-box {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 20px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .form-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
         }
 
         .form-control, .form-select {
-            background-color: rgba(9, 13, 26, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #fff;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            padding: 10px 14px;
             font-size: 0.9rem;
-            font-weight: 500;
-            border-radius: 8px;
-            padding: 0.6rem 0.9rem;
+            color: var(--text-primary);
             transition: all 0.2s ease;
-        }
-
-        .form-control:disabled, .form-select:disabled {
-            background-color: rgba(9, 13, 26, 0.4);
-            color: rgba(255, 255, 255, 0.45);
-            border-color: rgba(255, 255, 255, 0.04);
         }
 
         .form-control:focus, .form-select:focus {
-            background-color: rgba(9, 13, 26, 0.95);
-            color: #fff;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 10px var(--glow-green);
+            border-color: var(--color-teal);
+            box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
         }
 
-        /* Premium Buttons */
-        .btn-premium {
-            background: linear-gradient(135deg, var(--primary-color), #34d399);
-            border: none;
-            color: #040814;
-            font-weight: 700;
-            font-size: 1rem;
-            letter-spacing: 0.02em;
-            padding: 0.75rem 2rem;
-            border-radius: 8px;
-            transition: all 0.25s ease;
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        /* Checkbox List */
+        .sheet-picker-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
         }
 
-        .btn-premium:hover:not(:disabled) {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
-            color: #040814;
-        }
-
-        .btn-premium:disabled {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            color: rgba(255, 255, 255, 0.35);
-            box-shadow: none;
-            transform: none;
-        }
-
-        .btn-stop {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #f87171;
-            font-weight: 600;
-            font-size: 1rem;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-stop:hover:not(:disabled) {
-            background: rgba(239, 68, 68, 0.25);
-            color: #fff;
-            border-color: rgba(239, 68, 68, 0.6);
-        }
-
-        .btn-stop:disabled {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            color: rgba(255, 255, 255, 0.25);
-        }
-
-        /* Progress Bar */
-        .progress {
-            background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 50px;
-            height: 12px;
-            overflow: hidden;
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .progress-bar-animated {
-            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-            border-radius: 50px;
-        }
-
-        /* Stats Grid */
-        .stat-card {
-            background: rgba(10, 15, 30, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            border-radius: 12px;
-            padding: 1.1rem;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-
-        .stat-card:hover {
-            background: rgba(10, 15, 30, 0.6);
-            border-color: rgba(255, 255, 255, 0.08);
-            transform: translateY(-2px);
-        }
-
-        .stat-value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            line-height: 1.2;
-            margin-bottom: 0.2rem;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-
-        .stat-label {
-            font-size: 0.725rem;
-            font-weight: 600;
-            color: #94a3b8; /* Slate 400 - much clearer contrast than Slate 500 */
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        /* Colors for counters */
-        .text-total { color: #f8fafc; }
-        .text-processed { color: var(--accent-color); text-shadow: 0 0 10px var(--glow-cyan); }
-        .text-success-val { color: var(--primary-color); text-shadow: 0 0 10px var(--glow-green); }
-        .text-error-val { color: var(--danger-color); }
-        .text-write-val { color: var(--warning-color); }
-
-        /* Accordion Custom Styling */
-        .accordion-item {
-            background: transparent;
-            border: none;
-        }
-
-        .accordion-button {
-            background: rgba(255, 255, 255, 0.02);
-            color: var(--text-light);
+        .sheet-picker-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            background: var(--bg-surface);
+            cursor: pointer;
+            transition: all 0.15s ease;
             font-size: 0.85rem;
             font-weight: 600;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 8px !important;
-            padding: 0.6rem 1rem;
-            transition: all 0.2s ease;
         }
 
-        .accordion-button:not(.collapsed) {
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--primary-color);
-            box-shadow: none;
-            border-color: rgba(16, 185, 129, 0.3);
+        .sheet-picker-item:hover {
+            border-color: var(--color-teal);
+            background: var(--color-teal-light);
         }
 
-        .accordion-button::after {
-            filter: invert(1);
-            transform: scale(0.85);
+        .sheet-picker-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--color-teal);
         }
 
-        /* Terminal Logs Container */
-        .terminal-window {
-            background: #03050a;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            font-family: 'JetBrains Mono', monospace;
-            padding: 1.2rem;
-            font-size: 0.8rem;
-            line-height: 1.5;
-            box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.8);
-            position: relative;
+        .sheet-picker-item.is-all {
+            background: var(--color-teal-light);
+            border-color: rgba(13, 148, 136, 0.2);
+            color: var(--color-teal);
         }
 
-        .terminal-window::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; height: 4px;
-            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-            border-radius: 12px 12px 0 0;
+        /* Action buttons */
+        .btn-action-group {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 12px;
+        }
+
+        .btn-pricing-start, .btn-pricing-stop, .btn-subtle {
+            border-radius: var(--radius-md);
+            padding: 12px 20px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border: 0;
+            transition: all 0.15s ease;
+        }
+
+        .btn-pricing-start {
+            background: linear-gradient(135deg, var(--color-teal) 0%, #14b8a6 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.15);
+        }
+
+        .btn-pricing-start:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(13, 148, 136, 0.25);
+        }
+
+        .btn-pricing-stop {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--color-rose);
+            border: 1px solid rgba(244, 63, 94, 0.15);
+        }
+
+        .btn-pricing-stop:hover:not(:disabled) {
+            background: var(--color-rose-light);
+        }
+
+        .btn-subtle {
+            background: var(--color-slate-light);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            padding: 8px 14px;
+        }
+
+        .btn-subtle:hover:not(:disabled) {
+            background: rgba(15, 23, 42, 0.04);
+        }
+
+        /* Live operation panel */
+        .live-ops-panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            height: 100%;
+        }
+
+        /* Logger console */
+        .terminal-shell {
+            border-radius: var(--radius-lg);
+            background: #090d16;
+            border: 1px solid #1e293b;
+            padding: 16px 20px;
+            box-shadow: var(--shadow-lg);
+            margin-top: 16px;
         }
 
         .terminal-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            padding-bottom: 0.6rem;
-            margin-bottom: 0.8rem;
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 0.725rem;
+            color: #64748b;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 8px;
         }
 
         .terminal-body {
-            height: 250px;
+            height: 300px;
             overflow-y: auto;
-            scroll-behavior: smooth;
-        }
-
-        /* Terminal custom scrollbar */
-        .terminal-body::-webkit-scrollbar {
-            width: 6px;
-        }
-        .terminal-body::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .terminal-body::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 3px;
-        }
-        .terminal-body::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.25);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            line-height: 1.65;
+            color: #e2e8f0;
         }
 
         .log-line {
             display: block;
-            margin-bottom: 0.35rem;
+            margin-bottom: 4px;
             white-space: pre-wrap;
-            word-break: break-all;
         }
 
         .log-time {
-            color: var(--text-muted);
-            margin-right: 0.6rem;
-            user-select: none;
+            color: #475569;
+            margin-right: 10px;
         }
 
-        .log-info { color: #e2e8f0; }
-        .log-success { color: #4ade80; }
+        .log-info { color: #cbd5e1; }
+        .log-success { color: #34d399; }
         .log-warning { color: #fbbf24; }
         .log-error { color: #f87171; }
 
-        /* Compact Table for Product Details */
-        .table-responsive {
-            max-height: 350px;
-            overflow-y: auto;
-        }
-
-        .table-custom {
-            font-size: 0.825rem;
-            color: var(--text-light);
-            border-collapse: collapse;
+        /* Collapse Config Panel */
+        .collapse-toggle {
             width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background: var(--color-slate-light);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 700;
         }
 
-        .table-custom th {
-            background-color: rgba(9, 13, 26, 0.85);
-            color: #94a3b8; /* Slate 400 - high contrast */
-            font-weight: 600;
-            text-transform: uppercase;
+        .collapse-toggle::after {
+            content: '▼';
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            transition: transform 0.2s ease;
+        }
+
+        .collapse-toggle[aria-expanded="true"]::after {
+            transform: rotate(180deg);
+        }
+
+        /* Results table */
+        .results-section {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            margin-top: 24px;
+        }
+
+        .table-wrap {
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            background: var(--bg-surface);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .table th {
+            background: #f8fafc !important;
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.75rem;
             letter-spacing: 0.05em;
-            padding: 0.6rem 0.8rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            position: sticky;
-            top: 0;
-            z-index: 10;
+            text-transform: uppercase;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color) !important;
         }
 
-        .table-custom td {
-            padding: 0.6rem 0.8rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            vertical-align: middle;
+        .table td {
+            padding: 14px 16px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
         }
 
-        .table-custom tr:hover td {
-            background-color: rgba(255, 255, 255, 0.02);
+        .table tbody tr {
+            transition: background 0.15s ease;
+        }
+
+        .table tbody tr:hover td {
+            background-color: #f8fafc;
         }
 
         .price-badge {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 500;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            font-size: 0.85rem;
         }
 
-        .badge {
+        .badge-status {
             font-size: 0.75rem;
-            font-weight: 600;
-            padding: 0.3rem 0.6rem;
-            border-radius: 4px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 99px;
+        }
+
+        /* Modal styling */
+        .modal-content {
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px 24px;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--border-color);
+            padding: 16px 24px;
+        }
+
+        .modal-title {
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .modal-info-box {
+            background: var(--color-slate-light);
+            border-radius: var(--radius-md);
+            padding: 14px 18px;
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-info-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .modal-info-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 991.98px) {
+            .status-badge-container {
+                justify-content: flex-start;
+                margin-top: 14px;
+            }
         }
     </style>
 </head>
+
 <body>
-    <div class="container my-3">
-        <!-- Header Section -->
-        <div class="glass-card d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-                <h1 class="title mb-1">Auto Pricing Dashboard</h1>
-                <p class="text-light small mb-0 opacity-75">Hệ thống quét giá thị trường tự động qua Google Sheet</p>
-            </div>
-            <div>
-                <span id="pricingStatusBadge" class="status-badge">Chờ chạy</span>
+    <header class="page-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <span class="eyebrow">Pricing Engine</span>
+                    <h1 class="dashboard-title">Auto Pricing <span>Dashboard</span></h1>
+                    <p class="subtitle">Quét giá thị trường, đối chiếu tự động và ghi nhận kết quả đồng bộ lên Google Sheet.</p>
+                </div>
+                <div class="col-lg-4">
+                    <div class="status-badge-container">
+                        <span class="text-secondary font-weight-bold" style="font-size: 0.8rem; text-transform: uppercase;">Trạng thái engine:</span>
+                        <span id="pricingStatusBadge" class="status-pill">Chờ chạy</span>
+                    </div>
+                </div>
             </div>
         </div>
+    </header>
 
-        <div class="row">
-            <!-- Left Panel: Controls and Settings -->
-            <div class="col-lg-5">
-                <!-- Scan Button & Progress Bar Card -->
-                <div class="glass-card">
-                    <h5 class="mb-3 fw-bold text-white">Quét & Cập nhật</h5>
-                    
-                    <div class="row g-2 mb-3">
-                        <div class="col-12">
-                            <label for="pricingSheetName" class="form-label">Tên Sheet (Tab)</label>
-                            <input type="text" id="pricingSheetName" class="form-control" placeholder="01.Bep tu">
-                        </div>
-                    </div>
+    <main class="container">
+        <!-- KPI Strip -->
+        <section class="row g-3 mb-4">
+            <div class="col-6 col-md-4 col-lg">
+                <div class="kpi-card">
+                    <div class="kpi-title">Tổng dòng</div>
+                    <div id="pricingTotalRows" class="kpi-value total">0</div>
+                    <div class="kpi-desc">Tổng dòng nạp từ sheet</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-lg">
+                <div class="kpi-card">
+                    <div class="kpi-title">Đã quét</div>
+                    <div id="pricingProcessedCount" class="kpi-value processed">0</div>
+                    <div class="kpi-desc">Dòng sản phẩm đã xử lý</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-lg">
+                <div class="kpi-card">
+                    <div class="kpi-title">Thành công</div>
+                    <div id="pricingSuccessCount" class="kpi-value success">0</div>
+                    <div class="kpi-desc">Dòng quét đủ giá hợp lệ</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-6 col-lg">
+                <div class="kpi-card">
+                    <div class="kpi-title">Lỗi / Bỏ qua</div>
+                    <div id="pricingErrorCount" class="kpi-value error">0</div>
+                    <div class="kpi-desc">Thiếu Brand/Model hoặc lỗi</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <div class="kpi-card">
+                    <div class="kpi-title">Lần ghi sheet</div>
+                    <div id="pricingWriteCount" class="kpi-value write">0</div>
+                    <div class="kpi-desc">Số đợt ghi kết quả thành công</div>
+                </div>
+            </div>
+        </section>
 
-                    <div class="d-grid gap-2 mb-3 pt-2">
-                        <button id="btnPricingStart" onclick="startSheetPricingJob()" class="btn btn-premium">
-                            🚀 Bắt Đầu Quét
+        <!-- Configuration & Live Operations Split -->
+        <div class="row g-4">
+            <!-- Setup Rail (Sidebar Left) -->
+            <div class="col-lg-5 col-xl-4">
+                <!-- Select Sheets Box -->
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <h3 class="panel-title">1. Chọn sheet quét giá</h3>
+                        <button id="btnReloadSheetNames" type="button" onclick="loadSheetNames()" class="btn btn-subtle">
+                            Tải lại danh sách
                         </button>
-                        <button id="btnPricingStop" onclick="stopSheetPricingJob()" class="btn btn-stop" disabled>
-                            🛑 Dừng Quét
-                        </button>
                     </div>
-
-                    <div class="mb-1 d-flex justify-content-between small text-light">
-                        <span>Tiến trình</span>
-                        <span id="progressText">0%</span>
+                    <div id="pricingSheetList" class="sheet-picker-list mb-3">
+                        <div class="helper-copy text-muted text-center py-4">(Nhập cấu hình nguồn dữ liệu trước)</div>
                     </div>
-                    <div class="progress">
-                        <div id="pricingProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    <input type="hidden" id="pricingSheetName" value="">
+                    <div class="helper-copy text-muted" style="font-size: 0.75rem;">
+                        Danh sách tự động cập nhật khi bạn đổi URL Apps Script hoặc Google Sheet.
                     </div>
                 </div>
 
-                <!-- Connection Configuration Panel (Collapsible) -->
-                <div class="glass-card">
-                    <div class="accordion" id="configAccordion">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConfig" aria-expanded="false" aria-controls="collapseConfig">
-                                    ⚙️ Cấu Hình Nâng Cao
-                                </button>
-                            </h2>
-                            <div id="collapseConfig" class="accordion-collapse collapse" data-bs-parent="#configAccordion">
-                                <div class="accordion-body pt-3 px-0 pb-0">
-                                    <div class="row g-2 mb-3">
-                                        <div class="col-6">
-                                            <label for="pricingStartRow" class="form-label">Dòng bắt đầu</label>
-                                            <input type="number" id="pricingStartRow" class="form-control" value="3" min="3">
-                                        </div>
-                                        <div class="col-6">
-                                            <label for="pricingEndRow" class="form-label">Dòng kết thúc</label>
-                                            <input type="number" id="pricingEndRow" class="form-control" placeholder="Tất cả">
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="pricingAppsScriptUrl" class="form-label">Apps Script URL</label>
-                                        <input type="text" id="pricingAppsScriptUrl" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="pricingSheetUrl" class="form-label">Google Sheet URL</label>
-                                        <input type="text" id="pricingSheetUrl" class="form-control" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="pricingBatchSize" class="form-label">Size ghi sheet (Batch)</label>
-                                        <input type="number" id="pricingBatchSize" class="form-control" value="5" min="1">
-                                    </div>
-                                    <div class="row g-2">
-                                        <div class="col-md-6">
-                                            <label for="pricingRowsConcurrency" class="form-label">Luồng dòng (Rows)</label>
-                                            <input type="number" id="pricingRowsConcurrency" class="form-control" value="1" min="1">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="pricingLinksConcurrency" class="form-label">Luồng link (Links)</label>
-                                            <input type="number" id="pricingLinksConcurrency" class="form-control" value="5" min="1">
-                                        </div>
-                                    </div>
-                                </div>
+                <!-- Source URL Config -->
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <h3 class="panel-title">2. Nguồn dữ liệu</h3>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="pricingAppsScriptUrl" class="form-label">Apps Script URL</label>
+                            <input type="text" id="pricingAppsScriptUrl" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+                        </div>
+                        <div class="col-12">
+                            <label for="pricingSheetUrl" class="form-label">Google Sheet URL</label>
+                            <input type="text" id="pricingSheetUrl" class="form-control" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced settings accordion -->
+                <div class="panel-box p-2">
+                    <button class="collapse-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConfig" aria-expanded="false" aria-controls="collapseConfig">
+                        <span>3. Cấu hình nâng cao</span>
+                    </button>
+                    <div id="collapseConfig" class="collapse mt-3 px-2 pb-2">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label for="pricingStartRow" class="form-label">Dòng bắt đầu</label>
+                                <input type="number" id="pricingStartRow" class="form-control" value="3" min="3">
+                            </div>
+                            <div class="col-6">
+                                <label for="pricingEndRow" class="form-label">Dòng kết thúc</label>
+                                <input type="number" id="pricingEndRow" class="form-control" placeholder="Tất cả">
+                            </div>
+                            <div class="col-6">
+                                <label for="pricingBatchSize" class="form-label">Batch ghi sheet</label>
+                                <input type="number" id="pricingBatchSize" class="form-control" value="5" min="1">
+                            </div>
+                            <div class="col-6">
+                                <label for="pricingRowsConcurrency" class="form-label">Luồng dòng</label>
+                                <input type="number" id="pricingRowsConcurrency" class="form-control" value="1" min="1">
+                            </div>
+                            <div class="col-12">
+                                <label for="pricingLinksConcurrency" class="form-label">Luồng link (Crawl đồng thời)</label>
+                                <input type="number" id="pricingLinksConcurrency" class="form-control" value="5" min="1">
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Panel: Statistics & Terminal Logs -->
-            <div class="col-lg-7">
-                <!-- Statistics Card Grid -->
-                <div class="glass-card mb-3">
-                    <h5 class="mb-3 fw-bold text-white">Thống Kê Quét</h5>
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <div class="stat-card">
-                                <div id="pricingTotalRows" class="stat-value text-total">0</div>
-                                <div class="stat-label">Tổng Dòng</div>
-                            </div>
+            <!-- Live Operations Panel (Right) -->
+            <div class="col-lg-7 col-xl-8">
+                <div class="live-ops-panel">
+                    <div class="panel-header">
+                        <h3 class="panel-title">Điều phối quét giá & Log trực tiếp</h3>
+                    </div>
+
+                    <!-- Dispatch Controls -->
+                    <div class="btn-action-group mb-4">
+                        <button id="btnPricingStart" onclick="startSheetPricingJob()" class="btn btn-pricing-start btn-lg">
+                            🚀 Bắt đầu quét dữ liệu
+                        </button>
+                        <button id="btnPricingStop" onclick="stopSheetPricingJob()" class="btn btn-pricing-stop btn-lg" disabled>
+                            Dừng
+                        </button>
+                    </div>
+
+                    <!-- Process Bar -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-secondary" style="font-size: 0.85rem; font-weight: 700;">Tiến trình hiện tại:</span>
+                            <span id="progressText" style="font-size: 0.95rem; font-weight: 800; color: var(--color-teal);">0%</span>
                         </div>
-                        <div class="col-4">
-                            <div class="stat-card">
-                                <div id="pricingProcessedCount" class="stat-value text-processed">0</div>
-                                <div class="stat-label">Đã Quét</div>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="stat-card">
-                                <div id="pricingSuccessCount" class="stat-value text-success-val">0</div>
-                                <div class="stat-label">Thành Công</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card">
-                                <div id="pricingErrorCount" class="stat-value text-error-val">0</div>
-                                <div class="stat-label">Lỗi / Bỏ Qua</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-card">
-                                <div id="pricingWriteCount" class="stat-value text-write-val">0</div>
-                                <div class="stat-label font-bold">Lần Ghi Sheet</div>
-                            </div>
+                        <div class="progress">
+                            <div id="pricingProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Live Log Activity Card -->
-                <div class="glass-card">
-                    <div class="terminal-window">
+                    <!-- Realtime logs terminal -->
+                    <div class="terminal-shell">
                         <div class="terminal-header">
-                            <span>Console logs</span>
-                            <span>Live feed</span>
+                            <span>Bảng điều khiển Log</span>
+                            <span>Thời gian thực</span>
                         </div>
                         <div id="terminalBody" class="terminal-body">
-                            <span class="log-line log-info">Hệ thống sẵn sàng. Nhấn nút "Bắt đầu quét" để kích hoạt...</span>
+                            <span class="log-line log-info">Hệ thống sẵn sàng. Vui lòng thiết lập cấu hình và bấm "Bắt đầu quét" để chạy.</span>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Collapsible Product Details View at the Bottom -->
-        <div class="glass-card mt-3">
-            <div class="accordion" id="detailsAccordion">
-                <div class="accordion-item">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDetails" aria-expanded="false" aria-controls="collapseDetails">
-                            📋 Danh Sách Sản Phẩm Đang Quét (Xem chi tiết)
-                        </button>
-                    </h2>
-                    <div id="collapseDetails" class="accordion-collapse collapse" data-bs-parent="#detailsAccordion">
-                        <div class="accordion-body pt-3 px-0 pb-0">
-                            <div class="table-responsive">
-                                <table class="table-custom">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-center" style="width: 60px;">STT</th>
-                                            <th style="width: 120px;">Tên Sheet</th>
-                                            <th style="width: 100px;">Mã SP</th>
-                                            <th style="width: 120px;">Thương Hiệu</th>
-                                            <th>Model</th>
-                                            <th class="text-center" style="width: 110px;">Giá Bán</th>
-                                            <th class="text-center" style="width: 80px;">Số Giá</th>
-                                            <th class="text-center" style="width: 110px;">Giá Thị Trường</th>
-                                            <th class="text-center" style="width: 110px;">Đề Xuất</th>
-                                            <th class="text-center" style="width: 150px;">Trạng Thái</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="sheetPricingBody">
-                                        <tr>
-                                            <td colspan="10" class="text-center text-muted py-4">Chưa có dữ liệu nào được tải về.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+        <!-- Full-Width Results Table -->
+        <section class="results-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 class="panel-title" style="font-size: 1.25rem;">Danh sách sản phẩm và Kết quả quét</h2>
+                    <p class="subtitle mt-1">Bấm vào bất kỳ dòng nào để xem các link và giá bán thị trường tìm thấy.</p>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Bootstrap Modal for Product Details -->
+            <div class="table-wrap">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 72px;">Dòng</th>
+                            <th style="width: 140px;">Tên Sheet</th>
+                            <th style="width: 120px;">Mã SP</th>
+                            <th style="width: 140px;">Thương hiệu</th>
+                            <th>Model</th>
+                            <th class="text-end" style="width: 140px;">Giá bán hiện tại</th>
+                            <th class="text-center" style="width: 100px;">Số link</th>
+                            <th class="text-end" style="width: 150px;">Min Thị trường</th>
+                            <th class="text-end" style="width: 150px;">Giá đề xuất</th>
+                            <th class="text-center" style="width: 150px;">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sheetPricingBody">
+                        <tr>
+                            <td colspan="10" class="text-center py-5 text-muted" style="font-size: 0.95rem;">Chưa có dữ liệu nào được tải về. Hãy chọn cấu hình và chạy quét.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Product Detail Modal -->
     <div class="modal fade" id="productDetailModal" tabindex="-1" aria-labelledby="productDetailModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content" style="background: var(--bg-color); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); color: var(--text-main);">
-                <div class="modal-header" style="border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
-                    <h5 class="modal-title fw-bold" id="productDetailModalLabel">Chi Tiết Nguồn Giá</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <div class="eyebrow mb-1">Chi tiết giá quét được</div>
+                        <h5 class="modal-title" id="productDetailModalLabel">Nguồn liên kết giá trên Internet</h5>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <span class="text-muted small">Sản phẩm:</span> <strong id="modalProductTitle" class="text-white">-</strong>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-8">
+                            <div class="modal-info-box">
+                                <div class="modal-info-label">Sản phẩm & Model</div>
+                                <div id="modalProductTitle" class="modal-info-value">-</div>
                             </div>
-                            <div class="col-md-6">
-                                <span class="text-muted small">Mã SP:</span> <span id="modalProductCode" class="badge bg-secondary">-</span>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="modal-info-box">
+                                <div class="modal-info-label">Mã SP</div>
+                                <div id="modalProductCode" class="modal-info-value">-</div>
                             </div>
                         </div>
                     </div>
-                    <div class="table-responsive" style="max-height: 400px;">
-                        <table class="table-custom">
+
+                    <div class="table-wrap">
+                        <table class="table table-hover align-middle mb-0">
                             <thead>
                                 <tr>
-                                    <th>Đường dẫn cửa hàng (URL)</th>
-                                    <th class="text-end" style="width: 150px;">Giá quét được</th>
+                                    <th>Đường dẫn cửa hàng đối thủ / đại lý</th>
+                                    <th class="text-end" style="width: 200px;">Giá quét được</th>
                                 </tr>
                             </thead>
                             <tbody id="modalUrlsTableBody">
                                 <tr>
-                                    <td colspan="2" class="text-center text-muted">Không có liên kết nào.</td>
+                                    <td colspan="2" class="text-center py-4 text-muted">Không có liên kết nào được lưu trữ cho sản phẩm này.</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer" style="border-top: 1px solid rgba(255, 255, 255, 0.08);">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-subtle px-4" data-bs-dismiss="modal">Đóng</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap 5 Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Core Application Logic -->
     <script src="/sheet-pricing.js"></script>
 </body>
+
 </html>

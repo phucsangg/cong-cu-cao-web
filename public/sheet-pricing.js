@@ -9,10 +9,27 @@
         writes: 0,
         totalRows: 0,
         pollInterval: null,
+        availableSheets: [],
     };
 
+    function decodeMojibake(value) {
+        const text = String(value ?? '');
+        if (!/[ÃÂÄÆá»áºâ]/.test(text)) {
+            return text;
+        }
+        try {
+            return decodeURIComponent(escape(text));
+        } catch {
+            return text;
+        }
+    }
+
+    function cleanText(value) {
+        return decodeMojibake(String(value ?? ''));
+    }
+
     function escapeHtml(value) {
-        return String(value ?? '')
+        return cleanText(value)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -34,23 +51,114 @@
         return `${(num * 100).toFixed(2)}%`;
     }
 
+    function normalizeSelectedSheetNames(value) {
+        const rawItems = Array.isArray(value)
+            ? value
+            : String(value || '').split(',');
+
+        return Array.from(new Set(rawItems.map((item) => String(item || '').trim()).filter(Boolean)));
+    }
+
+    function getSheetOptionCheckboxes() {
+        return Array.from(document.querySelectorAll('#pricingSheetList input[data-sheet-name]'));
+    }
+
+    function updateSheetSelectionSummary(selectedNames) {
+        const summaryEl = document.getElementById('pricingSheetSelectionSummary');
+        if (!summaryEl) return;
+
+        if (selectedNames.length === 0) {
+            summaryEl.innerText = 'Chưa chọn sheet nào.';
+            return;
+        }
+
+        if (selectedNames.length === 1) {
+            summaryEl.innerText = `Đã chọn 1 sheet: ${selectedNames[0]}.`;
+            return;
+        }
+
+        summaryEl.innerText = `Đã chọn ${selectedNames.length} sheet.`;
+    }
+
+    function syncSelectedSheetNames() {
+        const hiddenInput = document.getElementById('pricingSheetName');
+        const selectAllCheckbox = document.getElementById('pricingSheetSelectAll');
+        const optionCheckboxes = getSheetOptionCheckboxes();
+        const selectedNames = optionCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+
+        if (hiddenInput) {
+            hiddenInput.value = selectedNames.join(',');
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = optionCheckboxes.length > 0 && selectedNames.length === optionCheckboxes.length;
+            selectAllCheckbox.indeterminate = selectedNames.length > 0 && selectedNames.length < optionCheckboxes.length;
+        }
+
+        updateSheetSelectionSummary(selectedNames);
+    }
+
+    function renderSheetOptions(sheetNames, selectedNames = []) {
+        const listEl = document.getElementById('pricingSheetList');
+        if (!listEl) return;
+
+        state.availableSheets = [...sheetNames];
+        if (sheetNames.length === 0) {
+            listEl.innerHTML = '<div class="text-light opacity-75">Không có sheet nào để chọn.</div>';
+            syncSelectedSheetNames();
+            return;
+        }
+
+        const selectedSet = new Set(selectedNames.length > 0 ? selectedNames : sheetNames);
+        listEl.innerHTML = [
+            `
+                <label class="sheet-picker-item is-all">
+                    <input type="checkbox" id="pricingSheetSelectAll">
+                    <span>Tất cả các sheet</span>
+                </label>
+            `,
+            ...sheetNames.map((sheet) => `
+                <label class="sheet-picker-item">
+                    <input type="checkbox" data-sheet-name="1" value="${escapeHtml(sheet)}" ${selectedSet.has(sheet) ? 'checked' : ''}>
+                    <span>${escapeHtml(sheet)}</span>
+                </label>
+            `),
+        ].join('');
+
+        const selectAllCheckbox = document.getElementById('pricingSheetSelectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', () => {
+                getSheetOptionCheckboxes().forEach((checkbox) => {
+                    checkbox.checked = selectAllCheckbox.checked;
+                });
+                syncSelectedSheetNames();
+            });
+        }
+
+        getSheetOptionCheckboxes().forEach((checkbox) => {
+            checkbox.addEventListener('change', syncSelectedSheetNames);
+        });
+
+        syncSelectedSheetNames();
+    }
+
     function statusLabel(row) {
         if (row.errorMessage) {
-            return `<span class="badge bg-danger bg-opacity-25 text-danger">Lỗi: ${escapeHtml(row.errorMessage)}</span>`;
+            return `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20" title="${escapeHtml(row.errorMessage)}">Lỗi</span>`;
         }
         if (row.status === 'processing') {
-            return `<span class="badge bg-info bg-opacity-25 text-info">Đang xử lý</span>`;
+            return `<span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-20">Đang xử lý</span>`;
         }
         if (row.status === 'success') {
-            return `<span class="badge bg-success bg-opacity-25 text-success">${row.writtenToSheet ? 'Đã ghi sheet' : 'Thành công'}</span>`;
+            return `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20">${row.writtenToSheet ? 'Đã ghi sheet' : 'Thành công'}</span>`;
         }
         if (row.status === 'insufficient_prices') {
-            return `<span class="badge bg-warning bg-opacity-25 text-warning">${row.writtenToSheet ? 'Đã ghi, thiếu giá' : 'Thiếu giá'}</span>`;
+            return `<span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20">${row.writtenToSheet ? 'Đã ghi, thiếu giá' : 'Thiếu giá'}</span>`;
         }
         if (row.status === 'skipped') {
-            return `<span class="badge bg-secondary bg-opacity-25 text-light opacity-75">Bỏ qua</span>`;
+            return `<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-20">Bỏ qua</span>`;
         }
-        return `<span class="badge bg-secondary bg-opacity-25 text-light">${escapeHtml(row.status || 'Chờ chạy')}</span>`;
+        return `<span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-20">${escapeHtml(row.status || 'Chờ chạy')}</span>`;
     }
 
     function renderSheetPricingRows() {
@@ -60,7 +168,7 @@
         if (state.rows.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="text-center text-light opacity-75 py-4">Chưa có dữ liệu nào được tải về.</td>
+                    <td colspan="10" class="text-center text-secondary py-5">Chưa có dữ liệu nào được tải về. Hãy chọn cấu hình và chạy quét.</td>
                 </tr>
             `;
             return;
@@ -72,15 +180,15 @@
             const marketCount = row.marketPrices ? row.marketPrices.length : 0;
             return `
                 <tr onclick="showProductDetails('${escapeHtml(row.sheetName)}', ${row.rowNumber})" data-bs-toggle="modal" data-bs-target="#productDetailModal" style="cursor: pointer;" class="align-middle">
-                    <td class="text-center text-light opacity-50 fw-bold">${escapeHtml(row.rowNumber)}</td>
-                    <td><span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">${escapeHtml(row.sheetName || '-')}</span></td>
-                    <td><span class="badge bg-secondary bg-opacity-10 text-white border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
+                    <td class="text-center text-secondary fw-bold">${escapeHtml(row.rowNumber)}</td>
+                    <td><span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-20">${escapeHtml(row.sheetName || '-')}</span></td>
+                    <td><span class="badge bg-light text-dark border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
                     <td>${escapeHtml(row.brand || '-')}</td>
-                    <td class="fw-semibold text-white">${escapeHtml(row.model || '-')}</td>
-                    <td class="text-center price-badge">${formatMoney(row.salePriceValue)}</td>
+                    <td class="fw-bold">${escapeHtml(row.model || '-')}</td>
+                    <td class="text-end price-badge">${formatMoney(row.salePriceValue)}</td>
                     <td class="text-center">${marketCount}</td>
-                    <td class="text-center price-badge text-success">${formatMoney(minPriceVal)}</td>
-                    <td class="text-center price-badge text-warning fw-bold">${formatMoney(suggestedPriceVal)}</td>
+                    <td class="text-end price-badge text-success">${formatMoney(minPriceVal)}</td>
+                    <td class="text-end price-badge text-warning fw-bold">${formatMoney(suggestedPriceVal)}</td>
                     <td class="text-center">${statusLabel(row)}</td>
                 </tr>
             `;
@@ -137,6 +245,7 @@
     }
 
     function collectPricingForm() {
+        syncSelectedSheetNames();
         return {
             appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value.trim(),
             sheetUrl: document.getElementById('pricingSheetUrl')?.value.trim(),
@@ -159,6 +268,13 @@
             const el = document.getElementById(id);
             if (el) el.disabled = disabled;
         });
+
+        document.querySelectorAll('#pricingSheetList input').forEach((el) => {
+            el.disabled = disabled;
+        });
+
+        const reloadButton = document.getElementById('btnReloadSheetNames');
+        if (reloadButton) reloadButton.disabled = disabled;
     }
 
     function setPricingButtons(running) {
@@ -175,7 +291,7 @@
     }
 
     function translateStatus(status) {
-        switch(status) {
+        switch (status) {
             case 'running': return 'Đang chạy...';
             case 'completed': return 'Hoàn tất';
             case 'stopped': return 'Đã dừng';
@@ -185,7 +301,7 @@
     }
 
     function getStatusTone(status) {
-        switch(status) {
+        switch (status) {
             case 'running': return 'running';
             case 'completed': return 'success';
             case 'stopped': return 'warning';
@@ -202,7 +318,7 @@
         if (level === 'success') cls = 'log-success';
         if (level === 'warning') cls = 'log-warning';
         if (level === 'error') cls = 'log-error';
-        
+
         termBody.innerHTML += `<span class="log-line"><span class="log-time">${timestamp}</span><span class="${cls}">${escapeHtml(message)}</span></span>`;
         termBody.scrollTop = termBody.scrollHeight;
     }
@@ -222,7 +338,7 @@
                     state.writes = data.writeCount || 0;
                     state.totalRows = data.totalRows || 0;
                     state.rows = data.rows || [];
-                    
+
                     refreshSummary();
                     renderSheetPricingRows();
 
@@ -256,8 +372,8 @@
 
     async function runClientSidePricing(form) {
         logToTerminal(`Khởi tạo tiến trình quét phía client...`, 'info');
-        
-        const sheetNames = String(form.sheetName).split(',').map(s => s.trim()).filter(Boolean);
+
+        const sheetNames = normalizeSelectedSheetNames(form.sheetName);
         if (sheetNames.length === 0) {
             throw new Error('Tên sheet không hợp lệ.');
         }
@@ -287,7 +403,7 @@
         }
 
         logToTerminal(`Đang tải danh sách sản phẩm từ các sheet: ${sheetNames.join(', ')}...`, 'info');
-        
+
         try {
             const fetchPromises = sheetNames.map(async (name) => {
                 const response = await fetch('/api/sheet-pricing', {
@@ -302,21 +418,21 @@
                         endRow: form.endRow,
                     })
                 });
-                
+
                 const data = await response.json();
                 if (!response.ok || data.ok === false) {
                     throw new Error(data.error || `Lỗi tải dữ liệu từ sheet "${name}".`);
                 }
-                
+
                 const rows = data.rows || [];
                 logToTerminal(`Đã tải ${rows.length} dòng từ sheet "${name}".`, 'success');
-                
+
                 return rows.map(r => ({ ...r, sheetName: name }));
             });
 
             const allResults = await Promise.all(fetchPromises);
             const mergedRows = allResults.flat();
-            
+
             logToTerminal(`Tổng cộng đã nạp ${mergedRows.length} dòng từ Google Sheet.`, 'success');
 
             // Reset job state
@@ -328,11 +444,15 @@
             state.writes = 0;
             state.rows = mergedRows.map(row => {
                 const originalModel = String(row.model || '').trim();
+                let cleanedModel = originalModel;
+                if (cleanedModel.endsWith('.0')) {
+                    cleanedModel = cleanedModel.slice(0, -2);
+                }
                 let model = originalModel;
                 let mapped = false;
-                if (/^\d+$/.test(originalModel)) {
-                    if (modelMapping[originalModel]) {
-                        model = modelMapping[originalModel];
+                if (/^\d+$/.test(cleanedModel)) {
+                    if (modelMapping[cleanedModel]) {
+                        model = modelMapping[cleanedModel];
                         mapped = true;
                     }
                 }
@@ -374,7 +494,11 @@
                 if (!model) return false;
                 const trimmed = String(model).trim();
                 if (!trimmed) return false;
-                return !/^\d+$/.test(trimmed);
+                let cleaned = trimmed;
+                if (cleaned.endsWith('.0')) {
+                    cleaned = cleaned.slice(0, -2);
+                }
+                return !/^\d+$/.test(cleaned);
             };
 
             // Process skipped rows
@@ -503,6 +627,13 @@
                         });
 
                         const processData = await processRes.json();
+                        if (!state.running) {
+                            if (localRow) {
+                                localRow.status = 'skipped';
+                                localRow.errorMessage = 'Đã dừng theo yêu cầu người dùng.';
+                            }
+                            break;
+                        }
                         if (!processRes.ok || processData.ok === false) {
                             throw new Error(processData.error || 'Lỗi cào dòng.');
                         }
@@ -602,7 +733,7 @@
         state.running = true;
         setPricingButtons(true);
         setPricingStatus('Khởi tạo...', 'running');
-        
+
         const termBody = document.getElementById('terminalBody');
         if (termBody) {
             termBody.innerHTML = `<span class="log-line text-info">Đang kết nối và khởi chạy quét dữ liệu...</span>`;
@@ -659,6 +790,59 @@
         }
     }
 
+    async function loadSheetNames() {
+        const appsScriptUrl = document.getElementById('pricingAppsScriptUrl')?.value.trim();
+        const sheetUrl = document.getElementById('pricingSheetUrl')?.value.trim();
+        const listEl = document.getElementById('pricingSheetList');
+        const hiddenInput = document.getElementById('pricingSheetName');
+        if (!listEl || !hiddenInput) return;
+        if (!appsScriptUrl || !sheetUrl) {
+            listEl.innerHTML = '<div class="text-light opacity-75">(Nhập Config trước)</div>';
+            hiddenInput.value = '';
+            updateSheetSelectionSummary([]);
+            return;
+        }
+
+        listEl.innerHTML = '<div class="text-light opacity-75">Đang tải danh sách sheet...</div>';
+        try {
+            const response = await fetch('/api/sheet-pricing', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'list-sheets',
+                    appsScriptUrl,
+                    sheetUrl,
+                })
+            });
+            const data = await response.json();
+            if (!response.ok || !data || data.ok === false || !Array.isArray(data.sheets)) {
+                const errorMessage = data?.error || `HTTP ${response.status}`;
+                listEl.innerHTML = '<div class="text-danger opacity-75">Lỗi tải danh sách sheet.</div>';
+                hiddenInput.value = '';
+                updateSheetSelectionSummary([]);
+                logToTerminal(`Khong tai duoc danh sach sheet: ${errorMessage}`, 'error');
+                return;
+            }
+            if (data && data.ok !== false && data.sheets) {
+                const visibleSheets = data.sheets.filter((sheet) => sheet !== '18.Mã sản phẩm');
+                const initialSelection = normalizeSelectedSheetNames(hiddenInput.value || state.initialSheetName)
+                    .filter((sheet) => visibleSheets.includes(sheet));
+                renderSheetOptions(visibleSheets, initialSelection);
+                return;
+            } else {
+                listEl.innerHTML = '<div class="text-danger opacity-75">Lỗi tải danh sách sheet.</div>';
+                hiddenInput.value = '';
+                updateSheetSelectionSummary([]);
+            }
+        } catch (err) {
+            console.error('Failed to load sheet list:', err);
+            listEl.innerHTML = '<div class="text-danger opacity-75">Lỗi tải danh sách sheet.</div>';
+            hiddenInput.value = '';
+            updateSheetSelectionSummary([]);
+            logToTerminal(`Khong tai duoc danh sach sheet: ${err.message}`, 'error');
+        }
+    }
+
     async function loadConfig() {
         try {
             const response = await fetch('/api/sheet-pricing/config');
@@ -670,9 +854,10 @@
                 if (data.sheetUrl && document.getElementById('pricingSheetUrl')) {
                     document.getElementById('pricingSheetUrl').value = data.sheetUrl;
                 }
-                if (data.sheetName && document.getElementById('pricingSheetName')) {
-                    document.getElementById('pricingSheetName').value = data.sheetName;
+                if (data.sheetName) {
+                    state.initialSheetName = data.sheetName;
                 }
+                await loadSheetNames();
             }
         } catch (error) {
             console.error('Failed to load environment config:', error);
@@ -722,10 +907,21 @@
         }
     }
 
+
+
+    ['pricingAppsScriptUrl', 'pricingSheetUrl'].forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('change', loadSheetNames);
+            input.addEventListener('blur', loadSheetNames);
+        }
+    });
+
     loadConfig();
     setPricingStatus('Chờ chạy', 'idle');
 
     window.startSheetPricingJob = startSheetPricingJob;
     window.stopSheetPricingJob = stopSheetPricingJob;
     window.showProductDetails = showProductDetails;
+    window.loadSheetNames = loadSheetNames;
 })();

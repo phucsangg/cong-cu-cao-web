@@ -92,6 +92,14 @@ const server = http.createServer(async (req, res) => {
                 return sendJson(res, 200, { ok: true, mapping });
             }
 
+            if (action === 'list-sheets') {
+                const data = await sheetPricingService.listSpreadsheetSheets({
+                    appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                    sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                });
+                return sendJson(res, 200, { ok: true, sheets: data.sheets || [] });
+            }
+
             if (action === 'fetch-sheet') {
                 const data = await sheetPricingService.readSheetRows({
                     appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,

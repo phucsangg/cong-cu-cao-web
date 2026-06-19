@@ -3,6 +3,7 @@ const {
     writeSheetUpdates,
     processPricingRow,
     loadModelMapping,
+    listSpreadsheetSheets,
 } = require('../../lib/sheet-pricing-service.js');
 
 const headers = {
@@ -56,6 +57,18 @@ exports.handler = async (event) => {
             return json(200, {
                 ok: true,
                 mapping,
+            });
+        }
+
+        if (action === 'list-sheets') {
+            const data = await listSpreadsheetSheets({
+                appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+            });
+
+            return json(200, {
+                ok: true,
+                sheets: data.sheets || [],
             });
         }
 

@@ -59,10 +59,22 @@ function buildHeaderMap(headers) {
 function getSheet_(sheetId, sheetName) {
   var spreadsheet = SpreadsheetApp.openById(sheetId);
   var sheet = spreadsheet.getSheetByName(sheetName);
-  if (!sheet) {
-    throw new Error('Khong tim thay sheet: ' + sheetName);
+  if (sheet) {
+    return sheet;
   }
-  return sheet;
+
+  // Fallback: match by normalized name (ignoring casing, spacing, and accents)
+  var normTarget = normalizeText(sheetName).replace(/[^a-z0-9]/g, '');
+  var sheets = spreadsheet.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    var name = sheets[i].getName();
+    var normName = normalizeText(name).replace(/[^a-z0-9]/g, '');
+    if (normName === normTarget) {
+      return sheets[i];
+    }
+  }
+
+  throw new Error('Khong tim thay sheet: ' + sheetName);
 }
 
 function readRows_(sheetId, sheetName, startRow, endRow, headerRow) {
@@ -196,11 +208,26 @@ function writePricing_(payload) {
   };
 }
 
+function listSheets_(sheetId) {
+  var spreadsheet = SpreadsheetApp.openById(sheetId);
+  var sheets = spreadsheet.getSheets();
+  var names = sheets.map(function(sheet) {
+    return sheet.getName();
+  });
+  return {
+    ok: true,
+    sheets: names
+  };
+}
+
 function doGet(e) {
   try {
     var params = e.parameter || {};
     if (params.action === 'readRows') {
       return jsonOutput(readRows_(params.sheetId, params.sheetName, params.startRow, params.endRow, params.headerRow));
+    }
+    if (params.action === 'listSheets') {
+      return jsonOutput(listSheets_(params.sheetId));
     }
 
     return jsonOutput({

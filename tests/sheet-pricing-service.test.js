@@ -6,6 +6,12 @@ const {
     isLikelyProductDetailUrl,
     processPricingRow,
     loadModelMapping,
+    normalizeSelectedSheetNames,
+    isModelMatch,
+    extractSheetNamesFromSpreadsheetHtml,
+    startBackgroundPricingJob,
+    getBackgroundPricingJobStatus,
+    stopBackgroundPricingJob,
 } = require('../lib/sheet-pricing-service.js');
 
 test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
@@ -19,6 +25,7 @@ test('isLikelyProductDetailUrl rejects category and search pages', () => {
     assert.equal(isLikelyProductDetailUrl('https://example.com/bep-tu/kocher-di-333-pro.html'), true);
     assert.equal(isLikelyProductDetailUrl('https://example.com/collections/bep-tu'), false);
     assert.equal(isLikelyProductDetailUrl('https://example.com/search?q=kocher+di333pro'), false);
+    assert.equal(isLikelyProductDetailUrl('https://bepngocbao.vn/products/may-xay-sinh-to-tefal-perfectmix-bl871d31'), false);
 });
 
 test('processPricingRow filters links, keeps top 10 prices, and builds sheet update payload', async () => {
@@ -240,6 +247,259 @@ test('loadModelMapping loads mapping rows and parses columns correctly', async (
     });
 });
 
+test('loadModelMapping requests the real 18.Mã sản phẩm sheet name', async () => {
+    let requestedUrl = '';
+    const mockFetch = async (url) => {
+        requestedUrl = String(url);
+        return {
+            ok: true,
+            json: async () => ({
+                headers: ['Thương hiệu', 'Mã sản phẩm', 'Model'],
+                rows: [],
+            })
+        };
+    };
+
+    await loadModelMapping({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        fetchImpl: mockFetch,
+    });
+
+    const parsed = new URL(requestedUrl);
+    assert.equal(parsed.searchParams.get('sheetName'), '18.Mã sản phẩm');
+});
+
+test('normalizeSelectedSheetNames handles arrays, csv strings, and duplicates', () => {
+    assert.deepEqual(
+        normalizeSelectedSheetNames(['08.Giặt sấy', '12.Xay sinh tố', '08.Giặt sấy']),
+        ['08.Giặt sấy', '12.Xay sinh tố']
+    );
+    assert.deepEqual(
+        normalizeSelectedSheetNames('08.Giặt sấy, 12.Xay sinh tố ,08.Giặt sấy'),
+        ['08.Giặt sấy', '12.Xay sinh tố']
+    );
+    assert.deepEqual(normalizeSelectedSheetNames(''), []);
+});
+
+test('extractSheetNamesFromSpreadsheetHtml parses visible sheet tab captions', () => {
+    const html = `
+        <div class="docs-sheet-tab-caption">08.Giặt sấy</div>
+        <div class="docs-sheet-tab-caption">12.Xay sinh tố</div>
+        <div class="docs-sheet-tab-caption">18.Mã sản phẩm</div>
+    `;
+
+    assert.deepEqual(extractSheetNamesFromSpreadsheetHtml(html), [
+        '08.Giặt sấy',
+        '12.Xay sinh tố',
+        '18.Mã sản phẩm',
+    ]);
+});
+
+test('isLikelyProductDetailUrl with model and expanded keywords', () => {
+    // Model in URL check should bypass standard checks and return true
+    assert.equal(isLikelyProductDetailUrl('https://example.com/p/bl1c0230', 'BL1C0230'), true);
+    // Custom keywords checks
+    assert.equal(isLikelyProductDetailUrl('https://example.com/sp/may-xay', ''), true);
+    assert.equal(isLikelyProductDetailUrl('https://example.com/ct/san-pham-hot', ''), true);
+});
+
+test('processPricingRow checks cleaned numeric codes (float string like 123.0)', async () => {
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 10,
+            productId: 'BT-010',
+            brand: 'Kocher',
+            model: '123.0',
+            salePrice: '9,000,000',
+        },
+        deps: {
+            searchProductLinks: async () => [],
+            extractProductPrice: async () => null,
+        }
+    });
+    // It should be skipped because '123' is purely numeric and has no mapping,
+    // so isValidModel evaluates cleanNumericCode('123.0') -> '123' -> purely numeric -> skipped.
+    assert.equal(result.status, 'skipped');
+});
+
+test('brand-aware prefix model matching matches short model names under the same brand', () => {
+    // Import isModelMatch from sheet-pricing-service
+    const { isModelMatch } = require('../lib/sheet-pricing-service.js');
+    
+    // Exact brand match + prefix digit sequence match
+    assert.equal(isModelMatch('Máy xay sinh tố Tefal BL871D', 'BL871D31', 'Tefal'), true);
+    assert.equal(isModelMatch('Tefal BL871', 'BL871D31', 'Tefal'), true);
+    
+    // Different brand shouldn't match if it doesn't match standard inclusion/digit rules
+    assert.equal(isModelMatch('Panasonic BL871D', 'BL871D31', 'Tefal'), false);
+    
+    // Different model series in same brand shouldn't match (DT8105 vs DT8100)
+    assert.equal(isModelMatch('Bàn ủi hơi nước Tefal DT8105', 'DT8100', 'Tefal'), false);
+});
+
+test('model matching rejects same digits with conflicting suffix letters', () => {
+    assert.equal(isModelMatch('Bosch WQG24570GB', 'WQG24570SG', 'Bosch'), false);
+    assert.equal(
+        isLikelyProductDetailUrl('https://shop.vn/p/bosch-wqg24570gb', 'WQG24570SG', 'Bosch'),
+        false
+    );
+});
+
+test('isFakePrice correctly identifies prices derived from model digits', () => {
+    const { isFakePrice } = require('../lib/sheet-pricing-service.js');
+    
+    // Fake price 871,316 contains BL871D31 digits (87131)
+    assert.equal(isFakePrice(871316, 'BL871D31'), true);
+    
+    // Fake price 102,303 contains BL1C0230 digits (10230)
+    assert.equal(isFakePrice(102303, 'BL1C0230'), true);
+    
+    // Real price is fine
+    assert.equal(isFakePrice(1890000, 'BL871D31'), false);
+    assert.equal(isFakePrice(689000, 'BL1C0230'), false);
+});
+
+test('startBackgroundPricingJob stops before starting the next row after stop is requested', async () => {
+    let releaseFirstRow;
+    let firstRowStarted = false;
+    let secondRowStarted = false;
+
+    const firstRowDone = new Promise((resolve) => {
+        releaseFirstRow = resolve;
+    });
+
+    const jobId = startBackgroundPricingJob({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        sheetName: '08.Giặt sấy',
+        rowsConcurrency: 1,
+        linksConcurrency: 1,
+        batchSize: 10,
+        deps: {
+            loadModelMapping: async () => ({}),
+            readSheetRows: async () => ({
+                rows: [
+                    { rowNumber: 3, productId: 'A', brand: 'Bosch', model: 'WQB245B40', salePrice: '25,000,000', marketPrices: [] },
+                    { rowNumber: 4, productId: 'B', brand: 'Bosch', model: 'WQG24570SG', salePrice: '18,000,000', marketPrices: [] },
+                ],
+            }),
+            processPricingRow: async ({ row, deps }) => {
+                if (row.rowNumber === 3) {
+                    firstRowStarted = true;
+                    await firstRowDone;
+                    if (deps.shouldStop && deps.shouldStop()) {
+                        throw new Error('STOP_REQUESTED');
+                    }
+                    return {
+                        rowNumber: 3,
+                        productId: 'A',
+                        brand: 'Bosch',
+                        model: 'WQB245B40',
+                        matchedUrls: [],
+                        matchedDetails: [],
+                        totalLinksCount: 0,
+                        marketPrices: [23900000, 24000000, 24100000],
+                        hasNewPrices: true,
+                        minPrice: 23900000,
+                        gapValue: 1100000,
+                        gapPercent: 0.044,
+                        suggestedPrice: 23979667,
+                        outlierRemoved: false,
+                        status: 'success',
+                    };
+                }
+
+                secondRowStarted = true;
+                return {
+                    rowNumber: 4,
+                    productId: 'B',
+                    brand: 'Bosch',
+                    model: 'WQG24570SG',
+                    matchedUrls: [],
+                    matchedDetails: [],
+                    totalLinksCount: 0,
+                    marketPrices: [16500000, 16600000, 16700000],
+                    hasNewPrices: true,
+                    minPrice: 16500000,
+                    gapValue: 1500000,
+                    gapPercent: 0.083,
+                    suggestedPrice: 16517000,
+                    outlierRemoved: false,
+                    status: 'success',
+                };
+            },
+            writeSheetUpdates: async () => ({ updated: 1 }),
+        },
+    });
+
+    for (let i = 0; i < 20 && !firstRowStarted; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(firstRowStarted, true);
+
+    assert.equal(stopBackgroundPricingJob(jobId), true);
+    releaseFirstRow();
+
+    for (let i = 0; i < 40; i += 1) {
+        const status = getBackgroundPricingJobStatus(jobId);
+        if (status && status.status === 'stopped') {
+            break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const status = getBackgroundPricingJobStatus(jobId);
+    assert.equal(status.status, 'stopped');
+    assert.equal(secondRowStarted, false);
+});
+
+test('model matching rejects partial digit sequence matches like WQG245 for WQG24570GB', () => {
+    const { isModelMatch } = require('../lib/sheet-pricing-service.js');
+    // WQG245 has digits 245, WQG24570GB has digits 24570. They should not match because digits conflict.
+    assert.equal(isModelMatch('Bosch WQG24570GB', 'WQG245', 'Bosch'), false);
+    // BL871 (digits 871) vs BL871D31 (digits 87131) without brand match prefix
+    assert.equal(isModelMatch('Máy xay sinh tố Panasonic BL871D31', 'BL871', 'Panasonic'), false);
+});
+
+test('loadModelMapping resolves sheet name via listSheets to prevent unicode mismatches', async () => {
+    const requestedSheetNames = [];
+    const mockFetch = async (url) => {
+        const parsed = new URL(String(url));
+        const action = parsed.searchParams.get('action');
+        if (action === 'listSheets') {
+            return {
+                ok: true,
+                json: async () => ({
+                    ok: true,
+                    sheets: ['08.Giặt sấy', '18.Mã sản phẩm'] // decomposed unicode version
+                })
+            };
+        }
+        if (action === 'readRows') {
+            requestedSheetNames.push(parsed.searchParams.get('sheetName'));
+            return {
+                ok: true,
+                json: async () => ({
+                    headers: ['Thương hiệu', 'Mã sản phẩm', 'Model'],
+                    rows: [
+                        { rowNumber: 2, values: ['Tefal', '2100112290', 'G2550402'] }
+                    ]
+                })
+            };
+        }
+        return { ok: false };
+    };
+
+    const mapping = await loadModelMapping({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        fetchImpl: mockFetch,
+    });
+
+    assert.deepEqual(mapping, { '2100112290': 'G2550402' });
+    assert.deepEqual(requestedSheetNames, ['18.Mã sản phẩm']);
+});
 
 
 
