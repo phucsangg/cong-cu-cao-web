@@ -225,7 +225,7 @@
             }
 
             return `
-                <tr onclick="showProductDetails('${escapeHtml(row.sheetName)}', ${row.rowNumber})" data-bs-toggle="modal" data-bs-target="#productDetailModal" style="cursor: pointer;" class="align-middle">
+                <tr class="align-middle">
                     <td class="text-center text-secondary fw-bold">${escapeHtml(row.rowNumber)}</td>
                     <td><span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-20">${escapeHtml(row.sheetName || '-')}</span></td>
                     <td><span class="badge bg-light text-dark border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
@@ -1020,57 +1020,6 @@
         }
     }
 
-    function showProductDetails(sheetName, rowNumber) {
-        console.log('showProductDetails called with:', { sheetName, rowNumber });
-        console.log('Current state.rows:', state.rows);
-        const row = state.rows.find(r => {
-            const nameMatch = normalizeVietnameseText(r.sheetName) === normalizeVietnameseText(sheetName);
-            const numMatch = Number(r.rowNumber) === Number(rowNumber);
-            return nameMatch && numMatch;
-        });
-        if (!row) return;
-
-        const titleEl = document.getElementById('modalProductTitle');
-        const codeEl = document.getElementById('modalProductCode');
-        const tableBody = document.getElementById('modalUrlsTableBody');
-
-        if (titleEl) titleEl.innerText = `${row.brand || ''} ${row.model || ''}`;
-        if (codeEl) codeEl.innerText = row.productId || '-';
-
-        if (tableBody) {
-            if (!row.matchedDetails || row.matchedDetails.length === 0) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="2" class="text-center text-light opacity-75 py-3">Không có liên kết giá nào được tìm thấy.</td>
-                    </tr>
-                `;
-            } else {
-                tableBody.innerHTML = row.matchedDetails.map(detail => {
-                    return `
-                        <tr>
-                            <td>
-                                <a href="${escapeHtml(detail.url)}" target="_blank" class="text-accent text-decoration-none" style="word-break: break-all; color: var(--accent-color);">
-                                    ${escapeHtml(detail.url)}
-                                </a>
-                            </td>
-                            <td class="text-end fw-bold text-success price-badge" style="width: 150px; font-family: 'JetBrains Mono', monospace;">
-                                ${formatMoney(detail.price)}
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-        }
-
-        const modalElement = document.getElementById('productDetailModal');
-        if (modalElement) {
-            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-            modal.show();
-        }
-    }
-
-
-
     ['pricingAppsScriptUrl', 'pricingSheetUrl'].forEach((id) => {
         const input = document.getElementById(id);
         if (input) {
@@ -1143,10 +1092,13 @@
             return;
         }
 
+        const productName = `${row.brand} ${row.model}`;
+        const confirmed = confirm(`Cập nhật giá cho sản phẩm ${productName} với giá đề xuất ${formatMoney(row.suggestedPrice)}?`);
+        if (!confirmed) return;
+
         row.haravanUpdateState = 'updating';
         renderSheetPricingRows();
 
-        const productName = `${row.brand} ${row.model}`;
         logToTerminal(`[Cập nhật] Đang cập nhật giá Haravan cho sản phẩm ${productName} (ID: ${variantId}) với giá đề xuất ${formatMoney(row.suggestedPrice)}...`, 'info');
 
         try {
@@ -1167,6 +1119,7 @@
             }
             logToTerminal(`[Cập nhật] Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
             row.haravanUpdateState = 'accepted';
+            alert(`Cập nhật giá Haravan thành công cho sản phẩm ${productName}!`);
         } catch (upErr) {
             logToTerminal(`[Cập nhật] Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
             alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
@@ -1186,7 +1139,6 @@
 
     window.startSheetPricingJob = startSheetPricingJob;
     window.stopSheetPricingJob = stopSheetPricingJob;
-    window.showProductDetails = showProductDetails;
     window.loadSheetNames = loadSheetNames;
     window.syncHaravanIds = syncHaravanIds;
     window.acceptPriceUpdate = acceptPriceUpdate;
