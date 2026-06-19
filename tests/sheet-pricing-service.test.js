@@ -15,6 +15,7 @@ const {
     syncHaravanIds,
     loadHaravanMapping,
     updateHaravanVariantPrice,
+    sendTelegramNotification,
 } = require('../lib/sheet-pricing-service.js');
 
 test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
@@ -937,6 +938,40 @@ test('processPricingRow mock crawls for sheet 21.Test', async () => {
     assert.equal(result.marketPrices[0], 100000);
     assert.equal(result.matchedUrls[0], 'https://mock-market-test.vn/cleer-test-p1');
 });
+
+test('sendTelegramNotification dispatches correct POST request to Telegram API', async () => {
+    let capturedUrl = null;
+    let capturedOptions = null;
+
+    const mockFetch = async (url, options = {}) => {
+        capturedUrl = String(url);
+        capturedOptions = options;
+        return {
+            ok: true,
+            json: async () => ({ ok: true, result: { message_id: 99 } })
+        };
+    };
+
+    const result = await sendTelegramNotification({
+        telegramBotToken: '123456:mocktoken',
+        telegramChatId: '-100200300',
+        message: 'Hello <b>World</b>',
+        fetchImpl: mockFetch
+    });
+
+    assert.deepEqual(result, { ok: true, result: { message_id: 99 } });
+    assert.equal(capturedUrl, 'https://api.telegram.org/bot123456:mocktoken/sendMessage');
+    assert.equal(capturedOptions.method, 'POST');
+    assert.equal(capturedOptions.headers['Content-Type'], 'application/json');
+
+    const body = JSON.parse(capturedOptions.body);
+    assert.deepEqual(body, {
+        chat_id: '-100200300',
+        text: 'Hello <b>World</b>',
+        parse_mode: 'HTML'
+    });
+});
+
 
 
 

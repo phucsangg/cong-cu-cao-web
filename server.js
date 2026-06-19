@@ -72,6 +72,8 @@ const server = http.createServer(async (req, res) => {
             appsScriptUrl: process.env.APPS_SCRIPT_URL || '',
             sheetUrl: process.env.SHEET_URL || '',
             sheetName: process.env.SHEET_NAME || '',
+            telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
+            telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
         });
     }
 
@@ -124,6 +126,15 @@ const server = http.createServer(async (req, res) => {
                     haravanAccessToken: payload.haravanAccessToken,
                     variantId: payload.variantId,
                     price: payload.price,
+                });
+                return sendJson(res, 200, { ok: true, result });
+            }
+
+            if (action === 'telegram-notify') {
+                const result = await sheetPricingService.sendTelegramNotification({
+                    telegramBotToken: payload.telegramBotToken,
+                    telegramChatId: payload.telegramChatId,
+                    message: payload.message,
                 });
                 return sendJson(res, 200, { ok: true, result });
             }

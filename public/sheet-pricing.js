@@ -751,16 +751,19 @@
                                                 }
                                                 logToTerminal(`Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
                                                 localRow.haravanUpdateState = 'accepted';
+                                                await sendTelegramUpdateNotification(localRow, 'accept', 'Thành công');
                                             } catch (upErr) {
                                                 logToTerminal(`Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
                                                 alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
                                                 localRow.haravanUpdateState = null;
+                                                await sendTelegramUpdateNotification(localRow, 'accept', `Lỗi: ${upErr.message}`);
                                             }
                                             renderSheetPricingRows();
                                         } else {
                                             logToTerminal(`Bỏ qua cập nhật giá Haravan cho sản phẩm ${productName}.`, 'warning');
                                             localRow.haravanUpdateState = 'rejected';
                                             renderSheetPricingRows();
+                                            await sendTelegramUpdateNotification(localRow, 'reject', 'Đã từ chối');
                                         }
                                     } else {
                                         logToTerminal(`Không tìm thấy ID Haravan cho sản phẩm ${currentRow.brand} ${currentRow.model} trong sheet 20. ID Haravan.`, 'warning');
@@ -1010,6 +1013,12 @@
                 if (data.sheetUrl && document.getElementById('pricingSheetUrl')) {
                     document.getElementById('pricingSheetUrl').value = data.sheetUrl;
                 }
+                if (data.telegramBotToken && document.getElementById('telegramBotToken')) {
+                    document.getElementById('telegramBotToken').value = data.telegramBotToken;
+                }
+                if (data.telegramChatId && document.getElementById('telegramChatId')) {
+                    document.getElementById('telegramChatId').value = data.telegramChatId;
+                }
                 if (data.sheetName) {
                     state.initialSheetName = data.sheetName;
                 }
@@ -1081,6 +1090,41 @@
         }
     }
 
+    async function sendTelegramUpdateNotification(row, action, statusMessage) {
+        const token = document.getElementById('telegramBotToken')?.value.trim();
+        const chatId = document.getElementById('telegramChatId')?.value.trim();
+
+        if (!token || !chatId) return;
+
+        const productName = `${row.brand || ''} ${row.model || ''}`;
+        const formattedPrice = formatMoney(row.suggestedPrice);
+
+        const message = [
+            `<b>🔔 Cập nhật giá Haravan</b>`,
+            `<b>Sản phẩm:</b> ${productName}`,
+            `<b>Mã SP:</b> ${row.productId || '-'}`,
+            `<b>Sheet:</b> ${row.sheetName || '-'}`,
+            `<b>Giá đề xuất:</b> ${formattedPrice}`,
+            `<b>Hành động:</b> ${action === 'accept' ? 'Chấp nhận cập nhật' : 'Từ chối cập nhật'}`,
+            `<b>Trạng thái:</b> ${statusMessage}`
+        ].join('\n');
+
+        try {
+            await fetch('/api/sheet-pricing', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'telegram-notify',
+                    telegramBotToken: token,
+                    telegramChatId: chatId,
+                    message: message
+                })
+            });
+        } catch (err) {
+            console.error('Lỗi khi gửi thông báo Telegram:', err);
+        }
+    }
+
     async function acceptPriceUpdate(sheetName, rowNumber) {
         const row = state.rows.find((r) => r.sheetName === sheetName && r.rowNumber === rowNumber);
         if (!row) return;
@@ -1120,10 +1164,12 @@
             logToTerminal(`[Cập nhật] Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
             row.haravanUpdateState = 'accepted';
             alert(`Cập nhật giá Haravan thành công cho sản phẩm ${productName}!`);
+            await sendTelegramUpdateNotification(row, 'accept', 'Thành công');
         } catch (upErr) {
             logToTerminal(`[Cập nhật] Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
             alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
             row.haravanUpdateState = null;
+            await sendTelegramUpdateNotification(row, 'accept', `Lỗi: ${upErr.message}`);
         }
         renderSheetPricingRows();
     }
@@ -1135,6 +1181,7 @@
         const productName = `${row.brand} ${row.model}`;
         logToTerminal(`[Cập nhật] Đã từ chối cập nhật giá cho sản phẩm ${productName}.`, 'warning');
         renderSheetPricingRows();
+        sendTelegramUpdateNotification(row, 'reject', 'Đã từ chối');
     }
 
     window.startSheetPricingJob = startSheetPricingJob;
