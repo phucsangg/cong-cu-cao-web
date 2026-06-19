@@ -1021,7 +1021,13 @@
     }
 
     function showProductDetails(sheetName, rowNumber) {
-        const row = state.rows.find(r => r.sheetName === sheetName && Number(r.rowNumber) === Number(rowNumber));
+        console.log('showProductDetails called with:', { sheetName, rowNumber });
+        console.log('Current state.rows:', state.rows);
+        const row = state.rows.find(r => {
+            const nameMatch = normalizeVietnameseText(r.sheetName) === normalizeVietnameseText(sheetName);
+            const numMatch = Number(r.rowNumber) === Number(rowNumber);
+            return nameMatch && numMatch;
+        });
         if (!row) return;
 
         const titleEl = document.getElementById('modalProductTitle');
