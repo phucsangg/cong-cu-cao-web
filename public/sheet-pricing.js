@@ -183,7 +183,7 @@
         if (state.rows.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="text-center text-secondary py-5">Chưa có dữ liệu nào được tải về. Hãy chọn cấu hình và chạy quét.</td>
+                    <td colspan="11" class="text-center text-secondary py-5">Chưa có dữ liệu nào được tải về. Hãy chọn cấu hình và chạy quét.</td>
                 </tr>
             `;
             return;
@@ -193,6 +193,37 @@
             const minPriceVal = row.minPrice;
             const suggestedPriceVal = row.suggestedPrice;
             const marketCount = row.marketPrices ? row.marketPrices.length : 0;
+
+            let haravanCol = '-';
+            const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+            const variantId = window.haravanMapping?.[key];
+            if (row.suggestedPrice && variantId) {
+                if (row.haravanUpdateState === 'accepted') {
+                    haravanCol = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20"><i class="bi bi-check-circle-fill me-1"></i>Đã chấp nhận</span>`;
+                } else if (row.haravanUpdateState === 'rejected') {
+                    haravanCol = `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20"><i class="bi bi-x-circle-fill me-1"></i>Đã từ chối</span>`;
+                } else if (row.haravanUpdateState === 'updating') {
+                    haravanCol = `<span class="spinner-border spinner-border-sm text-primary me-1" role="status" style="width: 0.85rem; height: 0.85rem;"></span> <span class="text-secondary" style="font-size: 0.8rem;">Đang cập nhật...</span>`;
+                } else {
+                    haravanCol = `
+                        <div class="d-flex justify-content-center gap-1">
+                            <button class="btn btn-xs btn-success py-1 px-2 text-white fw-bold" style="font-size: 0.7rem; border-radius: 4px;" onclick="event.stopPropagation(); acceptPriceUpdate('${escapeHtml(row.sheetName)}', ${row.rowNumber})">
+                                Chấp nhận
+                            </button>
+                            <button class="btn btn-xs btn-outline-danger py-1 px-2 fw-bold" style="font-size: 0.7rem; border-radius: 4px;" onclick="event.stopPropagation(); rejectPriceUpdate('${escapeHtml(row.sheetName)}', ${row.rowNumber})">
+                                Từ chối
+                            </button>
+                        </div>
+                    `;
+                }
+            } else if (row.suggestedPrice && !variantId) {
+                if (window.haravanMappingLoaded) {
+                    haravanCol = `<span class="text-muted opacity-75" style="font-size: 0.75rem;">Không có ID Haravan</span>`;
+                } else {
+                    haravanCol = `<span class="text-muted opacity-75" style="font-size: 0.75rem;">Chưa đồng bộ ID</span>`;
+                }
+            }
+
             return `
                 <tr onclick="showProductDetails('${escapeHtml(row.sheetName)}', ${row.rowNumber})" data-bs-toggle="modal" data-bs-target="#productDetailModal" style="cursor: pointer;" class="align-middle">
                     <td class="text-center text-secondary fw-bold">${escapeHtml(row.rowNumber)}</td>
@@ -205,6 +236,7 @@
                     <td class="text-end price-badge text-success">${formatMoney(minPriceVal)}</td>
                     <td class="text-end price-badge text-warning fw-bold">${formatMoney(suggestedPriceVal)}</td>
                     <td class="text-center">${statusLabel(row)}</td>
+                    <td class="text-center">${haravanCol}</td>
                 </tr>
             `;
         }).join('');
@@ -418,8 +450,10 @@
         }
 
         const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
+        const haravanToken = document.getElementById('haravanAccessToken')?.value.trim();
         window.haravanMapping = {};
-        if (updateHaravanEnabled) {
+        window.haravanMappingLoaded = false;
+        if (updateHaravanEnabled || haravanToken) {
             logToTerminal(`Đang tải bảng ánh xạ Haravan ID từ sheet 20. ID Haravan...`, 'info');
             try {
                 const haravanMappingResponse = await fetch('/api/sheet-pricing', {
@@ -434,6 +468,7 @@
                 const haravanMappingData = await haravanMappingResponse.json();
                 if (haravanMappingResponse.ok && haravanMappingData.ok !== false && haravanMappingData.mapping) {
                     window.haravanMapping = haravanMappingData.mapping;
+                    window.haravanMappingLoaded = true;
                     const mappingKeys = Object.keys(window.haravanMapping);
                     logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ ID từ 20. ID Haravan.`, 'success');
                 } else {
@@ -724,6 +759,8 @@
                                         const confirmed = confirm(`Cập nhật giá cho sản phẩm ${productName} với giá đề xuất ${result.suggestedPrice.toLocaleString('vi-VN')} đ?`);
                                         if (confirmed) {
                                             logToTerminal(`Đang cập nhật giá Haravan cho sản phẩm ${productName} (ID: ${variantId})...`, 'info');
+                                            localRow.haravanUpdateState = 'updating';
+                                            renderSheetPricingRows();
                                             try {
                                                 const updateRes = await fetch('/api/sheet-pricing', {
                                                     method: 'POST',
@@ -741,12 +778,17 @@
                                                     throw new Error(updateData.error || `HTTP ${updateRes.status}`);
                                                 }
                                                 logToTerminal(`Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
+                                                localRow.haravanUpdateState = 'accepted';
                                             } catch (upErr) {
                                                 logToTerminal(`Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
                                                 alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
+                                                localRow.haravanUpdateState = null;
                                             }
+                                            renderSheetPricingRows();
                                         } else {
                                             logToTerminal(`Bỏ qua cập nhật giá Haravan cho sản phẩm ${productName}.`, 'warning');
+                                            localRow.haravanUpdateState = 'rejected';
+                                            renderSheetPricingRows();
                                         }
                                     } else {
                                         logToTerminal(`Không tìm thấy ID Haravan cho sản phẩm ${currentRow.brand} ${currentRow.model} trong sheet 20. ID Haravan.`, 'warning');
@@ -1071,9 +1113,63 @@
         }
     }
 
+    async function acceptPriceUpdate(sheetName, rowNumber) {
+        const row = state.rows.find((r) => r.sheetName === sheetName && r.rowNumber === rowNumber);
+        if (!row) return;
+
+        const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+        const variantId = window.haravanMapping?.[key];
+        if (!variantId) {
+            alert('Không tìm thấy ID Haravan cho sản phẩm này.');
+            return;
+        }
+
+        row.haravanUpdateState = 'updating';
+        renderSheetPricingRows();
+
+        const productName = `${row.brand} ${row.model}`;
+        logToTerminal(`[Cập nhật] Đang cập nhật giá Haravan cho sản phẩm ${productName} (ID: ${variantId}) với giá đề xuất ${formatMoney(row.suggestedPrice)}...`, 'info');
+
+        try {
+            const updateRes = await fetch('/api/sheet-pricing', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'haravan-update-price',
+                    haravanShopUrl: document.getElementById('haravanShopUrl')?.value.trim(),
+                    haravanAccessToken: document.getElementById('haravanAccessToken')?.value.trim(),
+                    variantId: variantId,
+                    price: row.suggestedPrice,
+                })
+            });
+            const updateData = await updateRes.json();
+            if (!updateRes.ok || updateData.ok === false) {
+                throw new Error(updateData.error || `HTTP ${updateRes.status}`);
+            }
+            logToTerminal(`[Cập nhật] Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
+            row.haravanUpdateState = 'accepted';
+        } catch (upErr) {
+            logToTerminal(`[Cập nhật] Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
+            alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
+            row.haravanUpdateState = null;
+        }
+        renderSheetPricingRows();
+    }
+
+    function rejectPriceUpdate(sheetName, rowNumber) {
+        const row = state.rows.find((r) => r.sheetName === sheetName && r.rowNumber === rowNumber);
+        if (!row) return;
+        row.haravanUpdateState = 'rejected';
+        const productName = `${row.brand} ${row.model}`;
+        logToTerminal(`[Cập nhật] Đã từ chối cập nhật giá cho sản phẩm ${productName}.`, 'warning');
+        renderSheetPricingRows();
+    }
+
     window.startSheetPricingJob = startSheetPricingJob;
     window.stopSheetPricingJob = stopSheetPricingJob;
     window.showProductDetails = showProductDetails;
     window.loadSheetNames = loadSheetNames;
     window.syncHaravanIds = syncHaravanIds;
+    window.acceptPriceUpdate = acceptPriceUpdate;
+    window.rejectPriceUpdate = rejectPriceUpdate;
 })();
