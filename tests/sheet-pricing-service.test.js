@@ -16,6 +16,7 @@ const {
     loadHaravanMapping,
     updateHaravanVariantPrice,
     sendTelegramNotification,
+    writeHaravanLog,
 } = require('../lib/sheet-pricing-service.js');
 
 test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
@@ -971,6 +972,43 @@ test('sendTelegramNotification dispatches correct POST request to Telegram API',
         parse_mode: 'HTML'
     });
 });
+
+test('writeHaravanLog dispatches correct POST request to Apps Script API', async () => {
+    let capturedUrl = null;
+    let capturedOptions = null;
+
+    const mockFetch = async (url, options = {}) => {
+        capturedUrl = String(url);
+        capturedOptions = options;
+        return {
+            ok: true,
+            json: async () => ({ ok: true, written: 1 })
+        };
+    };
+
+    const result = await writeHaravanLog({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        brand: 'Bosch',
+        model: 'SMS4IVI01P',
+        price: '15000000',
+        status: 'Thành công',
+        fetchImpl: mockFetch
+    });
+
+    assert.deepEqual(result, { ok: true, written: 1 });
+    assert.ok(capturedUrl.includes('example/exec'));
+    assert.equal(capturedOptions.method, 'POST');
+
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.action, 'writeHaravanLog');
+    assert.equal(body.sheetId, '1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo');
+    assert.equal(body.brand, 'Bosch');
+    assert.equal(body.model, 'SMS4IVI01P');
+    assert.equal(body.price, '15000000');
+    assert.equal(body.status, 'Thành công');
+});
+
 
 
 

@@ -199,9 +199,9 @@
             const variantId = window.haravanMapping?.[key];
             if (row.suggestedPrice && variantId) {
                 if (row.haravanUpdateState === 'accepted') {
-                    haravanCol = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20"><i class="bi bi-check-circle-fill me-1"></i>Đã chấp nhận</span>`;
+                    haravanCol = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20">✅ Đã chấp nhận</span>`;
                 } else if (row.haravanUpdateState === 'rejected') {
-                    haravanCol = `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20"><i class="bi bi-x-circle-fill me-1"></i>Đã từ chối</span>`;
+                    haravanCol = `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20">❎ Đã từ chối</span>`;
                 } else if (row.haravanUpdateState === 'updating') {
                     haravanCol = `<span class="spinner-border spinner-border-sm text-primary me-1" role="status" style="width: 0.85rem; height: 0.85rem;"></span> <span class="text-secondary" style="font-size: 0.8rem;">Đang cập nhật...</span>`;
                 } else {
@@ -752,11 +752,13 @@
                                                 logToTerminal(`Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
                                                 localRow.haravanUpdateState = 'accepted';
                                                 await sendTelegramUpdateNotification(localRow, 'accept', 'Thành công');
+                                                await logHaravanUpdateToSheet(localRow, 'Thành công');
                                             } catch (upErr) {
                                                 logToTerminal(`Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
                                                 alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
                                                 localRow.haravanUpdateState = null;
                                                 await sendTelegramUpdateNotification(localRow, 'accept', `Lỗi: ${upErr.message}`);
+                                                await logHaravanUpdateToSheet(localRow, `Lỗi: ${upErr.message}`);
                                             }
                                             renderSheetPricingRows();
                                         } else {
@@ -764,6 +766,7 @@
                                             localRow.haravanUpdateState = 'rejected';
                                             renderSheetPricingRows();
                                             await sendTelegramUpdateNotification(localRow, 'reject', 'Đã từ chối');
+                                            await logHaravanUpdateToSheet(localRow, 'Từ chối');
                                         }
                                     } else {
                                         logToTerminal(`Không tìm thấy ID Haravan cho sản phẩm ${currentRow.brand} ${currentRow.model} trong sheet 20. ID Haravan.`, 'warning');
@@ -1125,6 +1128,30 @@
         }
     }
 
+    async function logHaravanUpdateToSheet(row, status) {
+        const appsScriptUrl = document.getElementById('pricingAppsScriptUrl')?.value.trim();
+        const sheetUrl = document.getElementById('pricingSheetUrl')?.value.trim();
+        if (!appsScriptUrl || !sheetUrl) return;
+
+        try {
+            await fetch('/api/sheet-pricing', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'haravan-log-update',
+                    appsScriptUrl,
+                    sheetUrl,
+                    brand: row.brand || '',
+                    model: row.model || '',
+                    price: row.suggestedPrice,
+                    status: status,
+                })
+            });
+        } catch (err) {
+            console.error('Lỗi khi ghi log Haravan lên Sheet 20:', err);
+        }
+    }
+
     async function acceptPriceUpdate(sheetName, rowNumber) {
         const row = state.rows.find((r) => r.sheetName === sheetName && r.rowNumber === rowNumber);
         if (!row) return;
@@ -1165,23 +1192,26 @@
             row.haravanUpdateState = 'accepted';
             alert(`Cập nhật giá Haravan thành công cho sản phẩm ${productName}!`);
             await sendTelegramUpdateNotification(row, 'accept', 'Thành công');
+            await logHaravanUpdateToSheet(row, 'Thành công');
         } catch (upErr) {
             logToTerminal(`[Cập nhật] Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
             alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
             row.haravanUpdateState = null;
             await sendTelegramUpdateNotification(row, 'accept', `Lỗi: ${upErr.message}`);
+            await logHaravanUpdateToSheet(row, `Lỗi: ${upErr.message}`);
         }
         renderSheetPricingRows();
     }
 
-    function rejectPriceUpdate(sheetName, rowNumber) {
+    async function rejectPriceUpdate(sheetName, rowNumber) {
         const row = state.rows.find((r) => r.sheetName === sheetName && r.rowNumber === rowNumber);
         if (!row) return;
         row.haravanUpdateState = 'rejected';
         const productName = `${row.brand} ${row.model}`;
         logToTerminal(`[Cập nhật] Đã từ chối cập nhật giá cho sản phẩm ${productName}.`, 'warning');
         renderSheetPricingRows();
-        sendTelegramUpdateNotification(row, 'reject', 'Đã từ chối');
+        await sendTelegramUpdateNotification(row, 'reject', 'Đã từ chối');
+        await logHaravanUpdateToSheet(row, 'Từ chối');
     }
 
     window.startSheetPricingJob = startSheetPricingJob;

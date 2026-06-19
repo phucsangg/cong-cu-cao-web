@@ -139,6 +139,18 @@ const server = http.createServer(async (req, res) => {
                 return sendJson(res, 200, { ok: true, result });
             }
 
+            if (action === 'haravan-log-update') {
+                const result = await sheetPricingService.writeHaravanLog({
+                    appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                    sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                    brand: payload.brand,
+                    model: payload.model,
+                    price: payload.price,
+                    status: payload.status,
+                });
+                return sendJson(res, 200, { ok: true, result });
+            }
+
             if (action === 'fetch-sheet') {
                 const data = await sheetPricingService.readSheetRows({
                     appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,

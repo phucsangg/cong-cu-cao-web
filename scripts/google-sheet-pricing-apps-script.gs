@@ -231,7 +231,7 @@ function writeHaravanIds_(payload) {
   var sheet = getSheet_(payload.sheetId, '20. ID Haravan');
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).clearContent();
+    sheet.getRange(2, 1, lastRow - 1, 4).clearContent();
   }
 
   var rows = payload.rows || [];
@@ -250,6 +250,37 @@ function writeHaravanIds_(payload) {
   return {
     ok: true,
     written: rows.length
+  };
+}
+
+function writeHaravanLog_(payload) {
+  var sheet = getSheet_(payload.sheetId, '20. ID Haravan');
+  var lastRow = sheet.getLastRow();
+  
+  // Find the last row in column F (6)
+  var lastRowF = 1;
+  if (lastRow > 0) {
+    var valuesF = sheet.getRange(1, 6, lastRow, 1).getValues();
+    for (var i = valuesF.length - 1; i >= 0; i--) {
+      if (String(valuesF[i][0]).trim() !== '') {
+        lastRowF = i + 1;
+        break;
+      }
+    }
+  }
+  var nextRow = lastRowF + 1;
+  var timestampStr = payload.timestamp || new Date().toLocaleString('vi-VN');
+  
+  sheet.getRange(nextRow, 6, 1, 5).setValues([[
+    timestampStr,
+    payload.brand || '',
+    payload.model || '',
+    payload.price !== undefined && payload.price !== null ? String(payload.price) : '',
+    payload.status || ''
+  ]]);
+  
+  return {
+    ok: true
   };
 }
 
@@ -295,6 +326,9 @@ function doPost(e) {
     }
     if (payload.action === 'writeHaravanIds') {
       return jsonOutput(writeHaravanIds_(payload));
+    }
+    if (payload.action === 'writeHaravanLog') {
+      return jsonOutput(writeHaravanLog_(payload));
     }
 
     return jsonOutput({
