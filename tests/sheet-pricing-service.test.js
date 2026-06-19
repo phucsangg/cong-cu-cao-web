@@ -13,6 +13,8 @@ const {
     getBackgroundPricingJobStatus,
     stopBackgroundPricingJob,
     syncHaravanIds,
+    loadHaravanMapping,
+    updateHaravanVariantPrice,
 } = require('../lib/sheet-pricing-service.js');
 
 test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
@@ -846,6 +848,72 @@ test('syncHaravanIds model extraction with new patterns and brand auto-detection
             variant_id: 105,
         }
     ]);
+});
+
+test('loadHaravanMapping parses sheet 20 data into key-value map', async () => {
+    const mockFetch = async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('action=readRows')) {
+            return {
+                ok: true,
+                json: async () => ({
+                    headers: ['Tên sản phẩm', 'Thương hiệu', 'Model', 'ID'],
+                    rows: [
+                        { values: ['Bếp Bosch', 'Bosch', 'SMS4IVI01P', '1171221460'] },
+                        { values: ['Vòi Konox', 'Konox', 'KN-1234', '1171221461'] }
+                    ]
+                })
+            };
+        }
+        return { ok: false };
+    };
+
+    const mapping = await loadHaravanMapping({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        fetchImpl: mockFetch
+    });
+
+    assert.deepEqual(mapping, {
+        'BOSCH_SMS4IVI01P': '1171221460',
+        'KONOX_KN1234': '1171221461'
+    });
+});
+
+test('updateHaravanVariantPrice makes correct PUT request to Haravan', async () => {
+    let capturedUrl = null;
+    let capturedOptions = null;
+
+    const mockFetch = async (url, options = {}) => {
+        capturedUrl = String(url);
+        capturedOptions = options;
+        return {
+            ok: true,
+            json: async () => ({ ok: true })
+        };
+    };
+
+    const result = await updateHaravanVariantPrice({
+        haravanShopUrl: 'https://bepngocbao.myharavan.com',
+        haravanAccessToken: 'my-token',
+        variantId: '1171221460',
+        price: '15000000',
+        fetchImpl: mockFetch
+    });
+
+    assert.deepEqual(result, { ok: true });
+    assert.equal(capturedUrl, 'https://bepngocbao.myharavan.com/admin/variants/1171221460.json');
+    assert.equal(capturedOptions.method, 'PUT');
+    assert.equal(capturedOptions.headers['Authorization'], 'Bearer my-token');
+    assert.equal(capturedOptions.headers['Content-Type'], 'application/json');
+    
+    const body = JSON.parse(capturedOptions.body);
+    assert.deepEqual(body, {
+        variant: {
+            id: 1171221460,
+            price: '15000000'
+        }
+    });
 });
 
 

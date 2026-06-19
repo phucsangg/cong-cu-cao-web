@@ -110,6 +110,24 @@ const server = http.createServer(async (req, res) => {
                 return sendJson(res, 200, { ok: true, fetched: data.fetched, written: data.written });
             }
 
+            if (action === 'fetch-haravan-mapping') {
+                const mapping = await sheetPricingService.loadHaravanMapping({
+                    appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,
+                    sheetUrl: payload.sheetUrl || process.env.SHEET_URL,
+                });
+                return sendJson(res, 200, { ok: true, mapping });
+            }
+
+            if (action === 'haravan-update-price') {
+                const result = await sheetPricingService.updateHaravanVariantPrice({
+                    haravanShopUrl: payload.haravanShopUrl,
+                    haravanAccessToken: payload.haravanAccessToken,
+                    variantId: payload.variantId,
+                    price: payload.price,
+                });
+                return sendJson(res, 200, { ok: true, result });
+            }
+
             if (action === 'fetch-sheet') {
                 const data = await sheetPricingService.readSheetRows({
                     appsScriptUrl: payload.appsScriptUrl || process.env.APPS_SCRIPT_URL,

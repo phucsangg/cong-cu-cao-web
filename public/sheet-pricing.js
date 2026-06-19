@@ -12,6 +12,21 @@
         availableSheets: [],
     };
 
+    function normalizeVietnameseText(value = '') {
+        return String(value)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[đĐ]/g, 'd')
+            .trim()
+            .toLowerCase();
+    }
+
+    function normalizeModelText(value = '') {
+        return normalizeVietnameseText(value)
+            .replace(/[^a-z0-9]/g, '')
+            .toUpperCase();
+    }
+
     function decodeMojibake(value) {
         const text = String(value ?? '');
         if (!/[ÃÂÄÆá»áºâ]/.test(text)) {
@@ -402,6 +417,33 @@
             logToTerminal(`Không thể tải bảng ánh xạ: ${mapErr.message}. Vẫn tiếp tục chạy...`, 'warning');
         }
 
+        const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
+        window.haravanMapping = {};
+        if (updateHaravanEnabled) {
+            logToTerminal(`Đang tải bảng ánh xạ Haravan ID từ sheet 20. ID Haravan...`, 'info');
+            try {
+                const haravanMappingResponse = await fetch('/api/sheet-pricing', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'fetch-haravan-mapping',
+                        appsScriptUrl: form.appsScriptUrl,
+                        sheetUrl: form.sheetUrl,
+                    })
+                });
+                const haravanMappingData = await haravanMappingResponse.json();
+                if (haravanMappingResponse.ok && haravanMappingData.ok !== false && haravanMappingData.mapping) {
+                    window.haravanMapping = haravanMappingData.mapping;
+                    const mappingKeys = Object.keys(window.haravanMapping);
+                    logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ ID từ 20. ID Haravan.`, 'success');
+                } else {
+                    logToTerminal(`Không tìm thấy ánh xạ ID nào hoặc lỗi tải 20. ID Haravan.`, 'warning');
+                }
+            } catch (hMapErr) {
+                logToTerminal(`Không thể tải bảng ánh xạ Haravan ID: ${hMapErr.message}.`, 'warning');
+            }
+        }
+
         logToTerminal(`Đang tải danh sách sản phẩm từ các sheet: ${sheetNames.join(', ')}...`, 'info');
 
         try {
@@ -672,6 +714,44 @@
                                     logToTerminal(`Dòng ${currentRow.rowNumber} [${currentRow.sheetName}] (${currentRow.brand} ${currentRow.model}) thành công (thiếu giá hoặc ít hơn 3 giá): Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice ? result.minPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'warning');
                                 }
 
+                                const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
+                                if (updateHaravanEnabled && result.suggestedPrice) {
+                                    const key = `${normalizeModelText(currentRow.brand)}_${normalizeModelText(currentRow.model)}`;
+                                    const variantId = window.haravanMapping?.[key];
+                                    if (variantId) {
+                                        const productName = `${currentRow.brand} ${currentRow.model}`;
+                                        const confirmed = confirm(`Cập nhật giá cho sản phẩm ${productName} giá đề xuất ${result.suggestedPrice.toLocaleString('vi-VN')}?`);
+                                        if (confirmed) {
+                                            logToTerminal(`Đang cập nhật giá Haravan cho sản phẩm ${productName} (ID: ${variantId})...`, 'info');
+                                            try {
+                                                const updateRes = await fetch('/api/sheet-pricing', {
+                                                    method: 'POST',
+                                                    headers: { 'content-type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        action: 'haravan-update-price',
+                                                        haravanShopUrl: document.getElementById('haravanShopUrl')?.value.trim(),
+                                                        haravanAccessToken: document.getElementById('haravanAccessToken')?.value.trim(),
+                                                        variantId: variantId,
+                                                        price: result.suggestedPrice,
+                                                    })
+                                                });
+                                                const updateData = await updateRes.json();
+                                                if (!updateRes.ok || updateData.ok === false) {
+                                                    throw new Error(updateData.error || `HTTP ${updateRes.status}`);
+                                                }
+                                                logToTerminal(`Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
+                                            } catch (upErr) {
+                                                logToTerminal(`Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
+                                                alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
+                                            }
+                                        } else {
+                                            logToTerminal(`Bỏ qua cập nhật giá Haravan cho sản phẩm ${productName}.`, 'warning');
+                                        }
+                                    } else {
+                                        logToTerminal(`Không tìm thấy ID Haravan cho sản phẩm ${currentRow.brand} ${currentRow.model} trong sheet 20. ID Haravan.`, 'warning');
+                                    }
+                                }
+
                                 pendingUpdates.push({
                                     rowNumber: result.rowNumber,
                                     sheetName: currentRow.sheetName,
@@ -759,7 +839,8 @@
         }
 
         const isNetlify = window.location.hostname.endsWith('netlify.app');
-        if (isNetlify) {
+        const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
+        if (isNetlify || updateHaravanEnabled) {
             runClientSidePricing(form);
         } else {
             try {
