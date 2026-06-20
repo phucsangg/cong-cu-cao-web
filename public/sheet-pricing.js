@@ -226,7 +226,10 @@
         }
         const text = String(value).trim();
         if (!text) return null;
-        const digits = text.replace(/\D/g, '');
+        let cleanText = text;
+        const decimalRegex = /[.,](\d{1,2})\s*(?:[₫đ]|vnd|vnđ|dong|đồng)?$/i;
+        cleanText = cleanText.replace(decimalRegex, '');
+        const digits = cleanText.replace(/\D/g, '');
         if (!digits) return null;
         let parsed = parseInt(digits, 10);
         if (parsed < 100000) {
