@@ -238,6 +238,10 @@ test('cleanModelSpecs strips color names and dimensions from model names', () =>
     assert.equal(cleanModelSpecs('K-225C Pro 70cm'), 'K-225C Pro');
     assert.equal(cleanModelSpecs('K-225C Pro'), 'K-225C Pro');
     assert.equal(cleanModelSpecs('KF-HID7348II'), 'KF-HID7348II');
+    assert.equal(cleanModelSpecs('KF-LUX AT90H-WH (Trắng)'), 'KF-LUX AT90H-WH');
+    assert.equal(cleanModelSpecs('KF-LUX-AT70H-BK (Đen)'), 'KF-LUX-AT70H-BK');
+    assert.equal(cleanModelSpecs('KF-991B New Black'), 'KF-991B');
+    assert.equal(cleanModelSpecs('KF-GB027 (Kính đen)'), 'KF-GB027');
 });
 
 test('parseSpecificRows correctly parses comma-separated lists and ranges', () => {
