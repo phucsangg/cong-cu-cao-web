@@ -80,6 +80,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/sheet-pricing' && req.method === 'POST') {
         try {
             const payload = await getJsonBody(req);
+            console.log(`[API POST] ${payload.action || 'unknown'} payload:`, JSON.stringify(payload, null, 2));
             const action = payload.action;
 
             if (!action) {

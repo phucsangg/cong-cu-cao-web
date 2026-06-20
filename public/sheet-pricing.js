@@ -12,6 +12,166 @@
         availableSheets: [],
     };
 
+    function showCustomAlert(title, message, type = 'info') {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('customDialogModal');
+            if (!modal) {
+                alert(message);
+                resolve();
+                return;
+            }
+
+            // Clear any pending close timeout to prevent race conditions
+            if (window.dialogTimeout) {
+                clearTimeout(window.dialogTimeout);
+                window.dialogTimeout = null;
+            }
+
+            const icon = document.getElementById('customDialogIcon');
+            const titleEl = document.getElementById('customDialogTitle');
+            const msgEl = document.getElementById('customDialogMessage');
+            
+            // Clone buttons to clear previous event listeners
+            const oldBtnCancel = document.getElementById('customDialogBtnCancel');
+            const oldBtnConfirm = document.getElementById('customDialogBtnConfirm');
+            const btnCancel = oldBtnCancel.cloneNode(true);
+            const btnConfirm = oldBtnConfirm.cloneNode(true);
+            oldBtnCancel.replaceWith(btnCancel);
+            oldBtnConfirm.replaceWith(btnConfirm);
+
+            titleEl.innerText = title;
+            msgEl.innerText = message;
+            
+            icon.className = `custom-dialog-icon ${type}`;
+            let iconHtml = '<i class="bi bi-info-circle-fill"></i>';
+            if (type === 'success') iconHtml = '<i class="bi bi-check-circle-fill"></i>';
+            if (type === 'warning') iconHtml = '<i class="bi bi-exclamation-triangle-fill"></i>';
+            if (type === 'error') iconHtml = '<i class="bi bi-x-circle-fill"></i>';
+            icon.innerHTML = iconHtml;
+
+            btnCancel.style.display = 'none';
+            btnConfirm.className = `btn btn-teal text-white px-4 py-2 fw-bold`;
+            btnConfirm.style.background = '';
+            btnConfirm.style.borderColor = '';
+            
+            if (type === 'error') {
+                btnConfirm.style.background = 'var(--color-rose)';
+                btnConfirm.style.borderColor = 'var(--color-rose)';
+            } else if (type === 'warning') {
+                btnConfirm.style.background = 'var(--color-amber)';
+                btnConfirm.style.borderColor = 'var(--color-amber)';
+            } else if (type === 'success') {
+                btnConfirm.style.background = 'var(--color-emerald)';
+                btnConfirm.style.borderColor = 'var(--color-emerald)';
+            } else {
+                btnConfirm.style.background = 'var(--color-teal)';
+                btnConfirm.style.borderColor = 'var(--color-teal)';
+            }
+            btnConfirm.innerText = 'Đồng ý';
+
+            modal.style.display = 'flex';
+            // Force reflow
+            modal.offsetHeight;
+            modal.classList.add('show');
+
+            const onConfirm = () => {
+                modal.classList.remove('show');
+                window.dialogTimeout = setTimeout(() => {
+                    modal.style.display = 'none';
+                    window.dialogTimeout = null;
+                }, 250);
+                resolve();
+            };
+
+            btnConfirm.addEventListener('click', onConfirm);
+        });
+    }
+
+    function showCustomConfirm(title, message, type = 'warning') {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('customDialogModal');
+            if (!modal) {
+                resolve(confirm(message));
+                return;
+            }
+
+            // Clear any pending close timeout to prevent race conditions
+            if (window.dialogTimeout) {
+                clearTimeout(window.dialogTimeout);
+                window.dialogTimeout = null;
+            }
+
+            const icon = document.getElementById('customDialogIcon');
+            const titleEl = document.getElementById('customDialogTitle');
+            const msgEl = document.getElementById('customDialogMessage');
+            
+            // Clone buttons to clear previous event listeners
+            const oldBtnCancel = document.getElementById('customDialogBtnCancel');
+            const oldBtnConfirm = document.getElementById('customDialogBtnConfirm');
+            const btnCancel = oldBtnCancel.cloneNode(true);
+            const btnConfirm = oldBtnConfirm.cloneNode(true);
+            oldBtnCancel.replaceWith(btnCancel);
+            oldBtnConfirm.replaceWith(btnConfirm);
+
+            titleEl.innerText = title;
+            msgEl.innerText = message;
+            
+            icon.className = `custom-dialog-icon ${type}`;
+            let iconHtml = '<i class="bi bi-exclamation-triangle-fill"></i>';
+            if (type === 'info') iconHtml = '<i class="bi bi-info-circle-fill"></i>';
+            if (type === 'success') iconHtml = '<i class="bi bi-check-circle-fill"></i>';
+            if (type === 'error') iconHtml = '<i class="bi bi-x-circle-fill"></i>';
+            icon.innerHTML = iconHtml;
+
+            btnCancel.style.display = 'inline-block';
+            btnCancel.innerText = 'Hủy';
+            btnConfirm.className = `btn btn-teal text-white px-4 py-2 fw-bold`;
+            btnConfirm.style.background = '';
+            btnConfirm.style.borderColor = '';
+
+            if (type === 'error') {
+                btnConfirm.style.background = 'var(--color-rose)';
+                btnConfirm.style.borderColor = 'var(--color-rose)';
+            } else if (type === 'warning') {
+                btnConfirm.style.background = 'var(--color-amber)';
+                btnConfirm.style.borderColor = 'var(--color-amber)';
+            } else if (type === 'success') {
+                btnConfirm.style.background = 'var(--color-emerald)';
+                btnConfirm.style.borderColor = 'var(--color-emerald)';
+            } else {
+                btnConfirm.style.background = 'var(--color-teal)';
+                btnConfirm.style.borderColor = 'var(--color-teal)';
+            }
+            btnConfirm.innerText = 'Xác nhận';
+
+            modal.style.display = 'flex';
+            // Force reflow
+            modal.offsetHeight;
+            modal.classList.add('show');
+
+            const cleanup = () => {
+                modal.classList.remove('show');
+                window.dialogTimeout = setTimeout(() => {
+                    modal.style.display = 'none';
+                    window.dialogTimeout = null;
+                }, 250);
+            };
+
+            const onConfirmClick = () => {
+                cleanup();
+                resolve(true);
+            };
+
+            const onCancelClick = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            btnConfirm.addEventListener('click', onConfirmClick);
+            btnCancel.addEventListener('click', onCancelClick);
+        });
+    }
+
     function normalizeVietnameseText(value = '') {
         return String(value)
             .normalize('NFD')
@@ -57,6 +217,27 @@
         const num = Number(value);
         if (!Number.isFinite(num)) return '-';
         return `${num.toLocaleString('vi-VN')} đ`;
+    }
+
+    function parseVietnamesePrice(value) {
+        if (value === null || value === undefined || value === '') return null;
+        if (typeof value === 'number') {
+            return value > 0 ? Math.round(value) : null;
+        }
+        const text = String(value).trim();
+        if (!text) return null;
+        const digits = text.replace(/\D/g, '');
+        if (!digits) return null;
+        let parsed = parseInt(digits, 10);
+        if (parsed < 100000) {
+            parsed = parsed * 1000;
+        }
+        return parsed;
+    }
+
+    function getRowCurrentPrice(row) {
+        if (!row) return null;
+        return parseVietnamesePrice(row.costPrice);
     }
 
     function formatPercent(value) {
@@ -183,35 +364,56 @@
         if (state.rows.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="11" class="text-center text-secondary py-5">Chưa có dữ liệu nào được tải về. Hãy chọn cấu hình và chạy quét.</td>
+                    <td colspan="10" class="text-center text-secondary py-5">Chưa có dữ liệu nào được tải về. Hãy chọn cấu hình và chạy quét.</td>
                 </tr>
             `;
             return;
         }
 
+        // Check eligible rows and update selectAll checkbox
+        const testMode = document.getElementById('testModeEnabled')?.checked;
+        const eligibleRows = state.rows.filter(row => {
+            const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+            const variantId = window.haravanMapping?.[key];
+            const currentPrice = getRowCurrentPrice(row);
+            const hasVariant = testMode ? true : !!variantId;
+            return row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
+        });
+        const allEligibleChecked = eligibleRows.length > 0 && eligibleRows.every(r => r.selected);
+        const selectAllEl = document.getElementById('selectAllRows');
+        if (selectAllEl) {
+            selectAllEl.checked = allEligibleChecked;
+            selectAllEl.disabled = eligibleRows.length === 0;
+        }
+
         tbody.innerHTML = state.rows.map((row) => {
-            const minPriceVal = row.minPrice;
             const suggestedPriceVal = row.suggestedPrice;
             const marketCount = row.marketPrices ? row.marketPrices.length : 0;
+            const currentPriceVal = getRowCurrentPrice(row);
 
             let haravanCol = '-';
             const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
             const variantId = window.haravanMapping?.[key];
-            if (row.suggestedPrice && variantId) {
+            const hasVariant = testMode ? true : !!variantId;
+            const isEligible = row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPriceVal !== row.suggestedPrice;
+
+            if (row.suggestedPrice && hasVariant) {
                 if (row.haravanUpdateState === 'accepted') {
                     haravanCol = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20">✅ Đã chấp nhận</span>`;
+                } else if (currentPriceVal === row.suggestedPrice) {
+                    haravanCol = `<span class="badge bg-light text-secondary border border-secondary border-opacity-20">Trùng khớp</span>`;
                 } else if (row.haravanUpdateState === 'rejected') {
                     haravanCol = `<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20">❎ Đã từ chối</span>`;
-                } else if (row.haravanUpdateState === 'updating') {
+                } else if (row.haravanUpdateState === 'updating' || row.actionPending) {
                     haravanCol = `<span class="spinner-border spinner-border-sm text-primary me-1" role="status" style="width: 0.85rem; height: 0.85rem;"></span> <span class="text-secondary" style="font-size: 0.8rem;">Đang cập nhật...</span>`;
                 } else {
                     haravanCol = `
                         <div class="d-flex justify-content-center gap-1">
-                            <button class="btn btn-xs btn-success py-1 px-2 text-white fw-bold" style="font-size: 0.7rem; border-radius: 4px;" onclick="event.stopPropagation(); acceptPriceUpdate('${escapeHtml(row.sheetName)}', ${row.rowNumber})">
-                                Chấp nhận
+                            <button class="btn btn-xs btn-success py-1 px-2 text-white" title="Chấp nhận" onclick="event.stopPropagation(); acceptPriceUpdate('${escapeHtml(row.sheetName)}', ${row.rowNumber})">
+                                <i class="bi bi-check-lg"></i>
                             </button>
-                            <button class="btn btn-xs btn-outline-danger py-1 px-2 fw-bold" style="font-size: 0.7rem; border-radius: 4px;" onclick="event.stopPropagation(); rejectPriceUpdate('${escapeHtml(row.sheetName)}', ${row.rowNumber})">
-                                Từ chối
+                            <button class="btn btn-xs btn-outline-danger py-1 px-2" title="Từ chối" onclick="event.stopPropagation(); rejectPriceUpdate('${escapeHtml(row.sheetName)}', ${row.rowNumber})">
+                                <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
                     `;
@@ -226,20 +428,23 @@
 
             return `
                 <tr class="align-middle">
-                    <td class="text-center text-secondary fw-bold">${escapeHtml(row.rowNumber)}</td>
-                    <td><span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-20">${escapeHtml(row.sheetName || '-')}</span></td>
-                    <td><span class="badge bg-light text-dark border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
-                    <td>${escapeHtml(row.brand || '-')}</td>
-                    <td class="fw-bold">${escapeHtml(row.model || '-')}</td>
-                    <td class="text-end price-badge">${formatMoney(row.salePriceValue)}</td>
-                    <td class="text-center">${marketCount}</td>
-                    <td class="text-end price-badge text-success">${formatMoney(minPriceVal)}</td>
-                    <td class="text-end price-badge text-warning fw-bold">${formatMoney(suggestedPriceVal)}</td>
-                    <td class="text-center">${statusLabel(row)}</td>
-                    <td class="text-center">${haravanCol}</td>
+                    <td class="text-center" style="width: 50px; min-width: 50px; max-width: 50px;">
+                        <input class="form-check-input row-checkbox" type="checkbox" ${isEligible ? '' : 'disabled'} ${row.selected && isEligible ? 'checked' : ''} onchange="toggleRowSelection('${escapeHtml(row.sheetName)}', ${row.rowNumber}, this.checked)">
+                    </td>
+                    <td class="text-center text-secondary fw-bold" style="width: 72px; min-width: 72px; max-width: 72px;">${escapeHtml(row.rowNumber)}</td>
+                    <td style="width: 120px; min-width: 120px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><span class="badge bg-light text-dark border border-secondary border-opacity-20">${escapeHtml(row.productId || '-')}</span></td>
+                    <td style="width: 140px; min-width: 140px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(row.brand || '-')}</td>
+                    <td class="fw-bold" style="width: 120px; min-width: 120px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(row.model || '-')}">${escapeHtml(row.model || '-')}</td>
+                    <td class="text-end price-badge" style="width: 140px; min-width: 140px; max-width: 140px;">${formatMoney(currentPriceVal)}</td>
+                    <td class="text-center" style="width: 100px; min-width: 100px; max-width: 100px;">${marketCount}</td>
+                    <td class="text-end price-badge text-warning fw-bold" style="width: 150px; min-width: 150px; max-width: 150px;">${formatMoney(suggestedPriceVal)}</td>
+                    <td class="text-center" style="width: 120px; min-width: 120px; max-width: 120px;">${statusLabel(row)}</td>
+                    <td class="text-center" style="width: 180px; min-width: 180px; max-width: 180px;">${haravanCol}</td>
                 </tr>
             `;
         }).join('');
+
+        updateBatchActionButtons();
     }
 
     function updateCounter(id, value) {
@@ -289,6 +494,10 @@
             progressBar.style.width = `${percent}%`;
             progressBar.setAttribute('aria-valuenow', percent);
         }
+        const progressSubtitleEl = document.getElementById('pricingProgressSubtitle');
+        if (progressSubtitleEl) {
+            progressSubtitleEl.innerText = `Số lượng hoàn thành/tổng số sản phẩm cần thực hiện: ${state.processed}/${state.totalRows}`;
+        }
     }
 
     function collectPricingForm() {
@@ -299,9 +508,9 @@
             sheetName: document.getElementById('pricingSheetName')?.value.trim(),
             startRow: document.getElementById('pricingStartRow')?.value.trim(),
             endRow: document.getElementById('pricingEndRow')?.value.trim(),
-            rowsConcurrency: Math.max(1, parseInt(document.getElementById('pricingRowsConcurrency')?.value || '1', 10)),
-            linksConcurrency: Math.max(1, parseInt(document.getElementById('pricingLinksConcurrency')?.value || '5', 10)),
-            batchSize: Math.max(1, parseInt(document.getElementById('pricingBatchSize')?.value || '5', 10)),
+            rowsConcurrency: Math.max(1, parseInt(document.getElementById('pricingRowsConcurrency')?.value || '5', 10)),
+            linksConcurrency: Math.max(1, parseInt(document.getElementById('pricingLinksConcurrency')?.value || '10', 10)),
+            batchSize: Math.max(1, parseInt(document.getElementById('pricingBatchSize')?.value || '10', 10)),
         };
     }
 
@@ -384,7 +593,29 @@
                     state.errors = data.errorCount || 0;
                     state.writes = data.writeCount || 0;
                     state.totalRows = data.totalRows || 0;
+
+                    // Preserve haravanUpdateState and selected from current rows
+                    const oldStateMap = {};
+                    if (state.rows && state.rows.length > 0) {
+                        state.rows.forEach(r => {
+                            oldStateMap[`${r.sheetName}_${r.rowNumber}`] = {
+                                haravanUpdateState: r.haravanUpdateState,
+                                selected: r.selected
+                            };
+                        });
+                    }
+
                     state.rows = data.rows || [];
+
+                    if (state.rows && state.rows.length > 0) {
+                        state.rows.forEach(r => {
+                            const key = `${r.sheetName}_${r.rowNumber}`;
+                            if (oldStateMap[key]) {
+                                r.haravanUpdateState = oldStateMap[key].haravanUpdateState;
+                                r.selected = oldStateMap[key].selected;
+                            }
+                        });
+                    }
 
                     refreshSummary();
                     renderSheetPricingRows();
@@ -425,7 +656,7 @@
             throw new Error('Tên sheet không hợp lệ.');
         }
 
-        logToTerminal(`Đang tải bảng ánh xạ model từ sheet 18.Mã sản phẩm...`, 'info');
+        logToTerminal(`Đang tải bảng ánh xạ model từ sheet LOG (FIX MODEL SỐ)...`, 'info');
         let modelMapping = {};
         try {
             const mappingResponse = await fetch('/api/sheet-pricing', {
@@ -441,9 +672,9 @@
             if (mappingResponse.ok && mappingData.ok !== false && mappingData.mapping) {
                 modelMapping = mappingData.mapping;
                 const mappingKeys = Object.keys(modelMapping);
-                logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ model từ 18.Mã sản phẩm.`, 'success');
+                logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ model từ FIX MODEL SỐ.`, 'success');
             } else {
-                logToTerminal(`Không tìm thấy ánh xạ model nào hoặc lỗi tải 18.Mã sản phẩm.`, 'warning');
+                logToTerminal(`Không tìm thấy ánh xạ model nào hoặc lỗi tải FIX MODEL SỐ.`, 'warning');
             }
         } catch (mapErr) {
             logToTerminal(`Không thể tải bảng ánh xạ: ${mapErr.message}. Vẫn tiếp tục chạy...`, 'warning');
@@ -515,12 +746,30 @@
                     brand: row.brand,
                     model: model,
                     originalModel: originalModel,
+                    salePrice: row.salePrice,
+                    listPrice: row.listPrice,
+                    costPrice: row.costPrice,
                     salePriceValue: (() => {
                         let parsed = parseInt(String(row.salePrice || '').replace(/\D/g, ''), 10) || null;
                         if (parsed !== null && parsed < 100000) {
                             parsed = parsed * 1000;
                         }
                         return parsed;
+                    })(),
+                    listPriceValue: (() => {
+                        let parsed = parseInt(String(row.listPrice || '').replace(/\D/g, ''), 10) || null;
+                        if (parsed !== null && parsed < 100000) {
+                            parsed = parsed * 1000;
+                        }
+                        return parsed;
+                    })(),
+                    displaySalePrice: (() => {
+                        let sale = parseInt(String(row.salePrice || '').replace(/\D/g, ''), 10) || null;
+                        if (sale !== null && sale < 100000) sale = sale * 1000;
+                        if (sale !== null) return sale;
+                        let list = parseInt(String(row.listPrice || '').replace(/\D/g, ''), 10) || null;
+                        if (list !== null && list < 100000) list = list * 1000;
+                        return list;
                     })(),
                     status: 'pending',
                     marketPrices: [],
@@ -559,7 +808,7 @@
 
             const skippedCount = state.rows.filter(r => r.status === 'skipped').length;
             if (skippedCount > 0) {
-                logToTerminal(`Bỏ qua ${skippedCount} dòng do thiếu Thương hiệu, Model hoặc Model chỉ toàn số.`, 'warning');
+                logToTerminal(`Bỏ qua ${skippedCount} dòng do thiếu Thương hiệu hoặc Model, hoặc Model chỉ toàn số.`, 'warning');
             }
 
             refreshSummary();
@@ -685,6 +934,8 @@
                                     brand: currentRow.brand,
                                     model: currentRow.model,
                                     salePrice: currentRow.salePrice,
+                                    listPrice: currentRow.listPrice,
+                                    costPrice: currentRow.costPrice,
                                     marketPrices: currentRow.marketPrices,
                                     sheetName: currentRow.sheetName,
                                 },
@@ -720,85 +971,6 @@
                                     logToTerminal(`Dòng ${currentRow.rowNumber} [${currentRow.sheetName}] (${currentRow.brand} ${currentRow.model}) thành công: Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice.toLocaleString('vi-VN')} đ, Đề xuất=${result.suggestedPrice ? result.suggestedPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'success');
                                 } else {
                                     logToTerminal(`Dòng ${currentRow.rowNumber} [${currentRow.sheetName}] (${currentRow.brand} ${currentRow.model}) thành công (thiếu giá hoặc ít hơn 3 giá): Tìm thấy ${result.totalLinksCount} cửa hàng, quét được ${result.marketPrices.length} giá. Min=${result.minPrice ? result.minPrice.toLocaleString('vi-VN') + ' đ' : '-'}`, 'warning');
-                                }
-
-                                const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
-                                if (updateHaravanEnabled && result.suggestedPrice) {
-                                    const key = `${normalizeModelText(currentRow.brand)}_${normalizeModelText(currentRow.model)}`;
-                                    const variantId = window.haravanMapping?.[key];
-                                    if (variantId) {
-                                        const productName = `${currentRow.brand} ${currentRow.model}`;
-                                        const confirmed = confirm(`Cập nhật giá cho sản phẩm ${productName} với giá đề xuất ${result.suggestedPrice.toLocaleString('vi-VN')} đ?`);
-                                        if (confirmed) {
-                                            logToTerminal(`Đang cập nhật giá Haravan cho sản phẩm ${productName} (ID: ${variantId})...`, 'info');
-                                            localRow.haravanUpdateState = 'updating';
-                                            renderSheetPricingRows();
-                                            try {
-                                                const updateRes = await fetch('/api/sheet-pricing', {
-                                                    method: 'POST',
-                                                    headers: { 'content-type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                        action: 'haravan-update-price',
-                                                        haravanShopUrl: document.getElementById('haravanShopUrl')?.value.trim(),
-                                                        haravanAccessToken: document.getElementById('haravanAccessToken')?.value.trim(),
-                                                        variantId: variantId,
-                                                        price: result.suggestedPrice,
-                                                    })
-                                                });
-                                                const updateData = await updateRes.json();
-                                                if (!updateRes.ok || updateData.ok === false) {
-                                                    throw new Error(updateData.error || `HTTP ${updateRes.status}`);
-                                                }
-                                                logToTerminal(`Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
-                                                localRow.haravanUpdateState = 'accepted';
-                                                await sendTelegramUpdateNotification(localRow, 'accept', 'Thành công');
-                                                await logHaravanUpdateToSheet(localRow, 'Thành công');
-
-                                                try {
-                                                    logToTerminal(`Đang ghi nhận giá bán mới lên Google Sheet ${currentRow.sheetName} (Dòng: ${currentRow.rowNumber})...`, 'info');
-                                                    const sheetUpdateRes = await fetch('/api/sheet-pricing', {
-                                                        method: 'POST',
-                                                        headers: { 'content-type': 'application/json' },
-                                                        body: JSON.stringify({
-                                                            action: 'sheet-update-sale-price',
-                                                            appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value.trim(),
-                                                            sheetUrl: document.getElementById('pricingSheetUrl')?.value.trim(),
-                                                            sheetName: currentRow.sheetName,
-                                                            rowNumber: currentRow.rowNumber,
-                                                            price: result.suggestedPrice
-                                                        })
-                                                    });
-                                                    const sheetUpdateData = await sheetUpdateRes.json();
-                                                    if (!sheetUpdateRes.ok || sheetUpdateData.ok === false) {
-                                                        throw new Error(sheetUpdateData.error || `HTTP ${sheetUpdateRes.status}`);
-                                                    }
-                                                    logToTerminal(`Đã ghi nhận giá bán mới lên Google Sheet thành công!`, 'success');
-                                                    localRow.salePriceValue = result.suggestedPrice;
-                                                    if (localRow.minPrice !== null) {
-                                                        localRow.gapValue = localRow.salePriceValue - localRow.minPrice;
-                                                        localRow.gapPercent = localRow.gapValue / localRow.minPrice;
-                                                    }
-                                                } catch (sheetErr) {
-                                                    logToTerminal(`Lỗi ghi nhận giá bán mới lên Google Sheet: ${sheetErr.message}`, 'error');
-                                                }
-                                            } catch (upErr) {
-                                                logToTerminal(`Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
-                                                alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
-                                                localRow.haravanUpdateState = null;
-                                                await sendTelegramUpdateNotification(localRow, 'accept', `Lỗi: ${upErr.message}`);
-                                                await logHaravanUpdateToSheet(localRow, `Lỗi: ${upErr.message}`);
-                                            }
-                                            renderSheetPricingRows();
-                                        } else {
-                                            logToTerminal(`Bỏ qua cập nhật giá Haravan cho sản phẩm ${productName}.`, 'warning');
-                                            localRow.haravanUpdateState = 'rejected';
-                                            renderSheetPricingRows();
-                                            await sendTelegramUpdateNotification(localRow, 'reject', 'Đã từ chối');
-                                            await logHaravanUpdateToSheet(localRow, 'Từ chối');
-                                        }
-                                    } else {
-                                        logToTerminal(`Không tìm thấy ID Haravan cho sản phẩm ${currentRow.brand} ${currentRow.model} trong sheet 20. ID Haravan.`, 'warning');
-                                    }
                                 }
 
                                 pendingUpdates.push({
@@ -852,6 +1024,31 @@
                 } else {
                     setPricingStatus('Hoàn tất', 'success');
                     logToTerminal('Tiến trình quét toàn bộ sheet đã hoàn thành!', 'success');
+
+                    const updateHaravanEnabled = document.getElementById('haravanUpdatePriceEnabled')?.checked;
+                    if (updateHaravanEnabled) {
+                        const eligibleRows = state.rows.filter(row => {
+                            const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+                            const variantId = window.haravanMapping?.[key];
+                            const currentPrice = getRowCurrentPrice(row);
+                            return row.suggestedPrice && variantId && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && currentPrice !== row.suggestedPrice;
+                        });
+
+                        if (eligibleRows.length > 0) {
+                            const confirmed = await showCustomConfirm(
+                                'Cập nhật giá hàng loạt',
+                                `Quét hoàn tất! Phát hiện ${eligibleRows.length} sản phẩm có giá đề xuất mới khác giá hiện tại. Bạn có muốn tự động cập nhật giá các sản phẩm này lên Haravan và Google Sheet không?`,
+                                'warning'
+                            );
+                            if (confirmed) {
+                                eligibleRows.forEach(r => r.selected = true);
+                                renderSheetPricingRows();
+                                await acceptSelectedPrices();
+                            }
+                        } else {
+                            logToTerminal('Không có sản phẩm nào cần cập nhật giá lên Haravan.', 'info');
+                        }
+                    }
                 }
             });
 
@@ -860,7 +1057,7 @@
             setPricingButtons(false);
             setPricingStatus('Lỗi', 'error');
             logToTerminal(`Tiến trình cào lỗi: ${error.message}`, 'error');
-            alert(`Lỗi cào: ${error.message}`);
+            await showCustomAlert('Lỗi tiến trình', `Lỗi cào: ${error.message}`, 'error');
         }
     }
 
@@ -876,7 +1073,7 @@
         window.haravanMappingLoaded = false;
 
         if (updateHaravanEnabled || haravanToken) {
-            logToTerminal(`Đang tải bảng ánh xạ Haravan ID từ sheet 20. ID Haravan...`, 'info');
+            logToTerminal(`Đang tải bảng ánh xạ Haravan ID...`, 'info');
             try {
                 const haravanMappingResponse = await fetch('/api/sheet-pricing', {
                     method: 'POST',
@@ -892,9 +1089,9 @@
                     window.haravanMapping = haravanMappingData.mapping;
                     window.haravanMappingLoaded = true;
                     const mappingKeys = Object.keys(window.haravanMapping);
-                    logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ ID từ 20. ID Haravan.`, 'success');
+                    logToTerminal(`Đã tải thành công ${mappingKeys.length} ánh xạ ID Haravan.`, 'success');
                 } else {
-                    logToTerminal(`Không tìm thấy ánh xạ ID nào hoặc lỗi tải 20. ID Haravan.`, 'warning');
+                    logToTerminal(`Không tìm thấy ánh xạ ID Haravan nào hoặc lỗi tải.`, 'warning');
                 }
             } catch (hMapErr) {
                 logToTerminal(`Không thể tải bảng ánh xạ Haravan ID: ${hMapErr.message}.`, 'warning');
@@ -907,7 +1104,7 @@
 
         const form = collectPricingForm();
         if (!form.appsScriptUrl || !form.sheetUrl || !form.sheetName) {
-            alert('Vui lòng nhập đầy đủ Apps Script URL, Google Sheet URL và tên sheet.');
+            await showCustomAlert('Thiếu thông tin', 'Vui lòng nhập đầy đủ Apps Script URL, Google Sheet URL và tên sheet.', 'warning');
             const collapseConfig = document.getElementById('collapseConfig');
             if (collapseConfig && !collapseConfig.classList.contains('show')) {
                 const trigger = document.querySelector('[data-bs-target="#collapseConfig"]');
@@ -915,6 +1112,9 @@
             }
             return;
         }
+
+        state.rows = []; // Clear rows at start
+        renderSheetPricingRows(); // Instantly update UI table
 
         state.running = true;
         setPricingButtons(true);
@@ -959,7 +1159,7 @@
                     if (termBody) {
                         termBody.innerHTML = `<span class="log-line log-error">Lỗi khởi tạo: ${escapeHtml(error.message)}</span>`;
                     }
-                    alert(`Lỗi khởi tạo: ${error.message}`);
+                    await showCustomAlert('Lỗi khởi tạo', `Lỗi khởi tạo: ${error.message}`, 'error');
                 }
             }
         }
@@ -1014,7 +1214,10 @@
                 return;
             }
             if (data && data.ok !== false && data.sheets) {
-                const visibleSheets = data.sheets.filter((sheet) => sheet !== '18.Mã sản phẩm' && sheet !== '19.Log' && sheet !== '20. ID Haravan');
+                const visibleSheets = data.sheets.filter((sheet) => {
+                    const s = sheet.trim().toUpperCase();
+                    return s !== 'LOG' && s !== 'ID HARAVAN';
+                });
                 const initialSelection = normalizeSelectedSheetNames(hiddenInput.value || state.initialSheetName)
                     .filter((sheet) => visibleSheets.includes(sheet));
                 renderSheetOptions(visibleSheets, initialSelection);
@@ -1031,6 +1234,124 @@
             updateSheetSelectionSummary([]);
             logToTerminal(`Khong tai duoc danh sach sheet: ${err.message}`, 'error');
         }
+    }
+
+    const CONFIG_KEYS = [
+        'pricingAppsScriptUrl',
+        'pricingSheetUrl',
+        'pricingStartRow',
+        'pricingEndRow',
+        'pricingBatchSize',
+        'pricingRowsConcurrency',
+        'pricingLinksConcurrency',
+        'haravanShopUrl',
+        'haravanAccessToken',
+        'haravanUpdatePriceEnabled',
+        'testModeEnabled',
+        'telegramBotToken',
+        'telegramChatId'
+    ];
+
+    function saveAllToLocalStorage() {
+        CONFIG_KEYS.forEach(key => {
+            const el = document.getElementById(key);
+            if (!el) return;
+            if (el.type === 'checkbox') {
+                localStorage.setItem(key, el.checked ? 'true' : 'false');
+            } else {
+                localStorage.setItem(key, el.value);
+            }
+        });
+    }
+
+    function loadAllFromLocalStorage() {
+        CONFIG_KEYS.forEach(key => {
+            const el = document.getElementById(key);
+            if (!el) return;
+            const saved = localStorage.getItem(key);
+            if (saved !== null) {
+                if (el.type === 'checkbox') {
+                    el.checked = saved === 'true';
+                } else {
+                    el.value = saved;
+                }
+            }
+        });
+    }
+
+    function initConfigPersistence() {
+        // Listen to change/input events to automatically persist
+        CONFIG_KEYS.forEach(key => {
+            const el = document.getElementById(key);
+            if (!el) return;
+            const eventName = el.type === 'checkbox' ? 'change' : 'input';
+            el.addEventListener(eventName, saveAllToLocalStorage);
+        });
+    }
+
+    function exportConfig() {
+        const config = {
+            appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value || '',
+            sheetUrl: document.getElementById('pricingSheetUrl')?.value || '',
+            startRow: document.getElementById('pricingStartRow')?.value || '',
+            endRow: document.getElementById('pricingEndRow')?.value || '',
+            batchSize: document.getElementById('pricingBatchSize')?.value || '',
+            rowsConcurrency: document.getElementById('pricingRowsConcurrency')?.value || '',
+            linksConcurrency: document.getElementById('pricingLinksConcurrency')?.value || '',
+            haravanShopUrl: document.getElementById('haravanShopUrl')?.value || '',
+            haravanAccessToken: document.getElementById('haravanAccessToken')?.value || '',
+            haravanUpdatePriceEnabled: document.getElementById('haravanUpdatePriceEnabled')?.checked || false,
+            telegramBotToken: document.getElementById('telegramBotToken')?.value || '',
+            telegramChatId: document.getElementById('telegramChatId')?.value || ''
+        };
+        const blob = new Blob([JSON.stringify(config, null, 4)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pricing-config-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        logToTerminal('Đã xuất cấu hình ra file JSON thành công!', 'success');
+    }
+
+    function importConfig(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const config = JSON.parse(e.target.result);
+                if (config) {
+                    if (config.appsScriptUrl !== undefined) document.getElementById('pricingAppsScriptUrl').value = config.appsScriptUrl;
+                    if (config.sheetUrl !== undefined) document.getElementById('pricingSheetUrl').value = config.sheetUrl;
+                    if (config.startRow !== undefined) document.getElementById('pricingStartRow').value = config.startRow;
+                    if (config.endRow !== undefined) document.getElementById('pricingEndRow').value = config.endRow;
+                    if (config.batchSize !== undefined) document.getElementById('pricingBatchSize').value = config.batchSize;
+                    if (config.rowsConcurrency !== undefined) document.getElementById('pricingRowsConcurrency').value = config.rowsConcurrency;
+                    if (config.linksConcurrency !== undefined) document.getElementById('pricingLinksConcurrency').value = config.linksConcurrency;
+                    if (config.haravanShopUrl !== undefined) document.getElementById('haravanShopUrl').value = config.haravanShopUrl;
+                    if (config.haravanAccessToken !== undefined) document.getElementById('haravanAccessToken').value = config.haravanAccessToken;
+                    if (config.haravanUpdatePriceEnabled !== undefined) document.getElementById('haravanUpdatePriceEnabled').checked = config.haravanUpdatePriceEnabled;
+                    if (config.telegramBotToken !== undefined) document.getElementById('telegramBotToken').value = config.telegramBotToken;
+                    if (config.telegramChatId !== undefined) document.getElementById('telegramChatId').value = config.telegramChatId;
+
+                    saveAllToLocalStorage();
+                    logToTerminal('Đã nhập cấu hình từ file JSON thành công!', 'success');
+                    await showCustomAlert('Thành công', 'Nhập cấu hình thành công!', 'success');
+                    
+                    // Reload sheet names
+                    loadSheetNames();
+                }
+            } catch (err) {
+                await showCustomAlert('Lỗi', `Lỗi đọc file cấu hình: ${err.message}`, 'error');
+                logToTerminal(`Lỗi đọc file cấu hình: ${err.message}`, 'error');
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file);
     }
 
     async function loadConfig() {
@@ -1053,11 +1374,14 @@
                 if (data.sheetName) {
                     state.initialSheetName = data.sheetName;
                 }
-                await loadSheetNames();
             }
         } catch (error) {
             console.error('Failed to load environment config:', error);
         }
+
+        // Apply localStorage overrides
+        loadAllFromLocalStorage();
+        await loadSheetNames();
     }
 
     ['pricingAppsScriptUrl', 'pricingSheetUrl'].forEach((id) => {
@@ -1068,8 +1392,19 @@
         }
     });
 
-    loadConfig();
-    setPricingStatus('Chờ chạy', 'idle');
+    const testModeEl = document.getElementById('testModeEnabled');
+    if (testModeEl) {
+        testModeEl.addEventListener('change', () => {
+            renderSheetPricingRows();
+            updateBatchActionButtons();
+        });
+    }
+
+    (async () => {
+        await loadConfig();
+        initConfigPersistence();
+        setPricingStatus('Chờ chạy', 'idle');
+    })();
 
     async function syncHaravanIds() {
         const btn = document.getElementById('btnHaravanSync');
@@ -1079,7 +1414,7 @@
         const sheetUrl = document.getElementById('pricingSheetUrl')?.value.trim();
 
         if (!shopUrl || !token || !appsScriptUrl || !sheetUrl) {
-            alert('Vui lòng nhập đầy đủ: Apps Script URL, Google Sheet URL, Haravan Shop URL và Access Token.');
+            await showCustomAlert('Thiếu thông tin', 'Vui lòng nhập đầy đủ: Apps Script URL, Google Sheet URL, Haravan Shop URL và Access Token.', 'warning');
             return;
         }
 
@@ -1108,15 +1443,15 @@
                 throw new Error(data.error || `HTTP ${response.status}`);
             }
 
-            logToTerminal(`Đồng bộ thành công! Đã lấy ${data.fetched} biến thể, ghi thành công ${data.written} dòng lên sheet "20. ID Haravan".`, 'success');
-            alert(`Đồng bộ thành công! Đã ghi ${data.written} dòng lên sheet "20. ID Haravan".`);
+            logToTerminal(`Đồng bộ thành công! Đã lấy ${data.fetched} biến thể, ghi thành công ${data.written} dòng lên sheet.`, 'success');
+            await showCustomAlert('Thành công', `Đồng bộ thành công! Đã ghi ${data.written} dòng lên sheet.`, 'success');
         } catch (error) {
             logToTerminal(`Lỗi đồng bộ Haravan: ${error.message}`, 'error');
-            alert(`Lỗi đồng bộ Haravan: ${error.message}`);
+            await showCustomAlert('Lỗi đồng bộ', `Lỗi đồng bộ Haravan: ${error.message}`, 'error');
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerText = '🔄 Đồng bộ lên sheet 20. ID Haravan';
+                btn.innerText = '🔄 Đồng bộ ID Haravan';
             }
         }
     }
@@ -1180,94 +1515,358 @@
         }
     }
 
+    function updateMasterCheckboxState() {
+        const selectAllEl = document.getElementById('selectAllRows');
+        if (!selectAllEl) return;
+        const testMode = document.getElementById('testModeEnabled')?.checked;
+        const eligibleRows = state.rows.filter(row => {
+            const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+            const variantId = window.haravanMapping?.[key];
+            const currentPrice = getRowCurrentPrice(row);
+            const hasVariant = testMode ? true : !!variantId;
+            return row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
+        });
+        const allEligibleChecked = eligibleRows.length > 0 && eligibleRows.every(r => r.selected);
+        selectAllEl.checked = allEligibleChecked;
+        selectAllEl.disabled = eligibleRows.length === 0;
+    }
+
+    function toggleRowSelection(sheetName, rowNumber, checked) {
+        const row = state.rows.find(r => r.sheetName === sheetName && r.rowNumber === rowNumber);
+        if (row) {
+            row.selected = !!checked;
+        }
+        updateMasterCheckboxState();
+        updateBatchActionButtons();
+    }
+
+    function toggleSelectAllRows(masterCheckbox) {
+        const checked = masterCheckbox.checked;
+        state.rows.forEach(row => {
+            row.selected = checked;
+        });
+        renderSheetPricingRows();
+    }
+
+    function updateBatchActionButtons() {
+        const testMode = document.getElementById('testModeEnabled')?.checked;
+        const selectedEligibleRows = state.rows.filter(row => {
+            const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+            const variantId = window.haravanMapping?.[key];
+            const currentPrice = getRowCurrentPrice(row);
+            const hasVariant = testMode ? true : !!variantId;
+            const isEligible = row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
+            return isEligible && row.selected;
+        });
+
+        const container = document.getElementById('batchActionContainer');
+        const acceptCountSpan = document.getElementById('selectedAcceptCount');
+        const rejectCountSpan = document.getElementById('selectedRejectCount');
+
+        if (container) {
+            if (selectedEligibleRows.length > 0) {
+                container.classList.remove('d-none');
+                container.classList.add('d-flex');
+                if (acceptCountSpan) acceptCountSpan.innerText = selectedEligibleRows.length;
+                if (rejectCountSpan) rejectCountSpan.innerText = selectedEligibleRows.length;
+            } else {
+                container.classList.add('d-none');
+                container.classList.remove('d-flex');
+            }
+        }
+    }
+
+    async function acceptSelectedPrices() {
+        const testMode = document.getElementById('testModeEnabled')?.checked;
+        const selectedRows = state.rows.filter(row => {
+            const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+            const variantId = window.haravanMapping?.[key];
+            const currentPrice = getRowCurrentPrice(row);
+            const hasVariant = testMode ? true : !!variantId;
+            const isEligible = row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && currentPrice !== row.suggestedPrice;
+            return isEligible && row.selected;
+        });
+
+        if (selectedRows.length === 0) return;
+
+        const confirmed = await showCustomConfirm('Xác nhận cập nhật hàng loạt', `Bạn có chắc chắn muốn CHẤP NHẬN cập nhật giá cho ${selectedRows.length} sản phẩm đã chọn lên Haravan và Google Sheet?`, 'warning');
+        if (!confirmed) return;
+
+        if (testMode) {
+            logToTerminal(`[TEST MODE] [Batch] Chấp nhận giá đề xuất cho các sản phẩm đã chọn (Chỉ cập nhật trên giao diện và Sheet LOG)...`, 'info');
+            for (const row of selectedRows) {
+                row.haravanUpdateState = 'accepted';
+                row.selected = false;
+                await logHaravanUpdateToSheet(row, 'Thành công (TEST MODE)');
+            }
+            renderSheetPricingRows();
+            updateBatchActionButtons();
+            return;
+        }
+
+        logToTerminal(`[Batch] Bắt đầu cập nhật hàng loạt cho ${selectedRows.length} sản phẩm...`, 'info');
+        setBatchActionsDisabled(true);
+
+        for (const row of selectedRows) {
+            const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+            const variantId = window.haravanMapping?.[key];
+            const productName = `${row.brand} ${row.model}`;
+
+            row.haravanUpdateState = 'updating';
+            renderSheetPricingRows();
+
+            logToTerminal(`[Batch] Đang cập nhật giá cho ${productName} (ID: ${variantId}) với giá đề xuất ${formatMoney(row.suggestedPrice)}...`, 'info');
+
+            try {
+                const updateRes = await fetch('/api/sheet-pricing', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'haravan-update-price',
+                        haravanShopUrl: document.getElementById('haravanShopUrl')?.value.trim(),
+                        haravanAccessToken: document.getElementById('haravanAccessToken')?.value.trim(),
+                        variantId: variantId,
+                        price: row.suggestedPrice,
+                    })
+                });
+                const updateData = await updateRes.json();
+                if (!updateRes.ok || updateData.ok === false) {
+                    throw new Error(updateData.error || `HTTP ${updateRes.status}`);
+                }
+                logToTerminal(`[Batch] Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
+                row.haravanUpdateState = 'accepted';
+                await sendTelegramUpdateNotification(row, 'accept', 'Thành công');
+                await logHaravanUpdateToSheet(row, 'Thành công');
+
+                try {
+                    logToTerminal(`[Batch] Đang ghi nhận giá bán mới lên Google Sheet ${row.sheetName} (Dòng: ${row.rowNumber})...`, 'info');
+                    const sheetUpdateRes = await fetch('/api/sheet-pricing', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'sheet-update-sale-price',
+                            appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value.trim(),
+                            sheetUrl: document.getElementById('pricingSheetUrl')?.value.trim(),
+                            sheetName: row.sheetName,
+                            rowNumber: row.rowNumber,
+                            price: row.suggestedPrice
+                        })
+                    });
+                    const sheetUpdateData = await sheetUpdateRes.json();
+                    if (!sheetUpdateRes.ok || sheetUpdateData.ok === false) {
+                        throw new Error(sheetUpdateData.error || `HTTP ${sheetUpdateRes.status}`);
+                    }
+                    logToTerminal(`[Batch] Đã ghi nhận giá bán mới lên Google Sheet thành công!`, 'success');
+                    row.salePrice = row.suggestedPrice;
+                    if (row.minPrice !== null) {
+                        row.gapValue = row.salePrice - row.minPrice;
+                        row.gapPercent = row.gapValue / row.minPrice;
+                    }
+                } catch (sheetErr) {
+                    logToTerminal(`[Batch] Lỗi ghi nhận giá bán mới lên Google Sheet: ${sheetErr.message}`, 'error');
+                }
+            } catch (upErr) {
+                logToTerminal(`[Batch] Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
+                row.haravanUpdateState = null;
+                await sendTelegramUpdateNotification(row, 'accept', `Lỗi: ${upErr.message}`);
+                await logHaravanUpdateToSheet(row, `Lỗi: ${upErr.message}`);
+            }
+            row.selected = false;
+            renderSheetPricingRows();
+        }
+
+        logToTerminal(`[Batch] Đã hoàn thành tiến trình cập nhật hàng loạt.`, 'success');
+        setBatchActionsDisabled(false);
+        updateBatchActionButtons();
+    }
+
+    async function rejectSelectedPrices() {
+        const testMode = document.getElementById('testModeEnabled')?.checked;
+        const selectedRows = state.rows.filter(row => {
+            const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
+            const variantId = window.haravanMapping?.[key];
+            const currentPrice = getRowCurrentPrice(row);
+            const hasVariant = testMode ? true : !!variantId;
+            const isEligible = row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && currentPrice !== row.suggestedPrice;
+            return isEligible && row.selected;
+        });
+
+        if (selectedRows.length === 0) return;
+
+        const confirmed = await showCustomConfirm('Xác nhận từ chối hàng loạt', `Bạn có chắc chắn muốn TỪ CHỐI cập nhật giá cho ${selectedRows.length} sản phẩm đã chọn?`, 'warning');
+        if (!confirmed) return;
+
+        if (testMode) {
+            logToTerminal(`[TEST MODE] [Batch] Từ chối giá đề xuất cho các sản phẩm đã chọn (Chỉ cập nhật trên giao diện và Sheet LOG)...`, 'warning');
+            for (const row of selectedRows) {
+                row.haravanUpdateState = 'rejected';
+                row.selected = false;
+                await logHaravanUpdateToSheet(row, 'Từ chối (TEST MODE)');
+            }
+            renderSheetPricingRows();
+            updateBatchActionButtons();
+            return;
+        }
+
+        logToTerminal(`[Batch] Bắt đầu từ chối hàng loạt cho ${selectedRows.length} sản phẩm...`, 'warning');
+        
+        for (const row of selectedRows) {
+            row.haravanUpdateState = 'rejected';
+            row.selected = false;
+            const productName = `${row.brand} ${row.model}`;
+            logToTerminal(`[Batch] Đã từ chối cập nhật giá cho sản phẩm ${productName}.`, 'warning');
+            await sendTelegramUpdateNotification(row, 'reject', 'Đã từ chối');
+            await logHaravanUpdateToSheet(row, 'Từ chối');
+        }
+
+        renderSheetPricingRows();
+        logToTerminal(`[Batch] Đã từ chối hàng loạt xong.`, 'success');
+        updateBatchActionButtons();
+    }
+
+    function setBatchActionsDisabled(disabled) {
+        const btnAccept = document.getElementById('btnBatchAccept');
+        const btnReject = document.getElementById('btnBatchReject');
+        const selectAllEl = document.getElementById('selectAllRows');
+        
+        if (btnAccept) btnAccept.disabled = disabled;
+        if (btnReject) btnReject.disabled = disabled;
+        if (selectAllEl) selectAllEl.disabled = disabled;
+        
+        document.querySelectorAll('.row-checkbox').forEach(el => {
+            el.disabled = disabled;
+        });
+    }
+
     async function acceptPriceUpdate(sheetName, rowNumber) {
         const row = state.rows.find((r) => r.sheetName === sheetName && r.rowNumber === rowNumber);
         if (!row) return;
 
+        if (row.haravanUpdateState === 'accepted' || row.haravanUpdateState === 'rejected' || row.haravanUpdateState === 'updating' || row.actionPending) {
+            return;
+        }
+
         const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
         const variantId = window.haravanMapping?.[key];
-        if (!variantId) {
-            alert('Không tìm thấy ID Haravan cho sản phẩm này.');
+        const testMode = document.getElementById('testModeEnabled')?.checked;
+        if (!variantId && !testMode) {
+            await showCustomAlert('Lỗi', 'Không tìm thấy ID Haravan cho sản phẩm này.', 'error');
             return;
         }
 
         const productName = `${row.brand} ${row.model}`;
-        const confirmed = confirm(`Cập nhật giá cho sản phẩm ${productName} với giá đề xuất ${formatMoney(row.suggestedPrice)}?`);
-        if (!confirmed) return;
-
-        row.haravanUpdateState = 'updating';
+        
+        row.actionPending = true;
         renderSheetPricingRows();
-
-        logToTerminal(`[Cập nhật] Đang cập nhật giá Haravan cho sản phẩm ${productName} (ID: ${variantId}) với giá đề xuất ${formatMoney(row.suggestedPrice)}...`, 'info');
 
         try {
-            const updateRes = await fetch('/api/sheet-pricing', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'haravan-update-price',
-                    haravanShopUrl: document.getElementById('haravanShopUrl')?.value.trim(),
-                    haravanAccessToken: document.getElementById('haravanAccessToken')?.value.trim(),
-                    variantId: variantId,
-                    price: row.suggestedPrice,
-                })
-            });
-            const updateData = await updateRes.json();
-            if (!updateRes.ok || updateData.ok === false) {
-                throw new Error(updateData.error || `HTTP ${updateRes.status}`);
-            }
-            logToTerminal(`[Cập nhật] Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
-            row.haravanUpdateState = 'accepted';
-            alert(`Cập nhật giá Haravan thành công cho sản phẩm ${productName}!`);
-            await sendTelegramUpdateNotification(row, 'accept', 'Thành công');
-            await logHaravanUpdateToSheet(row, 'Thành công');
+            const confirmed = await showCustomConfirm('Xác nhận cập nhật giá', `Cập nhật giá cho sản phẩm ${productName} với giá đề xuất ${formatMoney(row.suggestedPrice)}?`, 'warning');
+            if (!confirmed) return;
 
-            try {
-                logToTerminal(`[Cập nhật] Đang ghi nhận giá bán mới lên Google Sheet ${sheetName} (Dòng: ${rowNumber})...`, 'info');
-                const sheetUpdateRes = await fetch('/api/sheet-pricing', {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'sheet-update-sale-price',
-                        appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value.trim(),
-                        sheetUrl: document.getElementById('pricingSheetUrl')?.value.trim(),
-                        sheetName: sheetName,
-                        rowNumber: rowNumber,
-                        price: row.suggestedPrice
-                    })
-                });
-                const sheetUpdateData = await sheetUpdateRes.json();
-                if (!sheetUpdateRes.ok || sheetUpdateData.ok === false) {
-                    throw new Error(sheetUpdateData.error || `HTTP ${sheetUpdateRes.status}`);
+            row.haravanUpdateState = 'updating';
+            renderSheetPricingRows();
+
+            const testMode = document.getElementById('testModeEnabled')?.checked;
+            if (testMode) {
+                logToTerminal(`[TEST MODE] Chấp nhận giá đề xuất cho sản phẩm ${productName} (Chỉ cập nhật trên giao diện và Sheet LOG)...`, 'info');
+                row.haravanUpdateState = 'accepted';
+                await logHaravanUpdateToSheet(row, 'Thành công (TEST MODE)');
+                return;
+            } else {
+                logToTerminal(`[Cập nhật] Đang cập nhật giá Haravan cho sản phẩm ${productName} (ID: ${variantId}) với giá đề xuất ${formatMoney(row.suggestedPrice)}...`, 'info');
+
+                try {
+                    const updateRes = await fetch('/api/sheet-pricing', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'haravan-update-price',
+                            haravanShopUrl: document.getElementById('haravanShopUrl')?.value.trim(),
+                            haravanAccessToken: document.getElementById('haravanAccessToken')?.value.trim(),
+                            variantId: variantId,
+                            price: row.suggestedPrice,
+                        })
+                    });
+                    const updateData = await updateRes.json();
+                    if (!updateRes.ok || updateData.ok === false) {
+                        throw new Error(updateData.error || `HTTP ${updateRes.status}`);
+                    }
+                    logToTerminal(`[Cập nhật] Đã cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
+                    row.haravanUpdateState = 'accepted';
+                    await showCustomAlert('Thành công', `Cập nhật giá Haravan thành công cho sản phẩm ${productName}!`, 'success');
+                    await sendTelegramUpdateNotification(row, 'accept', 'Thành công');
+                    await logHaravanUpdateToSheet(row, 'Thành công');
+
+                    try {
+                        logToTerminal(`[Cập nhật] Đang ghi nhận giá bán mới lên Google Sheet ${sheetName} (Dòng: ${rowNumber})...`, 'info');
+                        const sheetUpdateRes = await fetch('/api/sheet-pricing', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'sheet-update-sale-price',
+                                appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value.trim(),
+                                sheetUrl: document.getElementById('pricingSheetUrl')?.value.trim(),
+                                sheetName: sheetName,
+                                rowNumber: rowNumber,
+                                price: row.suggestedPrice
+                            })
+                        });
+                        const sheetUpdateData = await sheetUpdateRes.json();
+                        if (!sheetUpdateRes.ok || sheetUpdateData.ok === false) {
+                            throw new Error(sheetUpdateData.error || `HTTP ${sheetUpdateRes.status}`);
+                        }
+                        logToTerminal(`[Cập nhật] Đã ghi nhận giá bán mới lên Google Sheet thành công!`, 'success');
+                        row.salePrice = row.suggestedPrice;
+                        if (row.minPrice !== null) {
+                            row.gapValue = row.salePrice - row.minPrice;
+                            row.gapPercent = row.gapValue / row.minPrice;
+                        }
+                    } catch (sheetErr) {
+                        logToTerminal(`[Cập nhật] Lỗi ghi nhận giá bán mới lên Google Sheet: ${sheetErr.message}`, 'error');
+                    }
+                } catch (upErr) {
+                    logToTerminal(`[Cập nhật] Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
+                    await showCustomAlert('Lỗi cập nhật', `Lỗi cập nhật giá Haravan: ${upErr.message}`, 'error');
+                    row.haravanUpdateState = null;
+                    await sendTelegramUpdateNotification(row, 'accept', `Lỗi: ${upErr.message}`);
+                    await logHaravanUpdateToSheet(row, `Lỗi: ${upErr.message}`);
                 }
-                logToTerminal(`[Cập nhật] Đã ghi nhận giá bán mới lên Google Sheet thành công!`, 'success');
-                row.salePriceValue = row.suggestedPrice;
-                if (row.minPrice !== null) {
-                    row.gapValue = row.salePriceValue - row.minPrice;
-                    row.gapPercent = row.gapValue / row.minPrice;
-                }
-            } catch (sheetErr) {
-                logToTerminal(`[Cập nhật] Lỗi ghi nhận giá bán mới lên Google Sheet: ${sheetErr.message}`, 'error');
             }
-        } catch (upErr) {
-            logToTerminal(`[Cập nhật] Lỗi cập nhật giá Haravan cho sản phẩm ${productName}: ${upErr.message}`, 'error');
-            alert(`Lỗi cập nhật giá Haravan: ${upErr.message}`);
-            row.haravanUpdateState = null;
-            await sendTelegramUpdateNotification(row, 'accept', `Lỗi: ${upErr.message}`);
-            await logHaravanUpdateToSheet(row, `Lỗi: ${upErr.message}`);
+        } finally {
+            row.actionPending = false;
+            renderSheetPricingRows();
         }
-        renderSheetPricingRows();
     }
 
     async function rejectPriceUpdate(sheetName, rowNumber) {
         const row = state.rows.find((r) => r.sheetName === sheetName && r.rowNumber === rowNumber);
         if (!row) return;
-        row.haravanUpdateState = 'rejected';
-        const productName = `${row.brand} ${row.model}`;
-        logToTerminal(`[Cập nhật] Đã từ chối cập nhật giá cho sản phẩm ${productName}.`, 'warning');
+
+        if (row.haravanUpdateState === 'accepted' || row.haravanUpdateState === 'rejected' || row.haravanUpdateState === 'updating' || row.actionPending) {
+            return;
+        }
+
+        row.actionPending = true;
         renderSheetPricingRows();
-        await sendTelegramUpdateNotification(row, 'reject', 'Đã từ chối');
-        await logHaravanUpdateToSheet(row, 'Từ chối');
+
+        try {
+            row.haravanUpdateState = 'rejected';
+            const productName = `${row.brand} ${row.model}`;
+            logToTerminal(`[Cập nhật] Đã từ chối cập nhật giá cho sản phẩm ${productName}.`, 'warning');
+            
+            const testMode = document.getElementById('testModeEnabled')?.checked;
+            if (testMode) {
+                logToTerminal(`[TEST MODE] Từ chối giá đề xuất cho sản phẩm ${productName} (Chỉ cập nhật trên giao diện và Sheet LOG)...`, 'warning');
+                await logHaravanUpdateToSheet(row, 'Từ chối (TEST MODE)');
+                return;
+            }
+            
+            await sendTelegramUpdateNotification(row, 'reject', 'Đã từ chối');
+            await logHaravanUpdateToSheet(row, 'Từ chối');
+        } finally {
+            row.actionPending = false;
+            renderSheetPricingRows();
+        }
     }
 
     window.startSheetPricingJob = startSheetPricingJob;
@@ -1276,4 +1875,10 @@
     window.syncHaravanIds = syncHaravanIds;
     window.acceptPriceUpdate = acceptPriceUpdate;
     window.rejectPriceUpdate = rejectPriceUpdate;
+    window.exportConfig = exportConfig;
+    window.importConfig = importConfig;
+    window.toggleSelectAllRows = toggleSelectAllRows;
+    window.toggleRowSelection = toggleRowSelection;
+    window.acceptSelectedPrices = acceptSelectedPrices;
+    window.rejectSelectedPrices = rejectSelectedPrices;
 })();

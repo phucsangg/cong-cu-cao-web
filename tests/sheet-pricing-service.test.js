@@ -41,19 +41,20 @@ test('processPricingRow filters links, keeps top 10 prices, and builds sheet upd
             productId: 'BT-010',
             brand: 'Kocher',
             model: 'DI-355',
+            costPrice: '9,000,000',
             salePrice: '11,040,000',
         },
         deps: {
             searchProductLinks: async () => ([
                 'https://shop-a.vn/products/kocher-di-355.html',
                 'https://shop-b.vn/search?q=kocher+di355',
-                'https://shop-c.vn/products/kocher-di-355-pro',
+                'https://shop-c.vn/products/kocher-di-355-b.html',
                 'https://shop-d.vn/collections/bep-tu',
             ]),
             extractProductPrice: async (url) => {
                 const values = {
                     'https://shop-a.vn/products/kocher-di-355.html': 10100000,
-                    'https://shop-c.vn/products/kocher-di-355-pro': 10200000,
+                    'https://shop-c.vn/products/kocher-di-355-b.html': 10200000,
                 };
                 return values[url] || null;
             },
@@ -63,12 +64,12 @@ test('processPricingRow filters links, keeps top 10 prices, and builds sheet upd
     assert.equal(result.rowNumber, 3);
     assert.deepEqual(result.matchedUrls, [
         'https://shop-a.vn/products/kocher-di-355.html',
-        'https://shop-c.vn/products/kocher-di-355-pro',
+        'https://shop-c.vn/products/kocher-di-355-b.html',
     ]);
     assert.deepEqual(result.marketPrices, [10100000, 10200000]);
     assert.equal(result.minPrice, 10100000);
-    assert.equal(result.gapValue, 940000);
-    assert.equal(result.suggestedPrice, null);
+    assert.equal(result.gapValue, 2040000); // 11,040,000 - 9,000,000
+    assert.equal(result.suggestedPrice, 10100000);
     assert.equal(result.status, 'insufficient_prices');
 });
 
@@ -86,6 +87,7 @@ test('processPricingRow sets success status when enough prices are found', async
             productId: 'BT-002',
             brand: 'Kocher',
             model: 'DI-3332Pro',
+            costPrice: '8,000,000',
             salePrice: '9,120,000',
         },
         deps: {
@@ -96,8 +98,8 @@ test('processPricingRow sets success status when enough prices are found', async
 
     assert.equal(result.status, 'success');
     assert.equal(result.minPrice, 9000000);
-    assert.equal(result.gapValue, 120000);
-    assert.equal(result.suggestedPrice, 9054500);
+    assert.equal(result.gapValue, 1120000); // 9,120,000 - 8,000,000
+    assert.equal(result.suggestedPrice, 9000000);
 });
 
 test('isLikelyProductDetailUrl accepts standard Vietnamese slug URLs', () => {
@@ -113,6 +115,7 @@ test('processPricingRow skips rows with purely numeric models', async () => {
             productId: 'BT-005',
             brand: 'Kocher',
             model: '123', // Purely numeric model
+            costPrice: '1,000,000',
             salePrice: '5,000,000',
         },
         deps: {
@@ -132,6 +135,7 @@ test('processPricingRow skips rows with missing or whitespace-only brand or mode
             rowNumber: 6,
             brand: '   ',
             model: 'DI-3332Pro',
+            costPrice: '1,000,000',
         }
     });
     assert.equal(resultNoBrand.status, 'skipped');
@@ -141,6 +145,7 @@ test('processPricingRow skips rows with missing or whitespace-only brand or mode
             rowNumber: 7,
             brand: 'Kocher',
             model: '',
+            costPrice: '1,000,000',
         }
     });
     assert.equal(resultNoModel.status, 'skipped');
@@ -153,6 +158,7 @@ test('processPricingRow falls back to row.marketPrices when crawler finds 0 pric
             productId: 'BT-008',
             brand: 'Kocher',
             model: 'DI-333Pro',
+            costPrice: '8,500,000',
             salePrice: '9,500,000',
             marketPrices: [9000000, 9100000, 9200000],
         },
@@ -165,18 +171,18 @@ test('processPricingRow falls back to row.marketPrices when crawler finds 0 pric
     assert.equal(result.hasNewPrices, false);
     assert.deepEqual(result.marketPrices, [9000000, 9100000, 9200000]);
     assert.equal(result.minPrice, 9000000);
-    assert.equal(result.gapValue, 500000);
-    assert.equal(result.suggestedPrice, 9054500); // (9000000 + 9100000 + 9200000)/3 * 0.995 = 9054500
+    assert.equal(result.gapValue, 1000000); // 9,500,000 - 8,500,000
+    assert.equal(result.suggestedPrice, 9000000); // Min
     assert.equal(result.status, 'success');
 });
 
-test('processPricingRow filters out invalid prices outside range [100,000 - 200,000,000]', async () => {
+test('processPricingRow filters out invalid prices outside range [100,000 - 2,000,000,000]', async () => {
     const priceMap = new Map([
         ['https://a.vn/p/kocher-di-333pro', 99999], // Too low, should be ignored
         ['https://b.vn/p/kocher-di-333pro', 9000000], // Valid
         ['https://c.vn/p/kocher-di-333pro', 9100000], // Valid
         ['https://d.vn/p/kocher-di-333pro', 9200000], // Valid
-        ['https://e.vn/p/kocher-di-333pro', 200000001], // Too high, should be ignored
+        ['https://e.vn/p/kocher-di-333pro', 2000000001], // Too high, should be ignored
     ]);
 
     const result = await processPricingRow({
@@ -185,6 +191,7 @@ test('processPricingRow filters out invalid prices outside range [100,000 - 200,
             productId: 'BT-009',
             brand: 'Kocher',
             model: 'DI-333Pro',
+            costPrice: '1,000,000',
             salePrice: '9,500,000',
         },
         deps: {
@@ -196,7 +203,7 @@ test('processPricingRow filters out invalid prices outside range [100,000 - 200,
     assert.equal(result.status, 'success');
     assert.deepEqual(result.marketPrices, [9000000, 9100000, 9200000]); // Low and high prices are excluded
     assert.equal(result.minPrice, 9000000);
-    assert.equal(result.suggestedPrice, 9054500);
+    assert.equal(result.suggestedPrice, 9000000);
 });
 
 test('processPricingRow supports products and prices under 1,000,000 VND', async () => {
@@ -213,6 +220,7 @@ test('processPricingRow supports products and prices under 1,000,000 VND', async
             productId: 'XS-003',
             brand: 'Tefal',
             model: 'BL1C0230',
+            costPrice: '500,000',
             salePrice: '689,000',
         },
         deps: {
@@ -224,7 +232,7 @@ test('processPricingRow supports products and prices under 1,000,000 VND', async
     assert.equal(result.status, 'success');
     assert.deepEqual(result.marketPrices, [550000, 580000, 600000]); // 99k is excluded as it is < 100k
     assert.equal(result.minPrice, 550000);
-    assert.equal(result.suggestedPrice, 573783); // (550k + 580k + 600k)/3 * 0.995 = 573783.333 -> round is 573783
+    assert.equal(result.suggestedPrice, 550000);
 });
 
 test('loadModelMapping loads mapping rows and parses columns correctly', async () => {
@@ -232,10 +240,10 @@ test('loadModelMapping loads mapping rows and parses columns correctly', async (
         return {
             ok: true,
             json: async () => ({
-                headers: ['Thương hiệu', 'Mã sản phẩm', 'Model'],
+                headers: Array(15).fill(''),
                 rows: [
-                    { rowNumber: 2, values: ['Tefal', '2100112290', 'G2550402'] },
-                    { rowNumber: 8, values: ['Tefal', '8010001304', 'BL100230'] }
+                    { rowNumber: 3, values: [...Array(13).fill(''), '2100112290', 'G2550402'] },
+                    { rowNumber: 4, values: [...Array(13).fill(''), '8010001304', 'BL100230'] }
                 ]
             })
         };
@@ -253,14 +261,14 @@ test('loadModelMapping loads mapping rows and parses columns correctly', async (
     });
 });
 
-test('loadModelMapping requests the real 18.Mã sản phẩm sheet name', async () => {
+test('loadModelMapping requests the real LOG sheet name', async () => {
     let requestedUrl = '';
     const mockFetch = async (url) => {
         requestedUrl = String(url);
         return {
             ok: true,
             json: async () => ({
-                headers: ['Thương hiệu', 'Mã sản phẩm', 'Model'],
+                headers: Array(15).fill(''),
                 rows: [],
             })
         };
@@ -273,7 +281,7 @@ test('loadModelMapping requests the real 18.Mã sản phẩm sheet name', async 
     });
 
     const parsed = new URL(requestedUrl);
-    assert.equal(parsed.searchParams.get('sheetName'), '18.Mã sản phẩm');
+    assert.equal(parsed.searchParams.get('sheetName'), 'LOG');
 });
 
 test('normalizeSelectedSheetNames handles arrays, csv strings, and duplicates', () => {
@@ -317,6 +325,7 @@ test('processPricingRow checks cleaned numeric codes (float string like 123.0)',
             productId: 'BT-010',
             brand: 'Kocher',
             model: '123.0',
+            costPrice: '1,000,000',
             salePrice: '9,000,000',
         },
         deps: {
@@ -344,6 +353,12 @@ test('brand-aware prefix model matching matches short model names under the same
     assert.equal(isModelMatch('Bàn ủi hơi nước Tefal DT8105', 'DT8100', 'Tefal'), false);
 });
 
+test('model matching accepts letters suffix followed by digit in title/URL', () => {
+    const { isModelMatch } = require('../lib/sheet-pricing-service.js');
+    assert.equal(isModelMatch('Bếp từ đôi Eurosun EU-T210Pro 2 vùng nấu 3600W', 'EU-T210 Pro', 'Eurosun'), true);
+    assert.equal(isModelMatch('https://ctluxhome.vn/bep-tu-eurosun-eu-t210pro-2-vung-nau-3600w-2.html', 'EU-T210 Pro', 'Eurosun'), true);
+});
+
 test('model matching rejects same digits with conflicting suffix letters', () => {
     assert.equal(isModelMatch('Bosch WQG24570GB', 'WQG24570SG', 'Bosch'), false);
     assert.equal(
@@ -364,6 +379,8 @@ test('isFakePrice correctly identifies prices derived from model digits', () => 
     // Real price is fine
     assert.equal(isFakePrice(1890000, 'BL871D31'), false);
     assert.equal(isFakePrice(689000, 'BL1C0230'), false);
+    assert.equal(isFakePrice(14202000, 'KF-IH202IC'), false);
+    assert.equal(isFakePrice(13320000, 'DI-332Pro'), false);
 });
 
 test('startBackgroundPricingJob stops before starting the next row after stop is requested', async () => {
@@ -386,8 +403,8 @@ test('startBackgroundPricingJob stops before starting the next row after stop is
             loadModelMapping: async () => ({}),
             readSheetRows: async () => ({
                 rows: [
-                    { rowNumber: 3, productId: 'A', brand: 'Bosch', model: 'WQB245B40', salePrice: '25,000,000', marketPrices: [] },
-                    { rowNumber: 4, productId: 'B', brand: 'Bosch', model: 'WQG24570SG', salePrice: '18,000,000', marketPrices: [] },
+                    { rowNumber: 3, productId: 'A', brand: 'Bosch', model: 'WQB245B40', costPrice: '1,000,000', salePrice: '25,000,000', marketPrices: [] },
+                    { rowNumber: 4, productId: 'B', brand: 'Bosch', model: 'WQG24570SG', costPrice: '1,000,000', salePrice: '18,000,000', marketPrices: [] },
                 ],
             }),
             processPricingRow: async ({ row, deps }) => {
@@ -478,7 +495,7 @@ test('loadModelMapping resolves sheet name via listSheets to prevent unicode mis
                 ok: true,
                 json: async () => ({
                     ok: true,
-                    sheets: ['08.Giặt sấy', '18.Mã sản phẩm'] // decomposed unicode version
+                    sheets: ['08.Giặt sấy', 'LOG']
                 })
             };
         }
@@ -487,9 +504,9 @@ test('loadModelMapping resolves sheet name via listSheets to prevent unicode mis
             return {
                 ok: true,
                 json: async () => ({
-                    headers: ['Thương hiệu', 'Mã sản phẩm', 'Model'],
+                    headers: Array(15).fill(''),
                     rows: [
-                        { rowNumber: 2, values: ['Tefal', '2100112290', 'G2550402'] }
+                        { rowNumber: 4, values: [...Array(13).fill(''), '2100112290', 'G2550402'] }
                     ]
                 })
             };
@@ -504,7 +521,7 @@ test('loadModelMapping resolves sheet name via listSheets to prevent unicode mis
     });
 
     assert.deepEqual(mapping, { '2100112290': 'G2550402' });
-    assert.deepEqual(requestedSheetNames, ['18.Mã sản phẩm']);
+    assert.deepEqual(requestedSheetNames, ['LOG']);
 });
 
 test('startBackgroundPricingJob includes successfully matched details in logs passed to writeSheetUpdates', async () => {
@@ -522,7 +539,7 @@ test('startBackgroundPricingJob includes successfully matched details in logs pa
             loadModelMapping: async () => ({}),
             readSheetRows: async () => ({
                 rows: [
-                    { rowNumber: 3, productId: 'A', brand: 'Bosch', model: 'WQB245B40', salePrice: '25,000,000', marketPrices: [] },
+                    { rowNumber: 3, productId: 'A', brand: 'Bosch', model: 'WQB245B40', costPrice: '1,000,000', salePrice: '25,000,000', marketPrices: [] },
                 ],
             }),
             processPricingRow: async () => {
@@ -926,6 +943,7 @@ test('processPricingRow mock crawls for sheet 21.Test', async () => {
             productId: 'TS-001',
             brand: 'Cleer',
             model: 'test',
+            costPrice: '50,000',
             salePrice: '100,000',
             sheetName: '21.Test',
         }
@@ -933,7 +951,7 @@ test('processPricingRow mock crawls for sheet 21.Test', async () => {
 
     assert.equal(result.status, 'success');
     assert.equal(result.minPrice, 100000);
-    assert.equal(result.suggestedPrice, 99500);
+    assert.equal(result.suggestedPrice, 100000);
     assert.equal(result.totalLinksCount, 10);
     assert.ok(Array.isArray(result.marketPrices));
     assert.equal(result.marketPrices.length, 10);
@@ -1044,7 +1062,563 @@ test('updateSheetSalePrice dispatches correct POST request to Apps Script API', 
     assert.equal(body.price, 23900000);
 });
 
+test('scoreProductUrl correctly evaluates relevance of product detail URLs', () => {
+    const { scoreProductUrl } = require('../lib/sheet-pricing-service.js');
+    
+    // Exact model and brand in URL
+    const high = scoreProductUrl('https://kocher.vn/bep-tu/bep-tu-di-332pro/', 'DI-332Pro', 'Kocher');
+    // Brand and model digits, but not exact model format
+    const mid = scoreProductUrl('https://www.dienmayxanh.com/bep-tu/bep-tu-doi-am-kocher-di-332-pro-5000w', 'DI-332Pro', 'Kocher');
+    // Just brand, no model
+    const low = scoreProductUrl('https://meta.vn/kocher.html', 'DI-332Pro', 'Kocher');
+    // Random page, no brand or model
+    const zero = scoreProductUrl('https://kocher.vn/gioi-thieu/', 'DI-332Pro', 'Kocher');
 
+    assert.ok(high >= mid, `high: ${high} should be >= mid: ${mid}`);
+    assert.ok(mid > low, `mid: ${mid} should be greater than low: ${low}`);
+    assert.ok(low > zero, `low: ${low} should be greater than zero: ${zero}`);
+});
+
+test('extractProductPrice filters out discount amounts and related product slider prices', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+
+    const htmlContent = `
+        <html>
+            <head><title>Bếp từ Kocher DI-332Pro chính hãng</title></head>
+            <body>
+                <h1>Bếp từ Kocher DI-332Pro</h1>
+                <!-- Main product price block -->
+                <div class="product-info-main">
+                    <span class="special-price">Giá khuyến mại: <span class="price">10.400.000đ</span></span>
+                    <span class="old-price"><del>16.550.000đ</del></span>
+                    
+                    <!-- Discount amount badge - should be blocked! -->
+                    <div class="discount-badge">Tiết kiệm: <span class="price">6.150.000đ</span></div>
+                </div>
+
+                <!-- Related products slider - should be blocked! -->
+                <div class="swiper-container product-related-slider">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide product-item">
+                            <h3>Bếp từ Kocher DI-336Pro</h3>
+                            <span class="price">9.100.000đ</span>
+                        </div>
+                        <div class="swiper-slide product-item">
+                            <h3>Bếp từ Kocher DI-333SE</h3>
+                            <div class="discount">Giảm 3.400.000đ</div>
+                            <span class="price">12.550.000đ</span>
+                        </div>
+                    </div>
+                </div>
+            </body>
+        </html>
+    `;
+
+    const mockFetch = async () => {
+        return {
+            ok: true,
+            text: async () => htmlContent
+        };
+    };
+
+    const price = await extractProductPrice({
+        url: 'https://example-shop.com/kocher-di-332pro',
+        model: 'DI-332Pro',
+        brand: 'Kocher',
+        referencePrice: '7,600,000',
+        fetchImpl: mockFetch
+    });
+
+    // It should extract 10,400,000 VND (not 6,150,000 or 9,100,000 or 3,400,000)
+    assert.equal(price, 10400000);
+});
+
+test('extractProductPrice returns null and does not fall back to unrelated product prices if main product price is missing', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+
+    const htmlContent = `
+        <html>
+            <head><title>Bếp từ đôi Spelier STL 220C chính hãng</title></head>
+            <body>
+                <h1>Bếp từ đôi Spelier STL 220C</h1>
+                
+                <!-- Main product price is contact only -->
+                <div class="product-info-main">
+                    <span class="price-contact">Giá: Liên hệ</span>
+                </div>
+
+                <!-- Related products slider - has prices, but should NOT be picked up because they do not match model Spelier STL 220C -->
+                <div class="related-products">
+                    <div class="product-item">
+                        <h3>Máy hút mùi Sevilla SV-70T2S</h3>
+                        <span class="price">5.250.000₫</span>
+                    </div>
+                </div>
+            </body>
+        </html>
+    `;
+
+    const mockFetch = async () => {
+        return {
+            ok: true,
+            text: async () => htmlContent
+        };
+    };
+
+    const price = await extractProductPrice({
+        url: 'https://example-shop.com/spelier-stl-220c',
+        model: 'STL-220C',
+        brand: 'Spelier',
+        referencePrice: '7,000,000',
+        fetchImpl: mockFetch
+    });
+
+    // It should return null (skip the link), not the Sevilla price (5,250,000đ)
+    assert.equal(price, null);
+});
+
+test('isModelMatch handles suffix conflicts correctly (X-NANO 8 vs X-NANO 8 Plus)', () => {
+    const { isModelMatch } = require('../lib/sheet-pricing-service.js');
+    
+    // 1. Text has suffix, Model has no suffix -> should NOT match
+    assert.equal(isModelMatch('https://kocher.vn/bep-tu/bep-tu-kocher-x-nano-8-plus/', 'X-NANO 8', 'Kocher'), false);
+    assert.equal(isModelMatch('Bếp từ Kocher X-Nano 8 Plus chính hãng', 'X-NANO 8', 'Kocher'), false);
+    
+    // 2. Model has suffix, Text has no suffix -> should NOT match
+    assert.equal(isModelMatch('https://kocher.vn/bep-tu/bep-tu-kocher-x-nano-8/', 'X-NANO 8 Plus', 'Kocher'), false);
+    assert.equal(isModelMatch('Bếp từ Kocher X-Nano 8 chính hãng', 'X-NANO 8 Plus', 'Kocher'), false);
+ 
+    // 3. Both have suffix -> should match
+    assert.equal(isModelMatch('https://kocher.vn/bep-tu/bep-tu-kocher-x-nano-8-plus/', 'X-NANO 8 Plus', 'Kocher'), true);
+    assert.equal(isModelMatch('Bếp từ Kocher X-Nano 8 Plus chính hãng', 'X-NANO 8 Plus', 'Kocher'), true);
+    
+    // 4. Regular matches regular
+    assert.equal(isModelMatch('Bếp từ Kocher X-Nano 8 chính hãng', 'X-NANO 8', 'Kocher'), true);
+    assert.equal(isModelMatch('https://kocher.vn/bep-tu/bep-tu-kocher-x-nano-8/', 'X-NANO 8', 'Kocher'), true);
+});
+
+test('isModelMatch handles prefix conflicts correctly (SMM T170N vs SPM T170)', () => {
+    const { isModelMatch } = require('../lib/sheet-pricing-service.js');
+    
+    // Conflicting prefixes should NOT match
+    assert.equal(isModelMatch('https://showroomspelier.vn/bep-tu/bep-tu-doi-spelier-spm-t170k-plus-lap-am/', 'SMM T170N', 'Spelier'), false);
+    assert.equal(isModelMatch('https://speliervietnam.com.vn/san-pham/bep-tu-doi-spelier-spm-t-170n/', 'SMM T170N', 'Spelier'), false);
+    
+    // Matching prefixes should match
+    assert.equal(isModelMatch('https://speliervietnam.com.vn/san-pham/bep-tu-doi-spelier-spm-t-170n/', 'SPM T170N', 'Spelier'), true);
+    assert.equal(isModelMatch('https://tongkhobep.com.vn/san-pham/bep-tu-kocher-di-333se-bao-hanh-3-nam/', 'DI-333SE', 'Kocher'), true);
+    assert.equal(isModelMatch('https://tongkhobep.com.vn/san-pham/bep-tu-kocher-dib4-333se-bao-hanh-3-nam/', 'DI-333SE', 'Kocher'), false);
+});
+
+test('extractProductPrice ignores discount badge like on tongkhobep.com.vn', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+
+    const htmlContent = `
+        <div class="price-wrapper style1">
+            <p class="price product-page-price price-on-sale">
+                <ins><span class="woocommerce-Price-amount amount"><bdi>12.550.000<span class="woocommerce-Price-currencySymbol">₫</span></bdi></span></ins>
+                <del><span class="woocommerce-Price-amount amount"><bdi>15.950.000<span class="woocommerce-Price-currencySymbol">₫</span></bdi></span></del>
+            </p>
+        </div>
+        <span class="percent-deal1">Giảm <span><span class="woocommerce-Price-amount amount"><bdi>3.400.000<span class="woocommerce-Price-currencySymbol">₫</span></bdi></span></span></span>
+    `;
+
+    const mockFetch = async () => {
+        return {
+            ok: true,
+            text: async () => htmlContent
+        };
+    };
+
+    const price = await extractProductPrice({
+        url: 'https://tongkhobep.com.vn/san-pham/bep-tu-kocher-di-333se-bao-hanh-3-nam/',
+        model: 'DI-333SE',
+        brand: 'Kocher',
+        referencePrice: '10,000,000',
+        fetchImpl: mockFetch
+    });
+
+    // Should extract the actual sale price (12.550.000), not the discount amount (3.400.000)
+    assert.equal(price, 12550000);
+});
+
+test('searchProductLinks performs sequential fallback and respects pagination', async () => {
+    const { searchProductLinks } = require('../lib/sheet-pricing-service.js');
+    const urlsRequested = [];
+    const mockFetch = async (url) => {
+        urlsRequested.push(url);
+        if (url.includes('google.com')) {
+            return {
+                ok: true,
+                text: async () => `
+                    <html>
+                        <body>
+                            <a href="/url?q=https://google-result-1.com/p">Link 1</a>
+                            <a href="/url?q=https://google-result-2.com/p">Link 2</a>
+                        </body>
+                    </html>
+                `
+            };
+        }
+        if (url.includes('bing.com')) {
+            if (url.includes('first=1')) {
+                return {
+                    ok: true,
+                    text: async () => `
+                        <html>
+                            <body>
+                                <cite>https://bing-result-1.com/p</cite>
+                                <cite>https://bing-result-2.com/p</cite>
+                                <cite>https://bing-result-3.com/p</cite>
+                                <cite>https://bing-result-4.com/p</cite>
+                                <cite>https://bing-result-5.com/p</cite>
+                                <cite>https://bing-result-6.com/p</cite>
+                            </body>
+                        </html>
+                    `
+                };
+            } else {
+                return {
+                    ok: true,
+                    text: async () => `
+                        <html>
+                            <body>
+                                <cite>https://bing-result-7.com/p</cite>
+                                <cite>https://bing-result-8.com/p</cite>
+                            </body>
+                        </html>
+                    `
+                };
+            }
+        }
+        return { ok: true, text: async () => '' };
+    };
+
+    const links = await searchProductLinks({
+        brand: 'Kocher',
+        model: 'DI-332Pro',
+        limit: 5,
+        fetchImpl: mockFetch
+    });
+
+    assert.ok(urlsRequested.some(u => u.includes('google.com') && u.includes('start=0')));
+    assert.ok(!urlsRequested.some(u => u.includes('google.com') && u.includes('start=40')));
+    assert.ok(urlsRequested.some(u => u.includes('bing.com') && u.includes('first=1')));
+    assert.ok(urlsRequested.some(u => u.includes('bing.com') && u.includes('first=51')));
+    assert.ok(urlsRequested.some(u => u.includes('duckduckgo.com')));
+    assert.ok(urlsRequested.some(u => u.includes('coccoc.com')));
+
+    assert.ok(links.includes('https://google-result-1.com/p'));
+    assert.ok(links.includes('https://bing-result-1.com/p'));
+    assert.ok(links.includes('https://bing-result-7.com/p'));
+});
+
+test('isModelMatch handles compound suffixes (e.g. KF-IH870Z vs KF-IH870Z Plus)', () => {
+    const { isModelMatch } = require('../lib/sheet-pricing-service.js');
+    assert.equal(isModelMatch('Bếp từ Kaff KF-IH870Z Plus', 'KF-IH870Z Plus', 'Kaff'), true);
+    assert.equal(isModelMatch('Bếp từ Kaff KF-IH870Z', 'KF-IH870Z Plus', 'Kaff'), false);
+    assert.equal(isModelMatch('Bếp từ Kaff KF-IH870Z Plus', 'KF-IH870Z', 'Kaff'), false);
+    assert.equal(isModelMatch('Bếp từ Kaff KF-IH870Z', 'KF-IH870Z', 'Kaff'), true);
+});
+
+test('extractProductPrice ignores discount badge with underscores like on digigo.vn', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+    const htmlContent = `
+        <div class="product-info-main">
+            <div class="price-wrapper">
+                <span class="woocommerce-Price-amount amount"><bdi>3.590.000&nbsp;<span class="woocommerce-Price-currencySymbol">₫</span></bdi></span>
+            </div>
+            <div class="devvn_price_tiet_kiem">
+                <span class="t">Tiết kiệm:</span>
+                <span class="c"><span class="woocommerce-Price-amount amount"><bdi>3.000.000&nbsp;<span class="woocommerce-Price-currencySymbol">₫</span></bdi></span></span>
+            </div>
+        </div>
+    `;
+
+    const mockFetch = async () => {
+        return {
+            ok: true,
+            text: async () => htmlContent
+        };
+    };
+
+    const price = await extractProductPrice({
+        url: 'https://digigo.vn/may-hut-mui-am-tu-hawonkoo-hrh-703/',
+        model: 'HRH-703',
+        brand: 'Hawonkoo',
+        referencePrice: '3,000,000',
+        fetchImpl: mockFetch
+    });
+
+    assert.equal(price, 3590000);
+});
+
+test('searchProductLinks falls back when only low-quality links are found', async () => {
+    const { searchProductLinks } = require('../lib/sheet-pricing-service.js');
+    const urlsRequested = [];
+    const mockFetch = async (url) => {
+        urlsRequested.push(url);
+        if (url.includes('google.com')) {
+            return {
+                ok: true,
+                text: async () => `
+                    <html>
+                        <body>
+                            <!-- Low quality links (will fail isLikelyProductDetailUrl since they don't contain model and have no hyphens/html) -->
+                            <a href="https://kocher.vn">Home</a>
+                            <a href="https://facebook.com">Facebook</a>
+                        </body>
+                    </html>
+                `
+            };
+        }
+        if (url.includes('bing.com')) {
+            return {
+                ok: true,
+                text: async () => `
+                    <html>
+                        <body>
+                            <!-- Still low quality -->
+                            <cite>https://meta.vn</cite>
+                        </body>
+                    </html>
+                `
+            };
+        }
+        if (url.includes('duckduckgo.com')) {
+            return {
+                ok: true,
+                text: async () => `
+                    <html>
+                        <body>
+                            <!-- High quality likely link -->
+                            <a class="result__a" href="https://duckduckgo.com/l/?uddg=https://kocher.vn/bep-tu-di-332pro.html">Result</a>
+                        </body>
+                    </html>
+                `
+            };
+        }
+        return { ok: true, text: async () => '' };
+    };
+
+    const links = await searchProductLinks({
+        brand: 'Kocher',
+        model: 'DI-332Pro',
+        limit: 5,
+        fetchImpl: mockFetch
+    });
+
+    // It should have called Google, Bing, and DDG because the previous ones only returned low quality links
+    assert.ok(urlsRequested.some(u => u.includes('google.com')));
+    assert.ok(urlsRequested.some(u => u.includes('bing.com')));
+    assert.ok(urlsRequested.some(u => u.includes('duckduckgo.com')));
+    
+    assert.ok(links.includes('https://kocher.vn'));
+    assert.ok(links.includes('https://meta.vn'));
+    assert.ok(links.includes('https://kocher.vn/bep-tu-di-332pro.html'));
+});
+
+test('processPricingRow processes normally and sets gapValue and gapPercent to null if costPrice is missing', async () => {
+    const priceMap = new Map([
+        ['https://a.vn/p/kocher-di-333pro', 9000000],
+        ['https://b.vn/p/kocher-di-333pro', 9100000],
+        ['https://c.vn/p/kocher-di-333pro', 9200000],
+        ['https://d.vn/p/kocher-di-333pro', 9300000],
+    ]);
+
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 4,
+            productId: 'BT-002',
+            brand: 'Kocher',
+            model: 'DI-3332Pro',
+            costPrice: '', // Missing cost price
+            salePrice: '9,120,000',
+        },
+        deps: {
+            searchProductLinks: async () => [...priceMap.keys()],
+            extractProductPrice: async (url) => priceMap.get(url) || null,
+        },
+    });
+
+    assert.equal(result.status, 'success');
+    assert.equal(result.minPrice, 9000000);
+    assert.equal(result.gapValue, null);
+    assert.equal(result.gapPercent, null);
+});
+
+test('startBackgroundPricingJob does not skip rows with missing costPrice', async () => {
+    let capturedUpdates = null;
+
+    const jobId = startBackgroundPricingJob({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        sheetName: '08.Giặt sấy',
+        rowsConcurrency: 1,
+        linksConcurrency: 1,
+        batchSize: 1,
+        deps: {
+            loadModelMapping: async () => ({}),
+            readSheetRows: async () => ({
+                rows: [
+                    { rowNumber: 3, productId: 'A', brand: 'Bosch', model: 'WQB245B40', costPrice: '', salePrice: '25,000,000', marketPrices: [] },
+                ],
+            }),
+            processPricingRow: async () => {
+                return {
+                    rowNumber: 3,
+                    productId: 'A',
+                    brand: 'Bosch',
+                    model: 'WQB245B40',
+                    matchedUrls: ['https://example.com/bosch-wqb245b40'],
+                    matchedDetails: [
+                        { url: 'https://example.com/bosch-wqb245b40', price: 23900000 }
+                    ],
+                    totalLinksCount: 1,
+                    marketPrices: [23900000],
+                    hasNewPrices: true,
+                    minPrice: 23900000,
+                    gapValue: null,
+                    gapPercent: null,
+                    suggestedPrice: null,
+                    status: 'insufficient_prices',
+                };
+            },
+            writeSheetUpdates: async ({ updates }) => {
+                capturedUpdates = updates;
+                return { updated: 1 };
+            },
+        },
+    });
+
+    // Wait for the job to complete
+    for (let i = 0; i < 50; i += 1) {
+        const status = getBackgroundPricingJobStatus(jobId);
+        if (status && status.status === 'completed') {
+            break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    assert.equal(capturedUpdates.length, 1);
+    assert.equal(capturedUpdates[0].rowNumber, 3);
+    assert.equal(capturedUpdates[0].gapValue, null);
+    assert.equal(capturedUpdates[0].gapPercent, null);
+});
+
+test('isLikelyProductDetailUrl rejects unrelated blog or news pages when model is provided', () => {
+    const model = 'WQB245B40';
+    const brand = 'Bosch';
+    // Contain model -> true
+    assert.equal(isLikelyProductDetailUrl('https://example.com/p/bosch-wqb245b40', model, brand), true);
+    // Contain model digits (>=4) -> true
+    assert.equal(isLikelyProductDetailUrl('https://example.com/sp/may-say-24540-chinh-hang.html', model, brand), true);
+    // Contain brand and product keyword -> true
+    assert.equal(isLikelyProductDetailUrl('https://example.com/products/bosch-dryer-new', model, brand), true);
+    // Contain model token of length >=3 -> true
+    assert.equal(isLikelyProductDetailUrl('https://example.com/say-kho-wqb-say-quan-ao.html', model, brand), true);
+    
+    // Completely unrelated blog post -> false (even if it has hyphens/html extension)
+    assert.equal(isLikelyProductDetailUrl('https://vietnamnet.vn/tin-tuc-trong-ngay-12345.html', model, brand), false);
+    assert.equal(isLikelyProductDetailUrl('https://example.com/chinh-sach-bao-hanh-san-pham.html', model, brand), false);
+});
+
+test('searchProductLinks skips subsequent pagination pages but always queries all search engines', async () => {
+    const { searchProductLinks } = require('../lib/sheet-pricing-service.js');
+    const urlsRequested = [];
+    const mockFetch = async (url) => {
+        urlsRequested.push(url);
+        if (url.includes('google.com')) {
+            return {
+                ok: true,
+                text: async () => {
+                    // Generate 12 links containing the model
+                    let linksHtml = '';
+                    for (let i = 1; i <= 12; i++) {
+                        linksHtml += `<a href="/url?q=https://shop.vn/kocher-di-332pro-p${i}.html">Link ${i}</a>\n`;
+                    }
+                    return `<html><body>${linksHtml}</body></html>`;
+                }
+            };
+        }
+        if (url.includes('bing.com')) {
+            return {
+                ok: true,
+                text: async () => {
+                    // Generate 3 links on Bing page 1
+                    let linksHtml = '';
+                    for (let i = 1; i <= 3; i++) {
+                        linksHtml += `<cite>https://shop-bing.vn/kocher-di-332pro-p${i}.html</cite>\n`;
+                    }
+                    return `<html><body>${linksHtml}</body></html>`;
+                }
+            };
+        }
+        return { ok: true, text: async () => '' };
+    };
+
+    const links = await searchProductLinks({
+        brand: 'Kocher',
+        model: 'DI-332Pro',
+        limit: 5,
+        fetchImpl: mockFetch
+    });
+
+    // Google page 1 (start=0) should be requested
+    assert.ok(urlsRequested.some(u => u.includes('google.com') && u.includes('start=0')));
+    // Google page 2 (start=40) should NOT be requested (early exit within pagination)
+    assert.ok(!urlsRequested.some(u => u.includes('google.com') && u.includes('start=40')));
+    
+    // Bing page 1 (first=1) should still be requested
+    assert.ok(urlsRequested.some(u => u.includes('bing.com') && u.includes('first=1')));
+    // Bing page 2 (first=51) should NOT be requested (early exit within pagination)
+    assert.ok(!urlsRequested.some(u => u.includes('bing.com') && u.includes('first=51')));
+
+    // DDG and CocCoc should still be requested (always queries all engines)
+    assert.ok(urlsRequested.some(u => u.includes('duckduckgo.com')));
+    assert.ok(urlsRequested.some(u => u.includes('coccoc.com')));
+
+    assert.ok(links.length >= 15);
+});
+
+test('processPricingRow crawls up to 20 links and keeps the top 10 lowest prices', async () => {
+    // Generate 25 mock links
+    const links = [];
+    const priceMap = new Map();
+    for (let i = 1; i <= 25; i++) {
+        const url = `https://shop-test-${i}.vn/bep-tu-kocher-di-332pro`;
+        links.push(url);
+        // Let price for shop i be: 10000000 + i * 100000
+        // E.g., shop 1 has 10.1M, shop 2 has 10.2M, ..., shop 25 has 12.5M
+        priceMap.set(url, 10000000 + i * 100000);
+    }
+
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 15,
+            productId: 'TEST-20',
+            brand: 'Kocher',
+            model: 'DI-332Pro',
+            costPrice: '8,000,000',
+            salePrice: '12,000,000',
+        },
+        deps: {
+            searchProductLinks: async () => links,
+            extractProductPrice: async (url) => priceMap.get(url) || null,
+        }
+    });
+
+    // It should have crawled the first 20 links (slice 0, 20)
+    assert.equal(result.totalLinksCount, 20);
+    
+    // It should extract top 10 lowest prices
+    assert.equal(result.marketPrices.length, 10);
+    
+    // The lowest 10 prices should be: 10.1M, 10.2M, ..., 11.0M
+    for (let i = 0; i < 10; i++) {
+        assert.equal(result.marketPrices[i], 10000000 + (i + 1) * 100000);
+    }
+});
 
 
 
