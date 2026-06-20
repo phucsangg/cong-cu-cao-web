@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { beforeEach } = require('node:test');
 
 const {
     extractSheetId,
@@ -18,7 +19,14 @@ const {
     sendTelegramNotification,
     writeHaravanLog,
     updateSheetSalePrice,
+    pricingCache,
 } = require('../lib/sheet-pricing-service.js');
+
+beforeEach(() => {
+    if (pricingCache && typeof pricingCache.clear === 'function') {
+        pricingCache.clear();
+    }
+});
 
 test('extractSheetId pulls spreadsheet id from Google Sheets URL', () => {
     assert.equal(
@@ -1072,7 +1080,7 @@ test('scoreProductUrl correctly evaluates relevance of product detail URLs', () 
     // Just brand, no model
     const low = scoreProductUrl('https://meta.vn/kocher.html', 'DI-332Pro', 'Kocher');
     // Random page, no brand or model
-    const zero = scoreProductUrl('https://kocher.vn/gioi-thieu/', 'DI-332Pro', 'Kocher');
+    const zero = scoreProductUrl('https://tintuc.vn/about', 'DI-332Pro', 'Kocher');
 
     assert.ok(high >= mid, `high: ${high} should be >= mid: ${mid}`);
     assert.ok(mid > low, `mid: ${mid} should be greater than low: ${low}`);
@@ -1581,15 +1589,15 @@ test('searchProductLinks skips subsequent pagination pages but always queries al
     assert.ok(links.length >= 15);
 });
 
-test('processPricingRow crawls up to 20 links and keeps the top 10 lowest prices', async () => {
-    // Generate 25 mock links
+test('processPricingRow crawls up to 50 links and keeps the top 10 lowest prices', async () => {
+    // Generate 60 mock links
     const links = [];
     const priceMap = new Map();
-    for (let i = 1; i <= 25; i++) {
+    for (let i = 1; i <= 60; i++) {
         const url = `https://shop-test-${i}.vn/bep-tu-kocher-di-332pro`;
         links.push(url);
         // Let price for shop i be: 10000000 + i * 100000
-        // E.g., shop 1 has 10.1M, shop 2 has 10.2M, ..., shop 25 has 12.5M
+        // E.g., shop 1 has 10.1M, shop 2 has 10.2M, ..., shop 60 has 16.0M
         priceMap.set(url, 10000000 + i * 100000);
     }
 
@@ -1608,8 +1616,8 @@ test('processPricingRow crawls up to 20 links and keeps the top 10 lowest prices
         }
     });
 
-    // It should have crawled the first 20 links (slice 0, 20)
-    assert.equal(result.totalLinksCount, 20);
+    // It should have crawled the first 50 links (slice 0, 50)
+    assert.equal(result.totalLinksCount, 50);
     
     // It should extract top 10 lowest prices
     assert.equal(result.marketPrices.length, 10);

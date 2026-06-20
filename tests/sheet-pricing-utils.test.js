@@ -63,7 +63,7 @@ test('computeSuggestedPricing keeps top 10, sets suggestedPrice to Min, and calc
     assert.equal(result.minPrice, 9000000);
     assert.equal(result.gapValue, 11040000 - 9000000); // sale - cost
     assert.equal(result.gapPercent, (11040000 - 9000000) / 11040000); // profit / sale
-    assert.equal(result.suggestedPrice, 9000000); // Suggested Price is Min
+    assert.equal(result.suggestedPrice, 9550000); // Suggested Price is Median (when count >= 5)
 });
 
 test('computeSuggestedPricing falls back to listPrice when currentSalePrice is empty', () => {
@@ -185,3 +185,43 @@ test('normalizeModelText normalizes dimensions (m, cm, mm) and plus symbol corre
     assert.equal(normalizeModelText('KF-IH870Z+'), 'KFIH870ZPLUS');
     assert.equal(normalizeModelText('KF-IH870Z Plus'), 'KFIH870ZPLUS');
 });
+
+test('generateKeywords produces smart variants including suffixes and normalized formats', () => {
+    const { generateKeywords } = require('../lib/sheet-pricing-utils.js');
+    const keywords = generateKeywords('Bosch', 'WQB245B40', '08.Giặt sấy');
+    const kwSet = new Set(keywords);
+
+    assert.ok(kwSet.has('Bosch WQB245B40'));
+    assert.ok(kwSet.has('WQB245B40'));
+    assert.ok(kwSet.has('"WQB245B40"'));
+    assert.ok(kwSet.has('Bosch WQB245B40 giá'));
+    assert.ok(kwSet.has('Bosch WQB245B40 site:.vn'));
+    assert.ok(kwSet.has('Máy sấy Bosch WQB245B40'));
+    assert.ok(kwSet.has('Bosch Series 8 WQB245B40'));
+
+    // Suffix variant checks: QA65QN90A -> QA65QN90
+    const suffixKeywords = generateKeywords('Samsung', 'QA65QN90A', 'Tivi');
+    const suffixSet = new Set(suffixKeywords);
+    assert.ok(suffixSet.has('Samsung QA65QN90'));
+    assert.ok(suffixSet.has('QA65QN90'));
+    assert.ok(suffixSet.has('"QA65QN90"'));
+});
+
+test('calculateRelevanceScore handles scoring criteria correctly', () => {
+    const { calculateRelevanceScore } = require('../lib/sheet-pricing-utils.js');
+
+    // Model and Brand in URL
+    const score1 = calculateRelevanceScore('https://shop.vn/bep-tu-kocher-di-332pro.html', 'DI-332Pro', 'Kocher');
+    // +40 (exact model), +20 (brand), +10 (hyphen), +10 (html), +10 (commercial) = 90
+    assert.equal(score1, 90);
+
+    // Negative matches for search and collection pages
+    const score2 = calculateRelevanceScore('https://shop.vn/collections/bep-tu?q=kocher', 'DI-332Pro', 'Kocher');
+    // contains collection, category, search terms -> penalty -50
+    assert.ok(score2 < 50);
+
+    // Conflicting suffix -> penalty -100
+    const score3 = calculateRelevanceScore('https://shop.vn/kocher-di-332pro-plus.html', 'DI-332Pro', 'Kocher');
+    assert.equal(score3, 0);
+});
+
