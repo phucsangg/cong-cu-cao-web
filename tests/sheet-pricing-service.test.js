@@ -40,6 +40,7 @@ test('isLikelyProductDetailUrl rejects category and search pages', () => {
     assert.equal(isLikelyProductDetailUrl('https://example.com/collections/bep-tu'), false);
     assert.equal(isLikelyProductDetailUrl('https://example.com/search?q=kocher+di333pro'), false);
     assert.equal(isLikelyProductDetailUrl('https://bepngocbao.vn/products/may-xay-sinh-to-tefal-perfectmix-bl871d31'), false);
+    assert.equal(isLikelyProductDetailUrl('https://websosanh.vn/s/kocher+di-332pro.htm'), false);
 });
 
 test('processPricingRow filters links, keeps top 10 prices, and builds sheet update payload', async () => {
