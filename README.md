@@ -1,99 +1,168 @@
-# Công Cụ Cào và Trích Xuất Dữ Liệu Sản Phẩm Đa Trang Thời Gian Thực
+# Hệ thống Tự động Cập nhật Giá và Đồng bộ Google Sheets / Haravan (Python CLI Version)
 
-Một ứng dụng web dashboard hiện đại, mạnh mẽ được xây dựng bằng **Node.js (Express)** kết hợp với **Puppeteer** và **Server-Sent Events (SSE)**. Công cụ này hỗ trợ cào, lọc và trích xuất dữ liệu sản phẩm (tên, giá gốc, giá khuyến mãi, hình ảnh, liên kết) từ bất kỳ trang thương mại điện tử hoặc website giới thiệu sản phẩm nào dưới định dạng **CSV** và **JSON** trong thời gian thực.
+Dự án này đã được chuyển đổi hoàn toàn sang một **Python-only CLI tool** chạy bằng giao diện dòng lệnh (CLI). Toàn bộ phần giao diện website Dashboard cũ và FastAPI web server đã được loại bỏ để tập trung vào hiệu năng, tính độc lập, dễ bảo trì và khả năng tích hợp linh hoạt.
 
 ---
 
 ## ✨ Tính Năng Nổi Bật
 
-- ⏱️ **Cập nhật dữ liệu thời gian thực (SSE):** Dữ liệu cào được đẩy trực tiếp về giao diện người dùng theo luồng sự kiện (Server-Sent Events) mà không cần reload trang hay lo bị ngắt kết nối giữa chừng (timeout).
-- 🧠 **Thuật toán tự động nhận diện giá (Smart Heuristics):** 
-  - Tự động lọc ra giá chính xác nhất (ưu tiên giá mới/giá khuyến mãi đã giảm).
+- 🚀 **Python CLI-First:** Chạy hoàn toàn thông qua các dòng lệnh đơn giản và trực quan. Dễ dàng lập lịch cron hoặc tích hợp vào hệ thống CI/CD, airflow, worker queue.
+- 🧠 **Thuật toán tự động nhận diện giá (Smart Heuristics):**
+  - Tự động tìm kiếm liên kết sản phẩm qua nhiều công cụ tìm kiếm (Google, Bing, DuckDuckGo, CocCoc) theo cơ chế tìm kiếm lũy tiến.
+  - Phân tích DOM bằng BeautifulSoup4 (kênh cào nhanh) và Playwright (kênh trình duyệt ảo cho các trang SPA tải dữ liệu động).
   - Tự động bỏ qua các phần tử giá cũ/giá gạch ngang hoặc văn bản gây nhiễu.
-  - Lọc bỏ các sản phẩm trùng lặp và giữ lại mức giá tối ưu nhất cho người dùng.
-- ⚡ **Tốc độ & Hiệu suất tối ưu:**
-  - **Chặn tài nguyên dư thừa:** Tự động chặn tải ảnh, fonts, và các mã theo dõi (Google Analytics, Facebook Pixel, Ads...) để tải trang nhanh gấp 3 lần và tiết kiệm băng thông.
-  - **Giả lập trình duyệt nâng cao:** Tự động tối ưu hóa viewport, thiết lập User-Agent ngẫu nhiên, cấu hình giảm tải RAM để tránh bị phát hiện/chặn IP (Anti-Bot bypass).
-- 📄 **Hỗ trợ phân trang đa dạng:** Hỗ trợ cả hai cơ chế phân trang phổ biến nhất hiện nay:
-  - Phân trang bằng cách nhấp chuột vào nút **Next Page** (Selector).
-  - Phân trang bằng cách thay đổi tham số trên **đường dẫn URL** (URL Parameter).
-- 📁 **Xuất báo cáo đa định dạng:** Xuất kết quả cào về file CSV hoặc JSON chỉ với một cú nhấp chuột.
-- 🎨 **Giao diện Glassmorphism cao cấp:** Giao diện tối hiện đại, sử dụng hiệu ứng kính mờ (Glassmorphism), biểu đồ trạng thái thời gian thực và tương thích hoàn toàn trên di động.
+  - Lọc bỏ các sản phẩm trùng lặp và loại bỏ các giá trị dị biệt (outliers) dựa trên thuật toán IQR.
+- ⚡ **Tối ưu hóa hiệu năng cào**:
+  - **Chặn tài nguyên dư thừa:** Tự động chặn tải hình ảnh, font chữ, và các script theo dõi (Google Analytics, Facebook Pixel, Ads...) khi sử dụng Playwright giúp trang tải nhanh gấp 3 lần.
+  - **Concurrency & Locking:** Kiểm soát giới hạn concurrency khi chạy tiến trình cào và tuần tự hóa các truy vấn tìm kiếm để tránh bị phát hiện/chặn IP.
+- 📁 **Kiến trúc Modular & Clean Code:** Chia tách rõ ràng các tầng nghiệp vụ: `models/`, `pricing/`, `crawlers/`, `adapters/`, `cache/`, `jobs/`, `services/`, `utils/`.
 
 ---
 
 ## 🛠️ Yêu Cầu Hệ Thống
 
 Để chạy dự án này, máy tính của bạn cần được cài đặt sẵn:
-- **Node.js** (Phiên bản khuyến nghị: >= 16.x)
-- Trình duyệt Chrome/Chromium (Puppeteer sẽ tự động cấu hình sử dụng Chrome cài sẵn hoặc tải bản rút gọn).
+- **Python >= 3.12**
+- Trình duyệt Chromium cho Playwright.
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt & Chạy Dự Án
+## 🚀 Hướng Dẫn Cài Đặt
 
-### 1. Tải Mã Nguồn
+### 1. Cài đặt Môi Trường & Dependencies
 Nhân bản dự án từ GitHub:
 ```bash
 git clone https://github.com/phucsangg/cong-cu-cao-web.git
 cd cong-cu-cao-web
 ```
 
-### 2. Cài Đặt Thư Viện
-Cài đặt toàn bộ các thư viện phụ thuộc bằng lệnh:
+Cài đặt package ở chế độ editable với dependencies phát triển (dev):
 ```bash
-npm install
+pip install -e ".[dev]"
 ```
 
-### 3. Chạy Ứng Dụng
-Khởi động máy chủ ứng dụng:
+Cài đặt trình duyệt Chromium cho Playwright:
 ```bash
-npm start
+playwright install chromium
 ```
 
-Sau khi chạy lệnh trên, hãy truy cập vào địa chỉ sau trên trình duyệt:
-👉 **[http://localhost:3000](http://localhost:3000)**
+### 2. Cấu Hình Biến Môi Trường (`.env`)
+Tạo tệp `.env` từ file ví dụ:
+```bash
+cp .env.example .env
+```
+Thiết lập các tham số cấu hình:
+- `APPS_SCRIPT_URL`: Đường dẫn URL Web App deployment /exec của Google Apps Script.
+- `SHEET_URL`: URL của Google Sheet cần đồng bộ giá.
+- `SHEET_NAME`: Tên trang tính mặc định (ví dụ: `20.Haravan`).
+- `TELEGRAM_BOT_TOKEN`: Token Telegram Bot gửi thông báo.
+- `TELEGRAM_CHAT_ID`: Chat ID Telegram nhận thông báo.
+- `HARAVAN_SHOP_URL`: URL API quản trị Haravan (ví dụ: `https://your-shop.myharavan.com`).
+- `HARAVAN_ACCESS_TOKEN`: Access token API Haravan.
 
 ---
 
-## ⚙️ Cấu Hình Nâng Cao Trên Dashboard
+## ⚙️ Hướng Dẫn Sử Dụng CLI
 
-Giao diện cung cấp cho bạn nhiều tuỳ chọn linh hoạt để tinh chỉnh quá trình cào dữ liệu:
-1. **URL Nguồn:** Địa chỉ trang danh mục sản phẩm cần cào (ví dụ: `https://bepxanh.com/bep-tu.html`).
-2. **Cào đa trang:** Bật/Tắt chế độ tự động chuyển trang tiếp theo.
-3. **Số trang tối đa:** Giới hạn số lượng trang cần cào để tránh quá tải.
-4. **Cơ chế chuyển trang:**
-   - **Bấm nút chuyển tiếp:** Điền CSS selector của nút Next (ví dụ: `a.next`, `.paging-next`).
-   - **Tăng tham số URL:** Chỉ định tên biến trang trên URL (ví dụ: `page`, `p`).
-5. **Độ trễ Lazy-load (ms):** Thời gian chờ để trang tải hết nội dung hình ảnh/dữ liệu động khi cuộn chuột trước khi bắt đầu trích xuất.
-6. **Chặn ảnh & mã quảng cáo:** Tự động chặn tải tài nguyên phụ để tối ưu hóa tốc độ cào.
+Dự án cung cấp CLI mạnh mẽ thông qua thư viện `typer`:
+
+### Hiển thị Trợ Giúp
+```bash
+python -m crawldata.cli --help
+```
+
+### 1. Cấu hình
+Hiển thị cấu hình hiện tại đang được load:
+```bash
+python -m crawldata.cli config show
+```
+
+### 2. Quản lý Sheets
+Liệt kê danh sách các sheets trong Google Spreadsheet:
+```bash
+python -m crawldata.cli sheets list
+```
+
+### 3. Chạy Crawl & Tính toán Giá
+Chạy tiến trình quét toàn bộ sheet:
+```bash
+python -m crawldata.cli pricing run --sheet "20.Haravan"
+```
+Quét các dòng cụ thể (ví dụ dòng 3, dòng 5, và từ dòng 20 đến 30):
+```bash
+python -m crawldata.cli pricing run --sheet "20.Haravan" --specific-rows "3,5,20-30"
+```
+Quét thử cho một dòng sản phẩm tùy ý không qua sheet:
+```bash
+python -m crawldata.cli pricing row --brand "Bosch" --model "WQB245B40" --cost-price "21000000"
+```
+
+### 4. Đồng bộ Haravan
+Đồng bộ danh sách sản phẩm và variant IDs từ Haravan về sheet:
+```bash
+python -m crawldata.cli haravan sync-ids
+```
+Cập nhật trực tiếp giá của một Variant lên Haravan và ghi log về Google Sheets:
+```bash
+python -m crawldata.cli haravan update-price <variant_id> <price> --write-log --brand "Bosch" --model "WQB245B40"
+```
+
+### 5. Gửi thông báo Telegram
+```bash
+python -m crawldata.cli telegram send "Thông báo hoàn thành cập nhật giá sản phẩm!"
+```
+
+### 6. Quản lý Cache
+Xóa toàn bộ cache lưu trữ cục bộ:
+```bash
+python -m crawldata.cli cache clear
+```
 
 ---
 
-## 📂 Cấu Trúc Thư Mục Dự Án
+## 🧪 Chạy Kiểm Thử (Tests) & Linting
+
+Chúng tôi sử dụng `pytest` để kiểm thử và `ruff` để chuẩn hóa code:
+
+### Chạy Unit & Integration Tests
+```bash
+python -m pytest
+```
+
+### Kiểm Tra & Sửa Lỗi Format Code
+Kiểm tra tĩnh lỗi cú pháp, import chưa dùng:
+```bash
+ruff check .
+```
+Tự động sửa các lỗi format và tối ưu import:
+```bash
+ruff check . --fix
+ruff format .
+```
+
+---
+
+## 📂 Cấu Trúc Thư Mục Dự Án mới
 
 ```text
-├── public/
-│   └── index.html      # Giao diện chính của Dashboard (Glassmorphism UI)
-├── server.js           # Server chính (Express, Puppeteer logic, SSE API)
-├── Dockerfile          # Cấu hình đóng gói Docker container (hỗ trợ Render/Railway)
-├── .gitignore          # Cấu hình bỏ qua các tệp không cần thiết khi đẩy lên Git
-└── README.md           # Hướng dẫn sử dụng dự án (tệp này)
+crawldata/
+├── src/
+│   └── crawldata/
+│       ├── __init__.py
+│       ├── cli.py                # Typer CLI subcommands
+│       ├── config.py             # Settings validation (Pydantic)
+│       ├── logger.py             # Logging setup
+│       ├── models/               # Pydantic data models
+│       ├── pricing/              # Pricing heuristic engines
+│       ├── crawlers/             # BeautifulSoup & Playwright scrapers
+│       ├── adapters/             # External REST endpoints adapters
+│       ├── cache/                # File cache wrapper
+│       ├── jobs/                 # Multi-workers job tracker
+│       ├── services/             # Coordinate workflow logic
+│       └── utils/                # String/Vietnamese normalization helpers
+├── tests/                        # Pytest suite
+├── .env.example
+├── README.md
+├── pyproject.toml
+└── Dockerfile
 ```
-
----
-
-## 🐳 Triển Khai Với Docker
-
-Nếu bạn muốn deploy ứng dụng lên các nền tảng đám mây như **Render** hoặc **Railway**, dự án đã được tích hợp sẵn cấu hình Docker chạy mượt mà cùng Puppeteer:
-
-```bash
-docker build -t fast-scraper-web .
-docker run -p 3000:3000 fast-scraper-web
-```
-
----
-
-## 📝 Bản Quyền
-
-Dự án được phát triển và sở hữu bởi **Phúc Sang**. Vui lòng liên hệ tác giả nếu có nhu cầu phát triển thêm tính năng riêng biệt.

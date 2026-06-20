@@ -1,13 +1,33 @@
-node_modules/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+ENV/
+
+# Secrets
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Data & reports
 *.csv
 *.json
 *.xlsx
 data/
 reports/
-!package.json
-!package-lock.json
-.env
+!pyproject.toml
+!README.md
 
-# Local Netlify folder
+# Netlify local folders
 .netlify
