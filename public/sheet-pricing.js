@@ -505,6 +505,10 @@
 
     function collectPricingForm() {
         syncSelectedSheetNames();
+        const specificRowsEnabled = document.getElementById('pricingSpecificRowsEnabled')?.checked || false;
+        const scanToEndEnabled = document.getElementById('pricingScanToEndEnabled')?.checked || false;
+        const specificRowsRaw = document.getElementById('pricingSpecificRows')?.value.trim() || '';
+
         return {
             appsScriptUrl: document.getElementById('pricingAppsScriptUrl')?.value.trim(),
             sheetUrl: document.getElementById('pricingSheetUrl')?.value.trim(),
@@ -514,7 +518,9 @@
             rowsConcurrency: Math.max(1, parseInt(document.getElementById('pricingRowsConcurrency')?.value || '4', 10)),
             linksConcurrency: Math.max(1, parseInt(document.getElementById('pricingLinksConcurrency')?.value || '4', 10)),
             batchSize: Math.max(1, parseInt(document.getElementById('pricingBatchSize')?.value || '10', 10)),
-            specificRows: document.getElementById('pricingSpecificRows')?.value.trim(),
+            specificRowsEnabled,
+            scanToEndEnabled,
+            specificRows: specificRowsEnabled ? specificRowsRaw : '',
         };
     }
 
@@ -522,7 +528,8 @@
         const inputs = [
             'pricingAppsScriptUrl', 'pricingSheetUrl', 'pricingSheetName',
             'pricingStartRow', 'pricingEndRow', 'pricingBatchSize',
-            'pricingRowsConcurrency', 'pricingLinksConcurrency', 'pricingSpecificRows'
+            'pricingRowsConcurrency', 'pricingLinksConcurrency', 'pricingSpecificRows',
+            'pricingSpecificRowsEnabled', 'pricingScanToEndEnabled'
         ];
         inputs.forEach(id => {
             const el = document.getElementById(id);
@@ -700,6 +707,8 @@
                         sheetName: name,
                         startRow: form.startRow,
                         endRow: form.endRow,
+                        specificRowsEnabled: form.specificRowsEnabled,
+                        scanToEndEnabled: form.scanToEndEnabled,
                         specificRows: form.specificRows,
                     })
                 });
@@ -1262,6 +1271,8 @@
         'pricingRowsConcurrency',
         'pricingLinksConcurrency',
         'pricingSpecificRows',
+        'pricingSpecificRowsEnabled',
+        'pricingScanToEndEnabled',
         'haravanShopUrl',
         'haravanAccessToken',
         'haravanUpdatePriceEnabled',
@@ -1305,6 +1316,34 @@
             const eventName = el.type === 'checkbox' ? 'change' : 'input';
             el.addEventListener(eventName, saveAllToLocalStorage);
         });
+
+        initSpecificRowsUI();
+    }
+
+    function initSpecificRowsUI() {
+        const enabledCb = document.getElementById('pricingSpecificRowsEnabled');
+        const scanToEndContainer = document.getElementById('scanToEndContainer');
+        const specificRowsInput = document.getElementById('pricingSpecificRows');
+        const scanToEndCb = document.getElementById('pricingScanToEndEnabled');
+
+        if (!enabledCb || !specificRowsInput) return;
+
+        const updateUIState = () => {
+            const isEnabled = enabledCb.checked;
+            specificRowsInput.disabled = !isEnabled;
+            if (scanToEndContainer) {
+                scanToEndContainer.style.display = isEnabled ? 'block' : 'none';
+            }
+            if (!isEnabled && scanToEndCb) {
+                scanToEndCb.checked = false;
+            }
+        };
+
+        enabledCb.addEventListener('change', updateUIState);
+
+        // Run when window loads/stores config
+        setTimeout(updateUIState, 100);
+        setTimeout(updateUIState, 500);
     }
 
     function exportConfig() {
@@ -1317,6 +1356,8 @@
             rowsConcurrency: document.getElementById('pricingRowsConcurrency')?.value || '',
             linksConcurrency: document.getElementById('pricingLinksConcurrency')?.value || '',
             specificRows: document.getElementById('pricingSpecificRows')?.value || '',
+            specificRowsEnabled: document.getElementById('pricingSpecificRowsEnabled')?.checked || false,
+            scanToEndEnabled: document.getElementById('pricingScanToEndEnabled')?.checked || false,
             haravanShopUrl: document.getElementById('haravanShopUrl')?.value || '',
             haravanAccessToken: document.getElementById('haravanAccessToken')?.value || '',
             haravanUpdatePriceEnabled: document.getElementById('haravanUpdatePriceEnabled')?.checked || false,
@@ -1352,6 +1393,8 @@
                     if (config.rowsConcurrency !== undefined) document.getElementById('pricingRowsConcurrency').value = config.rowsConcurrency;
                     if (config.linksConcurrency !== undefined) document.getElementById('pricingLinksConcurrency').value = config.linksConcurrency;
                     if (config.specificRows !== undefined) document.getElementById('pricingSpecificRows').value = config.specificRows;
+                    if (config.specificRowsEnabled !== undefined) document.getElementById('pricingSpecificRowsEnabled').checked = config.specificRowsEnabled;
+                    if (config.scanToEndEnabled !== undefined) document.getElementById('pricingScanToEndEnabled').checked = config.scanToEndEnabled;
                     if (config.haravanShopUrl !== undefined) document.getElementById('haravanShopUrl').value = config.haravanShopUrl;
                     if (config.haravanAccessToken !== undefined) document.getElementById('haravanAccessToken').value = config.haravanAccessToken;
                     if (config.haravanUpdatePriceEnabled !== undefined) document.getElementById('haravanUpdatePriceEnabled').checked = config.haravanUpdatePriceEnabled;

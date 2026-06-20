@@ -826,7 +826,21 @@
                                     </div>
                                     <div class="col-12">
                                         <label for="pricingSpecificRows" class="form-label">Dòng chỉ định (VD: 3, 5, 20-30)</label>
-                                        <input type="text" id="pricingSpecificRows" class="form-control" placeholder="Để trống để quét tất cả">
+                                        <input type="text" id="pricingSpecificRows" class="form-control" placeholder="Bật công tắc bên dưới để nhập" disabled>
+                                    </div>
+                                    <div class="col-12 d-flex flex-column gap-2 mt-1">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="pricingSpecificRowsEnabled">
+                                            <label class="form-check-label fw-bold" for="pricingSpecificRowsEnabled" style="color: var(--text-light) !important;">
+                                                Kích hoạt quét theo dòng chỉ định
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-switch ms-3" id="scanToEndContainer" style="display: none;">
+                                            <input class="form-check-input" type="checkbox" id="pricingScanToEndEnabled">
+                                            <label class="form-check-label" for="pricingScanToEndEnabled" style="color: var(--text-light) !important;">
+                                                Quét từ dòng chỉ định đến hết sheet
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

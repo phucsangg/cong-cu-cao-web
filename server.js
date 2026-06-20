@@ -177,6 +177,8 @@ const server = http.createServer(async (req, res) => {
                     sheetName: payload.sheetName || process.env.SHEET_NAME,
                     startRow: payload.startRow,
                     endRow: payload.endRow,
+                    specificRowsEnabled: payload.specificRowsEnabled,
+                    scanToEndEnabled: payload.scanToEndEnabled,
                     specificRows: payload.specificRows,
                 });
                 return sendJson(res, 200, {
@@ -226,6 +228,8 @@ const server = http.createServer(async (req, res) => {
                 rowsConcurrency: body.rowsConcurrency,
                 linksConcurrency: body.linksConcurrency,
                 batchSize: body.batchSize,
+                specificRowsEnabled: body.specificRowsEnabled,
+                scanToEndEnabled: body.scanToEndEnabled,
                 specificRows: body.specificRows,
             };
             const jobId = sheetPricingService.startBackgroundPricingJob(mergedConfig);

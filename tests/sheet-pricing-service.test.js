@@ -2089,6 +2089,76 @@ test('startBackgroundPricingJob correctly calculates range and filters rows when
     assert.equal(finalStatus.rows[1].rowNumber, 5);
 });
 
+test('startBackgroundPricingJob correctly calculates range and scans to the end without row filtering when scanToEndEnabled is true', async () => {
+    let readParams = null;
+    const jobId = startBackgroundPricingJob({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        sheetName: '08.Giặt sấy',
+        specificRowsEnabled: true,
+        scanToEndEnabled: true,
+        specificRows: '352',
+        rowsConcurrency: 1,
+        linksConcurrency: 1,
+        batchSize: 10,
+        deps: {
+            loadModelMapping: async () => ({}),
+            readSheetRows: async (args) => {
+                readParams = args;
+                return {
+                    rows: [
+                        { rowNumber: 352, productId: 'A', brand: 'Bosch', model: 'WQB245B40', costPrice: '1,000,000', salePrice: '25,000,000', marketPrices: [] },
+                        { rowNumber: 353, productId: 'B', brand: 'Bosch', model: 'WQG24570SG', costPrice: '1,000,000', salePrice: '18,000,000', marketPrices: [] },
+                        { rowNumber: 354, productId: 'C', brand: 'Bosch', model: 'WQG24570GB', costPrice: '1,000,000', salePrice: '18,000,000', marketPrices: [] },
+                    ],
+                };
+            },
+            processPricingRow: async ({ row }) => {
+                return {
+                    rowNumber: row.rowNumber,
+                    productId: row.productId,
+                    brand: row.brand,
+                    model: row.model,
+                    matchedUrls: [],
+                    matchedDetails: [],
+                    totalLinksCount: 0,
+                    marketPrices: [23900000],
+                    hasNewPrices: true,
+                    minPrice: 23900000,
+                    gapValue: 1100000,
+                    gapPercent: 0.044,
+                    suggestedPrice: 23900000,
+                    outlierRemoved: false,
+                    status: 'success',
+                };
+            },
+            writeSheetUpdates: async () => ({ ok: true, updated: 1 }),
+        },
+    });
+
+    // Wait for the background job to finish
+    for (let i = 0; i < 50; i += 1) {
+        const status = getBackgroundPricingJobStatus(jobId);
+        if (status && status.status === 'completed') {
+            break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const finalStatus = getBackgroundPricingJobStatus(jobId);
+    assert.equal(finalStatus.status, 'completed');
+    
+    // verify the min/max calculation: startRow is 352, endRow is null (to the end)
+    assert.equal(readParams.startRow, 352);
+    assert.equal(readParams.endRow, undefined);
+
+    // verify that rowNumber 353 and 354 were NOT filtered out (we scan all rows from 352 to the end)
+    assert.equal(finalStatus.rows.length, 3);
+    assert.equal(finalStatus.rows[0].rowNumber, 352);
+    assert.equal(finalStatus.rows[1].rowNumber, 353);
+    assert.equal(finalStatus.rows[2].rowNumber, 354);
+});
+
 
 
 
