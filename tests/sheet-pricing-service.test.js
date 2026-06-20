@@ -1707,6 +1707,45 @@ test('processPricingRow terminates early in progressive crawl batches when 5 pri
     assert.equal(result.matchedDetails.length, 10);
 });
 
+test('processPricingRow respects linksConcurrency in crawling batches', async () => {
+    const { processPricingRow } = require('../lib/sheet-pricing-service.js');
+    const links = [
+        'https://shop-1.vn/bep-tu-kocher-di-332pro',
+        'https://shop-2.vn/bep-tu-kocher-di-332pro',
+        'https://shop-3.vn/bep-tu-kocher-di-332pro',
+        'https://shop-4.vn/bep-tu-kocher-di-332pro',
+    ];
+    let activeCrawls = 0;
+    let maxActiveCrawls = 0;
+
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 15,
+            productId: 'TEST-20',
+            brand: 'Kocher',
+            model: 'DI-332Pro',
+            costPrice: '8,000,000',
+            salePrice: '12,000,000',
+        },
+        deps: {
+            linksConcurrency: 2,
+            searchProductLinks: async () => links,
+            extractProductPrice: async (url) => {
+                activeCrawls++;
+                if (activeCrawls > maxActiveCrawls) {
+                    maxActiveCrawls = activeCrawls;
+                }
+                await new Promise(resolve => setTimeout(resolve, 50));
+                activeCrawls--;
+                return 10000000;
+            },
+        }
+    });
+
+    assert.ok(maxActiveCrawls <= 2, `maxActiveCrawls should be at most 2, was ${maxActiveCrawls}`);
+    assert.equal(result.matchedDetails.length, 4);
+});
+
 test('fetchHtml retry logic attempts request up to 2 times on failures', async () => {
     const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
     let callCount = 0;
