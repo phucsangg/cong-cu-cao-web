@@ -1,3 +1,4 @@
+process.env.UV_THREADPOOL_SIZE = 128;
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -67,6 +68,10 @@ const server = http.createServer(async (req, res) => {
     // API Routing
 
     if (pathname === '/api/sheet-pricing/config' && req.method === 'GET') {
+        const os = require('os');
+        const cpuCount = os.cpus().length || 4;
+        const defaultRowsConcurrency = Math.max(4, Math.min(16, cpuCount));
+        const defaultLinksConcurrency = 15;
         return sendJson(res, 200, {
             ok: true,
             appsScriptUrl: process.env.APPS_SCRIPT_URL || '',
@@ -74,6 +79,8 @@ const server = http.createServer(async (req, res) => {
             sheetName: process.env.SHEET_NAME || '',
             telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
             telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
+            defaultRowsConcurrency,
+            defaultLinksConcurrency,
         });
     }
 

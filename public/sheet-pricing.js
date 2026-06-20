@@ -1374,6 +1374,12 @@
                 if (data.telegramChatId && document.getElementById('telegramChatId')) {
                     document.getElementById('telegramChatId').value = data.telegramChatId;
                 }
+                if (data.defaultRowsConcurrency && document.getElementById('pricingRowsConcurrency')) {
+                    document.getElementById('pricingRowsConcurrency').value = data.defaultRowsConcurrency;
+                }
+                if (data.defaultLinksConcurrency && document.getElementById('pricingLinksConcurrency')) {
+                    document.getElementById('pricingLinksConcurrency').value = data.defaultLinksConcurrency;
+                }
                 if (data.sheetName) {
                     state.initialSheetName = data.sheetName;
                 }
