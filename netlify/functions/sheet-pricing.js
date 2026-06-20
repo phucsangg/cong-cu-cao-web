@@ -123,6 +123,7 @@ exports.handler = async (event) => {
                 sheetName: payload.sheetName || process.env.SHEET_NAME,
                 startRow: payload.startRow,
                 endRow: payload.endRow,
+                specificRows: payload.specificRows,
             });
 
             return json(200, {

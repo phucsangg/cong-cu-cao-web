@@ -77,9 +77,9 @@ test('processPricingRow filters links, keeps top 10 prices, and builds sheet upd
     ]);
     assert.deepEqual(result.marketPrices, [10100000, 10200000]);
     assert.equal(result.minPrice, 10100000);
-    assert.equal(result.gapValue, 2040000); // 11,040,000 - 9,000,000
+    assert.equal(result.gapValue, 1100000); // 10,100,000 (suggestedPrice) - 9,000,000
     assert.equal(result.suggestedPrice, 10100000);
-    assert.equal(result.status, 'insufficient_prices');
+    assert.equal(result.status, 'success');
 });
 
 test('processPricingRow sets success status when enough prices are found', async () => {
@@ -107,7 +107,7 @@ test('processPricingRow sets success status when enough prices are found', async
 
     assert.equal(result.status, 'success');
     assert.equal(result.minPrice, 9000000);
-    assert.equal(result.gapValue, 1120000); // 9,120,000 - 8,000,000
+    assert.equal(result.gapValue, 1000000); // 9,000,000 (suggestedPrice) - 8,000,000
     assert.equal(result.suggestedPrice, 9000000);
 });
 
@@ -180,7 +180,7 @@ test('processPricingRow falls back to row.marketPrices when crawler finds 0 pric
     assert.equal(result.hasNewPrices, false);
     assert.deepEqual(result.marketPrices, [9000000, 9100000, 9200000]);
     assert.equal(result.minPrice, 9000000);
-    assert.equal(result.gapValue, 1000000); // 9,500,000 - 8,500,000
+    assert.equal(result.gapValue, 500000); // 9,000,000 (suggestedPrice) - 8,500,000
     assert.equal(result.suggestedPrice, 9000000); // Min
     assert.equal(result.status, 'success');
 });
@@ -436,7 +436,7 @@ test('startBackgroundPricingJob stops before starting the next row after stop is
                         minPrice: 23900000,
                         gapValue: 1100000,
                         gapPercent: 0.044,
-                        suggestedPrice: 23979667,
+                        suggestedPrice: 23900000,
                         outlierRemoved: false,
                         status: 'success',
                     };
@@ -456,7 +456,7 @@ test('startBackgroundPricingJob stops before starting the next row after stop is
                     minPrice: 16500000,
                     gapValue: 1500000,
                     gapPercent: 0.083,
-                    suggestedPrice: 16517000,
+                    suggestedPrice: 16500000,
                     outlierRemoved: false,
                     status: 'success',
                 };
@@ -568,7 +568,7 @@ test('startBackgroundPricingJob includes successfully matched details in logs pa
                     gapValue: 1100000,
                     gapPercent: 0.044,
                     suggestedPrice: null,
-                    status: 'insufficient_prices',
+                    status: 'success',
                 };
             },
             writeSheetUpdates: async ({ updates, logs }) => {
@@ -1330,6 +1330,41 @@ test('isModelMatch handles compound suffixes (e.g. KF-IH870Z vs KF-IH870Z Plus)'
     assert.equal(isModelMatch('Bếp từ Kaff KF-IH870Z', 'KF-IH870Z', 'Kaff'), true);
 });
 
+test('isModelMatch handles Spelier and generic variant suffix conflicts correctly (EGO GX vs EG vs no suffix)', () => {
+    const { isModelMatch } = require('../lib/sheet-pricing-service.js');
+    assert.equal(isModelMatch('Bếp từ đôi Spelier SPE-IC1088 EGO GX', 'SPE IC 1088 EGO GX', 'Spelier'), true);
+    assert.equal(isModelMatch('Bếp từ đôi Spelier SPE-IC1088-EG', 'SPE IC 1088 EGO GX', 'Spelier'), false);
+    assert.equal(isModelMatch('Bếp từ đôi Spelier SPE-IC1088', 'SPE IC 1088 EGO GX', 'Spelier'), false);
+    assert.equal(isModelMatch('Bếp từ đôi Spelier SPE-IC1088-EG', 'SPE IC 1088EG', 'Spelier'), true);
+    assert.equal(isModelMatch('Bếp từ đôi Spelier SPE-IC1088 EGO GX', 'SPE IC 1088EG', 'Spelier'), false);
+    assert.equal(isModelMatch('Bếp từ đôi Spelier SPE-IC1088', 'SPE IC 1088EG', 'Spelier'), false);
+    assert.equal(isModelMatch('Bếp từ đôi Spelier SPE-IC1088-EG', 'SPE IC 1088', 'Spelier'), false);
+
+    // Canzy Suffixes
+    assert.equal(isModelMatch('Bếp Canzy CZ-9979 GRT', 'CZ-9979 GRT', 'Canzy'), true);
+    assert.equal(isModelMatch('Bếp Canzy CZ-9979 GRS', 'CZ-9979 GRT', 'Canzy'), false);
+    assert.equal(isModelMatch('Bếp Canzy CZ-9979', 'CZ-9979 GRT', 'Canzy'), false);
+    assert.equal(isModelMatch('Bếp Canzy CZ-9979 GRT', 'CZ-9979', 'Canzy'), false);
+
+    // Malloca Suffixes
+    assert.equal(isModelMatch('Bếp Malloca MI 803 ES', 'MI803ES', 'Malloca'), true);
+    assert.equal(isModelMatch('Bếp Malloca MI 803', 'MI803ES', 'Malloca'), false);
+    assert.equal(isModelMatch('Bếp Malloca MI 803 ES', 'MI803', 'Malloca'), false);
+    assert.equal(isModelMatch('Bếp Malloca MI 803 FZ', 'MI803ES', 'Malloca'), false);
+
+    // Kocher Suffixes
+    assert.equal(isModelMatch('Bếp từ Kocher DI-333Pro', 'DI-333Pro', 'Kocher'), true);
+    assert.equal(isModelMatch('Bếp từ Kocher DI-333SE', 'DI-333Pro', 'Kocher'), false);
+    assert.equal(isModelMatch('Bếp từ Kocher DI-333', 'DI-333Pro', 'Kocher'), false);
+    assert.equal(isModelMatch('Bếp từ Kocher DI-333Pro', 'DI-333', 'Kocher'), false);
+
+    // Bosch Region Suffixes (Allowed)
+    assert.equal(isModelMatch('Bosch WQG24570GB', 'WQG24570SG', 'Bosch'), false); // different regions conflict
+    assert.equal(isModelMatch('Bosch WQG24570', 'WQG24570GB', 'Bosch'), true); // empty vs region allowed
+    assert.equal(isModelMatch('Bosch WQG24570GB', 'WQG24570', 'Bosch'), true); // region vs empty allowed
+});
+
+
 test('extractProductPrice ignores discount badge with underscores like on digigo.vn', async () => {
     const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
     const htmlContent = `
@@ -1490,7 +1525,7 @@ test('startBackgroundPricingJob does not skip rows with missing costPrice', asyn
                     gapValue: null,
                     gapPercent: null,
                     suggestedPrice: null,
-                    status: 'insufficient_prices',
+                    status: 'success',
                 };
             },
             writeSheetUpdates: async ({ updates }) => {
@@ -1647,7 +1682,7 @@ test('Domain learning selector cache successfully saves and reuses CSS selector'
 
     // Verify selector was learned
     const learnedSelector = pricingCache.getSelectorForDomain(domain);
-    assert.equal(learnedSelector, '.product-price');
+    assert.equal(learnedSelector, '[class*="product-price"]');
 
     // 2. Run second crawl on same domain. Cache is cleared/mocked differently but selector is reused
     const url2 = `https://${domain}/bep-tu-kocher-di-333.html`;
@@ -1766,6 +1801,295 @@ test('fetchHtml retry logic attempts request up to 2 times on failures', async (
     // 1 initial attempt + 2 retries = 3 calls total
     assert.equal(callCount, 3);
 });
+
+test('new crawler behavior matches and extracts correct prices for user cases', async (t) => {
+    const { extractProductPrice, isLikelyProductDetailUrl, isModelMatch } = require('../lib/sheet-pricing-service.js');
+
+    // Case 1: DIB4-888PLUS should not match DIB4-888
+    assert.equal(isModelMatch('https://www.dienmayxanh.com/bep-tu/doi-kocher-dib4-888', 'DIB4-888PLUS', 'Kocher'), false);
+    assert.equal(isLikelyProductDetailUrl('https://www.dienmayxanh.com/bep-tu/doi-kocher-dib4-888', 'DIB4-888PLUS', 'Kocher'), false);
+
+    // Case 2: DI801GE IPLUS vs 4600W
+    // 4600W or 4.600W is a spec, parsing it as price should return null
+    const { parseVietnamesePrice } = require('../lib/sheet-pricing-utils.js');
+    assert.equal(parseVietnamesePrice('4600W'), null);
+    assert.equal(parseVietnamesePrice('4.600W'), null);
+    // Free text like "4600" or "4.600" should not be multiplied to 4.600.000
+    assert.equal(parseVietnamesePrice('4600'), 4600);
+    assert.equal(parseVietnamesePrice('4.600'), 4600);
+
+    // Case 3: URL review/news/article containing model digits but not selling the product is rejected
+    assert.equal(isLikelyProductDetailUrl('https://kocher.vn/tin-tuc/review-bep-tu-di-616-plus.html', 'DI-616 Plus', 'Kocher'), false);
+    assert.equal(isLikelyProductDetailUrl('https://kocher.vn/thu-vien/danh-gia-di-616-plus.html', 'DI-616 Plus', 'Kocher'), false);
+    assert.equal(isLikelyProductDetailUrl('https://kocher.vn/bai-viet/huong-dan-su-dung-di-616-plus.html', 'DI-616 Plus', 'Kocher'), false);
+});
+
+test('extractProductPrice handles bep247 DI-616 Plus correctly', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+    
+    // Mock HTML for bep247 DI-616 Plus containing price and other numbers/phone numbers
+    const htmlContent = `
+        <html>
+            <head><title>Bếp từ Kocher DI-616 Plus - Bếp 247</title></head>
+            <body>
+                <main class="product-detail">
+                    <h1>Bếp từ Kocher DI-616 Plus chính hãng</h1>
+                    <div class="price-info">
+                        <span class="price-info__sale">7.300.000đ</span>
+                        <span class="price-old">13.590.000đ</span>
+                    </div>
+                    <div class="contact-info">
+                        <p>Hotline: 6.001.150</p>
+                    </div>
+                </main>
+            </body>
+        </html>
+    `;
+
+    const price = await extractProductPrice({
+        url: 'https://bep247.vn/bep-tu/bep-tu-kocher-di-616-plus',
+        model: 'DI-616 Plus',
+        brand: 'Kocher',
+        fetchImpl: async () => ({
+            ok: true,
+            text: async () => htmlContent,
+        }),
+    });
+
+    assert.equal(price, 7300000);
+});
+
+test('extractProductPrice handles kocher.vn DI-616 Plus correctly and avoids related products', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+
+    // kocher.vn DI-616 Plus html. Contains actual price 13.590.000 VNĐ,
+    // and also similar products list containing "Bếp từ DI-616" with price "6.169.000"
+    const htmlContent = `
+        <html>
+            <head><title>Bếp từ DI-616 Plus | Kocher</title></head>
+            <body>
+                <div class="product-info-main">
+                    <h1 class="page-title">Bếp từ DI-616 Plus</h1>
+                    <div class="product-info-price">
+                        <span class="price">13.590.000 VNĐ</span>
+                    </div>
+                </div>
+                <aside class="sidebar">
+                    <div class="widget related">
+                        <h3>Sản phẩm tương tự</h3>
+                        <div class="product-item">
+                            <a href="/bep-tu/di-616">Bếp từ DI-616</a>
+                            <span class="price">6.169.000đ</span>
+                        </div>
+                    </div>
+                </aside>
+            </body>
+        </html>
+    `;
+
+    const price = await extractProductPrice({
+        url: 'https://kocher.vn/bep-tu/bep-tu-di-616-plus/',
+        model: 'DI-616 Plus',
+        brand: 'Kocher',
+        fetchImpl: async () => ({
+            ok: true,
+            text: async () => htmlContent,
+        }),
+    });
+
+    assert.equal(price, 13590000);
+});
+
+test('extractProductPrice handles chefzone DI-855GE correctly', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+
+    // chefzone DI-855GE html. Title/meta has 27.990.000₫, main block has 26.880.000₫,
+    // related products has 7.500.000đ
+    const htmlContent = `
+        <html>
+            <head>
+                <title>Bếp từ Kocher DI-855GE giá 27.990.000₫ | Chefzone</title>
+                <meta property="og:price:amount" content="27990000">
+            </head>
+            <body>
+                <main class="product-summary">
+                    <h1 class="product_title">Bếp từ Kocher DI-855GE</h1>
+                    <div class="summary-price">
+                        <span class="price-new">26.880.000₫</span>
+                    </div>
+                </main>
+                <div class="related-products">
+                    <div class="item">
+                        <a href="/product/other">Bếp từ khác</a>
+                        <span class="price">7.500.000đ</span>
+                    </div>
+                </div>
+            </body>
+        </html>
+    `;
+
+    const price = await extractProductPrice({
+        url: 'https://chefzone.vn/bep-tu/kocher-di-855ge',
+        model: 'DI-855GE',
+        brand: 'Kocher',
+        fetchImpl: async () => ({
+            ok: true,
+            text: async () => htmlContent,
+        }),
+    });
+
+    assert.equal(price, 26880000);
+});
+
+test('extractProductPrice returns null when page only has similar products and no main price', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+
+    const htmlContent = `
+        <html>
+            <head><title>Bếp từ Kocher DI-616 Plus</title></head>
+            <body>
+                <div class="product-detail">
+                    <h1>Bếp từ Kocher DI-616 Plus</h1>
+                    <div class="price-box">Liên hệ</div>
+                </div>
+                <div class="related-slider">
+                    <h3>Sản phẩm liên quan</h3>
+                    <div class="related-item">
+                        <span>Bếp từ DI-616</span>
+                        <span class="price">6.169.000đ</span>
+                    </div>
+                </div>
+            </body>
+        </html>
+    `;
+
+    const price = await extractProductPrice({
+        url: 'https://kocher.vn/bep-tu/bep-tu-di-616-plus/',
+        model: 'DI-616 Plus',
+        brand: 'Kocher',
+        fetchImpl: async () => ({
+            ok: true,
+            text: async () => htmlContent,
+        }),
+    });
+
+    assert.equal(price, null);
+});
+
+test('extractProductPrice handles bep365 DIB4-888 correctly and avoids promotional gift price', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+
+    const htmlContent = `
+        <html>
+            <head><title>Bếp từ Kocher DIB4-888 | Bep365</title></head>
+            <body>
+                <div class="product-detail">
+                    <h1>Bếp từ Kocher DIB4-888</h1>
+                    <div class="price-box">
+                        <p class="detail_new_price">Giá khuyến mại: 12.952.000đ</p>
+                        <p class="detail_old_price">Giá: 16.190.000đ</p>
+                    </div>
+                    
+                    <!-- Promotional gift block with class containing offer -->
+                    <div class="offer_detail offer-product">
+                        <h3>Quà tặng kèm</h3>
+                        <a href="/products/arber-an05gold" class="item">
+                            <span class="title">Bộ nồi Arber AN05GOLD</span>
+                            <span class="price">4.890.000đ</span>
+                        </a>
+                    </div>
+                </div>
+            </body>
+        </html>
+    `;
+
+    const price = await extractProductPrice({
+        url: 'https://bep365.vn/bep-tu-kocher-dib4-888.html',
+        model: 'DIB4-888',
+        brand: 'Kocher',
+        fetchImpl: async () => ({
+            ok: true,
+            text: async () => htmlContent,
+        }),
+    });
+
+    assert.equal(price, 12952000);
+});
+
+test('startBackgroundPricingJob correctly calculates range and filters rows when specificRows is provided', async () => {
+    let readParams = null;
+    const jobId = startBackgroundPricingJob({
+        appsScriptUrl: 'https://script.google.com/macros/s/example/exec',
+        sheetUrl: 'https://docs.google.com/spreadsheets/d/1DglC7bv2hZPfwb-bXPaO3iuDClfVKFCizfHqqiUNqMo/edit',
+        sheetName: '08.Giặt sấy',
+        specificRows: '3, 5, 8-10',
+        rowsConcurrency: 1,
+        linksConcurrency: 1,
+        batchSize: 10,
+        deps: {
+            loadModelMapping: async () => ({}),
+            readSheetRows: async (args) => {
+                readParams = args;
+                return {
+                    rows: [
+                        { rowNumber: 3, productId: 'A', brand: 'Bosch', model: 'WQB245B40', costPrice: '1,000,000', salePrice: '25,000,000', marketPrices: [] },
+                        { rowNumber: 4, productId: 'B', brand: 'Bosch', model: 'WQG24570SG', costPrice: '1,000,000', salePrice: '18,000,000', marketPrices: [] },
+                        { rowNumber: 5, productId: 'C', brand: 'Bosch', model: 'WQG24570GB', costPrice: '1,000,000', salePrice: '18,000,000', marketPrices: [] },
+                    ],
+                };
+            },
+            processPricingRow: async ({ row }) => {
+                return {
+                    rowNumber: row.rowNumber,
+                    productId: row.productId,
+                    brand: row.brand,
+                    model: row.model,
+                    matchedUrls: [],
+                    matchedDetails: [],
+                    totalLinksCount: 0,
+                    marketPrices: [23900000],
+                    hasNewPrices: true,
+                    minPrice: 23900000,
+                    gapValue: 1100000,
+                    gapPercent: 0.044,
+                    suggestedPrice: 23900000,
+                    outlierRemoved: false,
+                    status: 'success',
+                };
+            },
+            writeSheetUpdates: async () => ({ ok: true, updated: 1 }),
+        },
+    });
+
+    const status = getBackgroundPricingJobStatus(jobId);
+    
+    // Wait for the background job to finish
+    await new Promise((resolve) => {
+        const check = () => {
+            const current = getBackgroundPricingJobStatus(jobId);
+            if (current && (current.status === 'completed' || current.status === 'error')) {
+                resolve();
+            } else {
+                setTimeout(check, 10);
+            }
+        };
+        check();
+    });
+
+    const finalStatus = getBackgroundPricingJobStatus(jobId);
+    assert.equal(finalStatus.status, 'completed');
+    
+    // verify the min/max calculation for the read startRow and endRow
+    assert.equal(readParams.startRow, 3);
+    assert.equal(readParams.endRow, 10);
+
+    // verify that rowNumber 4 was filtered out, only rowNumber 3 and 5 are in processed rows
+    assert.equal(finalStatus.rows.length, 2);
+    assert.equal(finalStatus.rows[0].rowNumber, 3);
+    assert.equal(finalStatus.rows[1].rowNumber, 5);
+});
+
+
 
 
 

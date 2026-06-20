@@ -70,8 +70,8 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/sheet-pricing/config' && req.method === 'GET') {
         const os = require('os');
         const cpuCount = os.cpus().length || 4;
-        const defaultRowsConcurrency = Math.max(4, Math.min(16, cpuCount));
-        const defaultLinksConcurrency = 15;
+        const defaultRowsConcurrency = Math.max(2, Math.min(6, cpuCount));
+        const defaultLinksConcurrency = 4;
         return sendJson(res, 200, {
             ok: true,
             appsScriptUrl: process.env.APPS_SCRIPT_URL || '',
@@ -177,6 +177,7 @@ const server = http.createServer(async (req, res) => {
                     sheetName: payload.sheetName || process.env.SHEET_NAME,
                     startRow: payload.startRow,
                     endRow: payload.endRow,
+                    specificRows: payload.specificRows,
                 });
                 return sendJson(res, 200, {
                     ok: true,
@@ -225,6 +226,7 @@ const server = http.createServer(async (req, res) => {
                 rowsConcurrency: body.rowsConcurrency,
                 linksConcurrency: body.linksConcurrency,
                 batchSize: body.batchSize,
+                specificRows: body.specificRows,
             };
             const jobId = sheetPricingService.startBackgroundPricingJob(mergedConfig);
             return sendJson(res, 200, { ok: true, jobId });

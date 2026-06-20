@@ -816,13 +816,17 @@
                                         <label for="pricingBatchSize" class="form-label">Batch ghi sheet</label>
                                         <input type="number" id="pricingBatchSize" class="form-control" value="10" min="1">
                                     </div>
-                                    <div class="col-6">
+                                    <div class="col-12">
                                         <label for="pricingRowsConcurrency" class="form-label">Luồng dòng</label>
-                                        <input type="number" id="pricingRowsConcurrency" class="form-control" value="10" min="1">
+                                        <input type="number" id="pricingRowsConcurrency" class="form-control" value="4" min="1">
                                     </div>
                                     <div class="col-12">
                                         <label for="pricingLinksConcurrency" class="form-label">Luồng link (Crawl đồng thời)</label>
-                                        <input type="number" id="pricingLinksConcurrency" class="form-control" value="15" min="1">
+                                        <input type="number" id="pricingLinksConcurrency" class="form-control" value="4" min="1">
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="pricingSpecificRows" class="form-label">Dòng chỉ định (VD: 3, 5, 20-30)</label>
+                                        <input type="text" id="pricingSpecificRows" class="form-control" placeholder="Để trống để quét tất cả">
                                     </div>
                                 </div>
                             </div>

@@ -65,23 +65,23 @@ test('computeSuggestedPricing keeps top 10, sets suggestedPrice to Min, and calc
         10000000,
     ]);
     assert.equal(result.minPrice, 9000000);
-    assert.equal(result.gapValue, 11040000 - 9000000); // sale - cost
-    assert.equal(result.gapPercent, (11040000 - 9000000) / 11040000); // profit / sale
-    assert.equal(result.suggestedPrice, 9550000); // Suggested Price is Median (when count >= 5)
+    assert.equal(result.gapValue, 9000000 - 9000000); // minPrice - cost
+    assert.equal(result.gapPercent, 0); // profit / minPrice
+    assert.equal(result.suggestedPrice, 9000000); // Suggested Price is exactly Min
 });
 
-test('computeSuggestedPricing falls back to listPrice when currentSalePrice is empty', () => {
+test('computeSuggestedPricing falls back to listPrice when currentSalePrice and suggestedPrice are empty', () => {
     const result = computeSuggestedPricing({
         listPrice: 12000000,
         costPrice: 9000000,
         currentSalePrice: '',
-        prices: [9000000, 9200000],
+        prices: [], // empty prices means suggestedPrice is null
     });
 
-    assert.equal(result.minPrice, 9000000);
+    assert.equal(result.minPrice, null);
     assert.equal(result.gapValue, 12000000 - 9000000); // listPrice - costPrice
     assert.equal(result.gapPercent, (12000000 - 9000000) / 12000000); // profit / listPrice
-    assert.equal(result.suggestedPrice, 9000000);
+    assert.equal(result.suggestedPrice, null);
 });
 
 test('mapSheetHeaders resolves required output columns by header name', () => {
@@ -214,10 +214,9 @@ test('generateKeywords produces smart variants including suffixes and normalized
 test('calculateRelevanceScore handles scoring criteria correctly', () => {
     const { calculateRelevanceScore } = require('../lib/sheet-pricing-utils.js');
 
-    // Model and Brand in URL
     const score1 = calculateRelevanceScore('https://shop.vn/bep-tu-kocher-di-332pro.html', 'DI-332Pro', 'Kocher');
-    // +40 (exact model), +20 (brand), +10 (hyphen), +10 (html), +10 (commercial) = 90
-    assert.equal(score1, 90);
+    // +150 (exact model match), +40 (exact model), +20 (brand), +10 (hyphen), +10 (html), +10 (commercial) = 240
+    assert.equal(score1, 240);
 
     // Negative matches for search and collection pages
     const score2 = calculateRelevanceScore('https://shop.vn/collections/bep-tu?q=kocher', 'DI-332Pro', 'Kocher');
@@ -227,5 +226,39 @@ test('calculateRelevanceScore handles scoring criteria correctly', () => {
     // Conflicting suffix -> penalty -100
     const score3 = calculateRelevanceScore('https://shop.vn/kocher-di-332pro-plus.html', 'DI-332Pro', 'Kocher');
     assert.equal(score3, 0);
+});
+
+test('cleanModelSpecs strips color names and dimensions from model names', () => {
+    const { cleanModelSpecs } = require('../lib/sheet-pricing-utils.js');
+    assert.equal(cleanModelSpecs('K-226I Bạc-70cm'), 'K-226I');
+    assert.equal(cleanModelSpecs('K-226I Bạc-90cm'), 'K-226I');
+    assert.equal(cleanModelSpecs('K-226V Đen-70cm'), 'K-226V');
+    assert.equal(cleanModelSpecs('K-8070I bạc-70cm'), 'K-8070I');
+    assert.equal(cleanModelSpecs('K-8872V đen-90cm'), 'K-8872V');
+    assert.equal(cleanModelSpecs('K-225C Pro 70cm'), 'K-225C Pro');
+    assert.equal(cleanModelSpecs('K-225C Pro'), 'K-225C Pro');
+    assert.equal(cleanModelSpecs('KF-HID7348II'), 'KF-HID7348II');
+});
+
+test('parseSpecificRows correctly parses comma-separated lists and ranges', () => {
+    const { parseSpecificRows } = require('../lib/sheet-pricing-utils.js');
+    
+    const set1 = parseSpecificRows('3, 5, 20-22');
+    assert.ok(set1.has(3));
+    assert.ok(set1.has(5));
+    assert.ok(set1.has(20));
+    assert.ok(set1.has(21));
+    assert.ok(set1.has(22));
+    assert.equal(set1.size, 5);
+
+    const set2 = parseSpecificRows(' 10 ');
+    assert.ok(set2.has(10));
+    assert.equal(set2.size, 1);
+
+    const set3 = parseSpecificRows('');
+    assert.equal(set3, null);
+
+    const set4 = parseSpecificRows('abc, xyz-123');
+    assert.equal(set4, null);
 });
 

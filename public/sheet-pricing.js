@@ -380,7 +380,7 @@
             const variantId = window.haravanMapping?.[key];
             const currentPrice = getRowCurrentPrice(row);
             const hasVariant = testMode ? true : !!variantId;
-            return row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
+            return row.suggestedPrice && hasVariant && row.status === 'success' && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
         });
         const allEligibleChecked = eligibleRows.length > 0 && eligibleRows.every(r => r.selected);
         const selectAllEl = document.getElementById('selectAllRows');
@@ -398,9 +398,9 @@
             const key = `${normalizeModelText(row.brand)}_${normalizeModelText(row.model)}`;
             const variantId = window.haravanMapping?.[key];
             const hasVariant = testMode ? true : !!variantId;
-            const isEligible = row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPriceVal !== row.suggestedPrice;
+            const isEligible = row.suggestedPrice && hasVariant && row.status === 'success' && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPriceVal !== row.suggestedPrice;
 
-            if (row.suggestedPrice && hasVariant) {
+            if (row.suggestedPrice && hasVariant && row.status === 'success') {
                 if (row.haravanUpdateState === 'accepted') {
                     haravanCol = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20">✅ Đã chấp nhận</span>`;
                 } else if (currentPriceVal === row.suggestedPrice) {
@@ -421,7 +421,7 @@
                         </div>
                     `;
                 }
-            } else if (row.suggestedPrice && !variantId) {
+            } else if (row.suggestedPrice && !variantId && row.status === 'success') {
                 if (window.haravanMappingLoaded) {
                     haravanCol = `<span class="text-muted opacity-75" style="font-size: 0.75rem;">Không có ID Haravan</span>`;
                 } else {
@@ -511,9 +511,10 @@
             sheetName: document.getElementById('pricingSheetName')?.value.trim(),
             startRow: document.getElementById('pricingStartRow')?.value.trim(),
             endRow: document.getElementById('pricingEndRow')?.value.trim(),
-            rowsConcurrency: Math.max(1, parseInt(document.getElementById('pricingRowsConcurrency')?.value || '5', 10)),
-            linksConcurrency: Math.max(1, parseInt(document.getElementById('pricingLinksConcurrency')?.value || '10', 10)),
+            rowsConcurrency: Math.max(1, parseInt(document.getElementById('pricingRowsConcurrency')?.value || '4', 10)),
+            linksConcurrency: Math.max(1, parseInt(document.getElementById('pricingLinksConcurrency')?.value || '4', 10)),
             batchSize: Math.max(1, parseInt(document.getElementById('pricingBatchSize')?.value || '10', 10)),
+            specificRows: document.getElementById('pricingSpecificRows')?.value.trim(),
         };
     }
 
@@ -521,7 +522,7 @@
         const inputs = [
             'pricingAppsScriptUrl', 'pricingSheetUrl', 'pricingSheetName',
             'pricingStartRow', 'pricingEndRow', 'pricingBatchSize',
-            'pricingRowsConcurrency', 'pricingLinksConcurrency'
+            'pricingRowsConcurrency', 'pricingLinksConcurrency', 'pricingSpecificRows'
         ];
         inputs.forEach(id => {
             const el = document.getElementById(id);
@@ -699,6 +700,7 @@
                         sheetName: name,
                         startRow: form.startRow,
                         endRow: form.endRow,
+                        specificRows: form.specificRows,
                     })
                 });
 
@@ -835,84 +837,96 @@
 
             const flushUpdates = async (force = false) => {
                 if (pendingUpdates.length === 0) return;
-                if (isWriting) return;
                 if (!force && pendingUpdates.length < form.batchSize) return;
 
-                isWriting = true;
-                const batch = [...pendingUpdates];
-                pendingUpdates.splice(0, batch.length);
-
-                // Group by sheetName
-                const updatesBySheet = {};
-                batch.forEach(update => {
-                    const name = update.sheetName;
-                    if (!updatesBySheet[name]) updatesBySheet[name] = [];
-                    updatesBySheet[name].push(update);
-                });
-
-                logToTerminal(`Đang ghi ${batch.length} dòng kết quả lên Google Sheet...`, 'info');
-                try {
-                    await Promise.all(Object.entries(updatesBySheet).map(async ([name, sheetUpdates]) => {
-                        const sheetLogs = [];
-                        sheetUpdates.forEach((u) => {
-                            if (u.matchedDetails && u.matchedDetails.length > 0) {
-                                u.matchedDetails.forEach((detail) => {
-                                    sheetLogs.push({
-                                        timestamp: new Date().toLocaleString('vi-VN'),
-                                        brand: u.brand || '',
-                                        model: u.model || '',
-                                        price: detail.price,
-                                        url: detail.url,
-                                    });
-                                });
-                            }
-                        });
-
-                        const writeRes = await fetch('/api/sheet-pricing', {
-                            method: 'POST',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({
-                                action: 'write-results',
-                                appsScriptUrl: form.appsScriptUrl,
-                                sheetUrl: form.sheetUrl,
-                                sheetName: name,
-                                updates: sheetUpdates.map(u => ({
-                                    rowNumber: u.rowNumber,
-                                    marketPrices: u.marketPrices,
-                                    hasNewPrices: u.hasNewPrices,
-                                    minPrice: u.minPrice,
-                                    gapValue: u.gapValue,
-                                    gapPercent: u.gapPercent,
-                                    suggestedPrice: u.suggestedPrice,
-                                    status: u.status,
-                                })),
-                                logs: sheetLogs,
-                            })
-                        });
-                        const writeData = await writeRes.json();
-                        if (!writeRes.ok || writeData.ok === false) {
-                            throw new Error(writeData.error || `Lỗi ghi kết quả cho sheet "${name}".`);
+                if (isWriting) {
+                    if (force) {
+                        while (isWriting || pendingUpdates.length > 0) {
+                            await new Promise((resolve) => setTimeout(resolve, 100));
                         }
-                    }));
+                    }
+                    return;
+                }
 
-                    state.writes += 1;
-                    logToTerminal(`Ghi thành công ${batch.length} dòng kết quả lên Google Sheet.`, 'success');
+                isWriting = true;
+                try {
+                    while (pendingUpdates.length > 0) {
+                        const batch = pendingUpdates.splice(0, pendingUpdates.length);
+                        if (batch.length === 0) break;
 
-                    batch.forEach(update => {
-                        const localRow = state.rows.find(r => r.sheetName === update.sheetName && r.rowNumber === update.rowNumber);
-                        if (localRow) localRow.writtenToSheet = true;
-                    });
-                    refreshSummary();
-                    renderSheetPricingRows();
-                } catch (writeErr) {
-                    logToTerminal(`Lỗi ghi kết quả: ${writeErr.message}`, 'error');
-                    pendingUpdates.unshift(...batch); // Put back
+                        try {
+                            const updatesBySheet = {};
+                            batch.forEach((u) => {
+                                updatesBySheet[u.sheetName] = updatesBySheet[u.sheetName] || [];
+                                updatesBySheet[u.sheetName].push(u);
+                            });
+
+                            const writePromises = Object.entries(updatesBySheet).map(async ([name, sheetUpdates]) => {
+                                const sheetLogs = [];
+                                sheetUpdates.forEach((u) => {
+                                    if (u.matchedDetails && u.matchedDetails.length > 0) {
+                                        u.matchedDetails.forEach((detail) => {
+                                            sheetLogs.push({
+                                                timestamp: new Date().toLocaleString('vi-VN'),
+                                                brand: u.brand || '',
+                                                model: u.model || '',
+                                                price: detail.price,
+                                                url: detail.url,
+                                            });
+                                        });
+                                    }
+                                });
+
+                                try {
+                                    const writeRes = await fetch('/api/sheet-pricing', {
+                                        method: 'POST',
+                                        headers: { 'content-type': 'application/json' },
+                                        body: JSON.stringify({
+                                            action: 'write-results',
+                                            appsScriptUrl: form.appsScriptUrl,
+                                            sheetUrl: form.sheetUrl,
+                                            sheetName: name,
+                                            updates: sheetUpdates.map(u => ({
+                                                rowNumber: u.rowNumber,
+                                                marketPrices: u.marketPrices,
+                                                hasNewPrices: u.hasNewPrices,
+                                                minPrice: u.minPrice,
+                                                gapValue: u.gapValue,
+                                                gapPercent: u.gapPercent,
+                                                suggestedPrice: u.suggestedPrice,
+                                                status: u.status,
+                                            })),
+                                            logs: sheetLogs,
+                                        })
+                                    });
+                                    const writeData = await writeRes.json();
+                                    if (!writeRes.ok || writeData.ok === false) {
+                                        throw new Error(writeData.error || `Lỗi ghi kết quả cho sheet "${name}".`);
+                                    }
+
+                                    state.writes += sheetUpdates.length;
+                                    logToTerminal(`Ghi thành công kết quả dòng ${sheetUpdates.map(u => u.rowNumber).join(', ')} [${name}] lên Google Sheet.`, 'success');
+
+                                    sheetUpdates.forEach(u => {
+                                        const localRow = state.rows.find(r => r.sheetName === u.sheetName && r.rowNumber === u.rowNumber);
+                                        if (localRow) localRow.writtenToSheet = true;
+                                    });
+                                } catch (rowErr) {
+                                    pendingUpdates.unshift(...sheetUpdates); // Put back to retry later
+                                    logToTerminal(`Ghi kết quả dòng ${sheetUpdates.map(u => u.rowNumber).join(', ')} [${name}] thất bại: ${rowErr.message}`, 'error');
+                                    throw rowErr;
+                                }
+                            });
+
+                            await Promise.all(writePromises);
+                            refreshSummary();
+                            renderSheetPricingRows();
+                        } catch (err) {
+                            break; // Exit loop on failure to prevent rapid retries
+                        }
+                    }
                 } finally {
                     isWriting = false;
-                    // If no more workers are active and we have leftover pending items
-                    if (activeWorkers === 0 && cursor >= runnableRows.length && pendingUpdates.length > 0) {
-                        setTimeout(() => flushUpdates(true), 1000);
-                    }
                 }
             };
 
@@ -1247,6 +1261,7 @@
         'pricingBatchSize',
         'pricingRowsConcurrency',
         'pricingLinksConcurrency',
+        'pricingSpecificRows',
         'haravanShopUrl',
         'haravanAccessToken',
         'haravanUpdatePriceEnabled',
@@ -1301,6 +1316,7 @@
             batchSize: document.getElementById('pricingBatchSize')?.value || '',
             rowsConcurrency: document.getElementById('pricingRowsConcurrency')?.value || '',
             linksConcurrency: document.getElementById('pricingLinksConcurrency')?.value || '',
+            specificRows: document.getElementById('pricingSpecificRows')?.value || '',
             haravanShopUrl: document.getElementById('haravanShopUrl')?.value || '',
             haravanAccessToken: document.getElementById('haravanAccessToken')?.value || '',
             haravanUpdatePriceEnabled: document.getElementById('haravanUpdatePriceEnabled')?.checked || false,
@@ -1335,6 +1351,7 @@
                     if (config.batchSize !== undefined) document.getElementById('pricingBatchSize').value = config.batchSize;
                     if (config.rowsConcurrency !== undefined) document.getElementById('pricingRowsConcurrency').value = config.rowsConcurrency;
                     if (config.linksConcurrency !== undefined) document.getElementById('pricingLinksConcurrency').value = config.linksConcurrency;
+                    if (config.specificRows !== undefined) document.getElementById('pricingSpecificRows').value = config.specificRows;
                     if (config.haravanShopUrl !== undefined) document.getElementById('haravanShopUrl').value = config.haravanShopUrl;
                     if (config.haravanAccessToken !== undefined) document.getElementById('haravanAccessToken').value = config.haravanAccessToken;
                     if (config.haravanUpdatePriceEnabled !== undefined) document.getElementById('haravanUpdatePriceEnabled').checked = config.haravanUpdatePriceEnabled;
@@ -1533,7 +1550,7 @@
             const variantId = window.haravanMapping?.[key];
             const currentPrice = getRowCurrentPrice(row);
             const hasVariant = testMode ? true : !!variantId;
-            return row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
+            return row.suggestedPrice && hasVariant && row.status === 'success' && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
         });
         const allEligibleChecked = eligibleRows.length > 0 && eligibleRows.every(r => r.selected);
         selectAllEl.checked = allEligibleChecked;
@@ -1564,7 +1581,7 @@
             const variantId = window.haravanMapping?.[key];
             const currentPrice = getRowCurrentPrice(row);
             const hasVariant = testMode ? true : !!variantId;
-            const isEligible = row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
+            const isEligible = row.suggestedPrice && hasVariant && row.status === 'success' && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && !row.actionPending && currentPrice !== row.suggestedPrice;
             return isEligible && row.selected;
         });
 
@@ -1592,7 +1609,7 @@
             const variantId = window.haravanMapping?.[key];
             const currentPrice = getRowCurrentPrice(row);
             const hasVariant = testMode ? true : !!variantId;
-            const isEligible = row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && currentPrice !== row.suggestedPrice;
+            const isEligible = row.suggestedPrice && hasVariant && row.status === 'success' && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && currentPrice !== row.suggestedPrice;
             return isEligible && row.selected;
         });
 
@@ -1696,7 +1713,7 @@
             const variantId = window.haravanMapping?.[key];
             const currentPrice = getRowCurrentPrice(row);
             const hasVariant = testMode ? true : !!variantId;
-            const isEligible = row.suggestedPrice && hasVariant && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && currentPrice !== row.suggestedPrice;
+            const isEligible = row.suggestedPrice && hasVariant && row.status === 'success' && row.haravanUpdateState !== 'accepted' && row.haravanUpdateState !== 'rejected' && row.haravanUpdateState !== 'updating' && currentPrice !== row.suggestedPrice;
             return isEligible && row.selected;
         });
 
