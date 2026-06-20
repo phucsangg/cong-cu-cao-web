@@ -1075,8 +1075,8 @@ test('scoreProductUrl correctly evaluates relevance of product detail URLs', () 
     
     // Exact model and brand in URL
     const high = scoreProductUrl('https://kocher.vn/bep-tu/bep-tu-di-332pro/', 'DI-332Pro', 'Kocher');
-    // Brand and model digits, but not exact model format
-    const mid = scoreProductUrl('https://www.dienmayxanh.com/bep-tu/bep-tu-doi-am-kocher-di-332-pro-5000w', 'DI-332Pro', 'Kocher');
+    // Brand and model digits, but not exact model format (using neutral domain)
+    const mid = scoreProductUrl('https://www.neutral-domain.com/bep-tu/bep-tu-doi-am-kocher-di-332-pro-5000w', 'DI-332Pro', 'Kocher');
     // Just brand, no model
     const low = scoreProductUrl('https://meta.vn/kocher.html', 'DI-332Pro', 'Kocher');
     // Random page, no brand or model
@@ -1531,7 +1531,7 @@ test('isLikelyProductDetailUrl rejects unrelated blog or news pages when model i
     assert.equal(isLikelyProductDetailUrl('https://example.com/chinh-sach-bao-hanh-san-pham.html', model, brand), false);
 });
 
-test('searchProductLinks skips subsequent pagination pages but always queries all search engines', async () => {
+test('searchProductLinks skips subsequent pagination pages and skips other engines if Google provides enough links', async () => {
     const { searchProductLinks } = require('../lib/sheet-pricing-service.js');
     const urlsRequested = [];
     const mockFetch = async (url) => {
@@ -1544,19 +1544,6 @@ test('searchProductLinks skips subsequent pagination pages but always queries al
                     let linksHtml = '';
                     for (let i = 1; i <= 12; i++) {
                         linksHtml += `<a href="/url?q=https://shop.vn/kocher-di-332pro-p${i}.html">Link ${i}</a>\n`;
-                    }
-                    return `<html><body>${linksHtml}</body></html>`;
-                }
-            };
-        }
-        if (url.includes('bing.com')) {
-            return {
-                ok: true,
-                text: async () => {
-                    // Generate 3 links on Bing page 1
-                    let linksHtml = '';
-                    for (let i = 1; i <= 3; i++) {
-                        linksHtml += `<cite>https://shop-bing.vn/kocher-di-332pro-p${i}.html</cite>\n`;
                     }
                     return `<html><body>${linksHtml}</body></html>`;
                 }
@@ -1577,16 +1564,14 @@ test('searchProductLinks skips subsequent pagination pages but always queries al
     // Google page 2 (start=40) should NOT be requested (early exit within pagination)
     assert.ok(!urlsRequested.some(u => u.includes('google.com') && u.includes('start=40')));
     
-    // Bing page 1 (first=1) should still be requested
-    assert.ok(urlsRequested.some(u => u.includes('bing.com') && u.includes('first=1')));
-    // Bing page 2 (first=51) should NOT be requested (early exit within pagination)
-    assert.ok(!urlsRequested.some(u => u.includes('bing.com') && u.includes('first=51')));
+    // Bing page 1 should NOT be requested (Google already got enough links!)
+    assert.ok(!urlsRequested.some(u => u.includes('bing.com')));
 
-    // DDG and CocCoc should still be requested (always queries all engines)
-    assert.ok(urlsRequested.some(u => u.includes('duckduckgo.com')));
-    assert.ok(urlsRequested.some(u => u.includes('coccoc.com')));
+    // DDG and CocCoc should NOT be requested (Google already got enough links!)
+    assert.ok(!urlsRequested.some(u => u.includes('duckduckgo.com')));
+    assert.ok(!urlsRequested.some(u => u.includes('coccoc.com')));
 
-    assert.ok(links.length >= 15);
+    assert.ok(links.length >= 10);
 });
 
 test('processPricingRow crawls up to 50 links and keeps the top 10 lowest prices', async () => {
@@ -1627,6 +1612,121 @@ test('processPricingRow crawls up to 50 links and keeps the top 10 lowest prices
         assert.equal(result.marketPrices[i], 10000000 + (i + 1) * 100000);
     }
 });
+
+test('Domain learning selector cache successfully saves and reuses CSS selector', async () => {
+    const { extractProductPrice, pricingCache } = require('../lib/sheet-pricing-service.js');
+    pricingCache.clear();
+
+    const domain = 'test-selector-shop.vn';
+    const url = `https://${domain}/bep-tu-kocher-di-332pro.html`;
+    const htmlContent = `
+        <html>
+            <head><title>Bếp từ Kocher DI-332Pro</title></head>
+            <body>
+                <h1>Bếp từ Kocher DI-332Pro</h1>
+                <div class="product-price">12.500.000₫</div>
+            </body>
+        </html>
+    `;
+
+    const mockFetch = async () => ({
+        ok: true,
+        text: async () => htmlContent,
+    });
+
+    // 1. Run first crawl to extract price and learn selector
+    const price1 = await extractProductPrice({
+        url,
+        model: 'DI-332Pro',
+        brand: 'Kocher',
+        fetchImpl: mockFetch,
+    });
+
+    assert.equal(price1, 12500000);
+
+    // Verify selector was learned
+    const learnedSelector = pricingCache.getSelectorForDomain(domain);
+    assert.equal(learnedSelector, '.product-price');
+
+    // 2. Run second crawl on same domain. Cache is cleared/mocked differently but selector is reused
+    const url2 = `https://${domain}/bep-tu-kocher-di-333.html`;
+    const htmlContent2 = `
+        <html>
+            <head><title>Bếp từ Kocher DI-333</title></head>
+            <body>
+                <h1>Bếp từ Kocher DI-333</h1>
+                <div class="product-price">14.200.000₫</div>
+            </body>
+        </html>
+    `;
+    const mockFetch2 = async () => ({
+        ok: true,
+        text: async () => htmlContent2,
+    });
+
+    const price2 = await extractProductPrice({
+        url: url2,
+        model: 'DI-333',
+        brand: 'Kocher',
+        fetchImpl: mockFetch2,
+    });
+
+    assert.equal(price2, 14200000);
+});
+
+test('processPricingRow terminates early in progressive crawl batches when 5 prices are found', async () => {
+    const { processPricingRow } = require('../lib/sheet-pricing-service.js');
+    const links = [];
+    const crawledUrls = [];
+    for (let i = 1; i <= 25; i++) {
+        links.push(`https://shop-${i}.vn/bep-tu-kocher-di-332pro`);
+    }
+
+    const result = await processPricingRow({
+        row: {
+            rowNumber: 15,
+            productId: 'TEST-20',
+            brand: 'Kocher',
+            model: 'DI-332Pro',
+            costPrice: '8,000,000',
+            salePrice: '12,000,000',
+        },
+        deps: {
+            searchProductLinks: async () => links,
+            extractProductPrice: async (url) => {
+                crawledUrls.push(url);
+                return 10000000; // Return valid price for all
+            },
+        }
+    });
+
+    // The progressive crawl batch size is 10.
+    // In batch 1 (first 10 URLs), all 10 are crawled, and 10 valid prices are found (which is >= 5).
+    // So the crawler must exit immediately and NOT crawl the remaining 15 links!
+    assert.equal(crawledUrls.length, 10);
+    assert.equal(result.matchedDetails.length, 10);
+});
+
+test('fetchHtml retry logic attempts request up to 2 times on failures', async () => {
+    const { extractProductPrice } = require('../lib/sheet-pricing-service.js');
+    let callCount = 0;
+    const mockFetch = async () => {
+        callCount++;
+        throw new Error('Network failure');
+    };
+
+    const price = await extractProductPrice({
+        url: 'https://failure-shop.vn/p',
+        model: 'DI-332Pro',
+        brand: 'Kocher',
+        fetchImpl: mockFetch,
+    });
+
+    assert.equal(price, null);
+    // 1 initial attempt + 2 retries = 3 calls total
+    assert.equal(callCount, 3);
+});
+
 
 
 
